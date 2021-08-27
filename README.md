@@ -1,6 +1,6 @@
 <img src="./docs/img/mudata.png" data-canonical-src="./docs/img/mudata.png" width="700"/>
 
-[![Documentation Status](https://readthedocs.org/projects/mudata/badge/?version=latest)](http://mudata.readthedocs.io/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/mudata/badge/?version=latest)](http://mudata.readthedocs.io/)
 [![PyPi version](https://img.shields.io/pypi/v/mudata)](https://pypi.org/project/mudata)
 
 # MuData – multimodal data
