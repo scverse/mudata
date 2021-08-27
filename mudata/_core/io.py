@@ -8,7 +8,6 @@ import h5py
 import anndata as ad
 from anndata import AnnData
 from pathlib import Path
-import scanpy as sc
 
 from mudata import MuData
 from .file_backing import MuDataFileManager, AnnDataFileManager
