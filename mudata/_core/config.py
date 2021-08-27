@@ -13,7 +13,7 @@ _VALID_OPTIONS = {
 
 class set_options:
     """
-    Control muon options.
+    Control MuData options.
 
     Available options:
 
@@ -23,12 +23,12 @@ class set_options:
 
     Options can be set in the context:
 
-    >>> with mu.set_options(display_style='html'):
+    >>> with mudata.set_options(display_style='html'):
     ...     print("Options are applied here")
 
     ... or globally:
 
-    >>> mu.set_options(display_style='html')
+    >>> mudata.set_options(display_style='html')
     """
 
     def __init__(self, **kwargs):
@@ -46,7 +46,7 @@ class set_options:
         OPTIONS.update(opts)
 
     def __enter__(self):
-        log.info("Using custom muon options in the new context...")
+        log.info("Using custom MuData options in the new context...")
         return OPTIONS
 
     def __exit__(self, exc_type, exc_val, exc_tb):

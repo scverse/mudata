@@ -6,8 +6,8 @@ import os
 import numpy as np
 from scipy.sparse import csr_matrix
 from anndata import AnnData
-import muon as mu
-from muon import MuData
+import mudata
+from mudata import MuData
 
 
 @pytest.fixture()
@@ -31,7 +31,7 @@ class TestMuData:
         mdata.update()
         assert list(mdata.obs.columns.values) == [f"{m}:demo" for m in mdata.mod.keys()] + ["demo"]
         mdata.write(filepath_h5mu)
-        mdata_ = mu.read(filepath_h5mu)
+        mdata_ = mudata.read(filepath_h5mu)
         assert list(mdata_.obs.columns.values) == [f"{m}:demo" for m in mdata_.mod.keys()] + [
             "demo"
         ]
@@ -47,7 +47,7 @@ class TestMuData:
         mdata.update()
         assert list(mdata.var.columns.values) == ["demo"]
         mdata.write(filepath_h5mu)
-        mdata_ = mu.read(filepath_h5mu)
+        mdata_ = mudata.read(filepath_h5mu)
         assert list(mdata_.var.columns.values) == ["demo"]
 
 

@@ -3,11 +3,11 @@ requires = ["flit_core >=2,<4"]
 build-backend = "flit_core.buildapi"
 
 [tool.flit.metadata]
-module = "muon"
+module = "mudata"
 author = "Danila Bredikhin"
 author-email = "danila.bredikhin@embl.de"
 description-file = "README.md"
-home-page = "https://github.com/gtca/muon"
+home-page = "https://github.com/pmbio/mudata"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: BSD License",
@@ -20,17 +20,8 @@ requires-python = ">= 3.6"
 requires = [
     "numpy",
     "pandas",
-    "matplotlib",
-    "seaborn",
     "h5py",
     "anndata",
-    "scanpy",
-    "sklearn",
-    "umap-learn",
-    "numba",
-    "loompy",
-    "protobuf",
-    "tqdm",
 ]
 
 [tool.flit.metadata.requires-extra]

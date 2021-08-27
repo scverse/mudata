@@ -41,8 +41,8 @@ AnnData inside .h5mu
 
 Individual modalities in the ``.h5mu`` file are stored in exactly the same way as AnnData objects. This, together with the hierarchical nature of HDF5 files, makes it possible to read individual modalities from ``.h5mu`` files as well as to save individual modalities to the ``.h5mu`` file:
 ::
-	adata = mu.read("mudata.h5mu/rna")
+	adata = mudata.read("mudata.h5mu/rna")
 
-	mu.write("mudata.h5mu/rna", adata)
+	mudata.write("mudata.h5mu/rna", adata)
 
-The function :func:`muon.read` automatically decides based on the input if :func:`muon.read_h5mu` or rather :func:`muon.read_h5ad` should be called.
+The function :func:`mudata.read` automatically decides based on the input if :func:`mudata.read_h5mu` or rather :func:`mudata.read_h5ad` should be called.

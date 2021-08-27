@@ -1,9 +1,9 @@
-Multimodal data containers
-==========================
+Multimodal data objects
+=======================
 
-``muon`` operates on multimodal objects derived from :class:`muon.MuData` class:
+:class:`mudata.MuData` is a class for multimodal objects:
 ::
-	from muon import MuData
+	from mudata import MuData
 
 
 ``MuData`` objects comprise a dictionary with ``AnnData`` objects, one per modality, in their ``.mod`` attribute. Just as ``AnnData`` objects themselves, they also contain attributes like ``.obs`` with annotation of observations (samples or cells), ``.obsm`` with their multidimensional annotations such as embeddings, etc.
@@ -16,10 +16,10 @@ Multimodal data containers
 
    *
 
-Container's attributes
-----------------------
+MuData's attributes
+-------------------
 
-Key attributes & method of ``MuData`` objects as well as important concepts are described below. A full list of attributes and methods of multimodal containers can be found in the :class:`muon.MuData` documentation. 
+Key attributes & method of ``MuData`` objects as well as important concepts are described below. A full list of attributes and methods of multimodal containers can be found in the :class:`mudata.MuData` documentation. 
 
 .mod
 ^^^^
@@ -78,14 +78,12 @@ By default, variables are always counted as belonging uniquely to a single modal
         [ad.shape for ad in mdata.mod.values()]
         # => [(9500, 10100), (9573, 122364)]
 
-If the shape of a modality is changed, :func:`muon.MuData.update` has to be run to bring the respective updates to the ``MuData`` object.
+If the shape of a modality is changed, :func:`mudata.MuData.update` has to be run to bring the respective updates to the ``MuData`` object.
 
 Keeping containers up to date
 -----------------------------
 
 Modalities inside the ``MuData`` container are full-fledged ``AnnData`` objects, which can be operated independently with any tool that works on ``AnnData`` objects. The shape of the ``MuData`` object as well as metadata fetched from individual modalities and boolean vectors of observations (in ``.obsm``) & variables (in ``.varm``) for each modality will then reflect the previous state of the data. To keep the container up to date, there is an ``.update()`` method that syncs the data.
-
-Some functions in ``muon`` call ``.update()`` internally.
 
 
 Backed containers
@@ -93,7 +91,7 @@ Backed containers
 
 To enable the backed mode for the count matrices in all the modalities, ``.h5mu`` files can be read with the relevant flag:
 ::
-        mdata_b = mu.read("filename.h5mu", backed=True)
+        mdata_b = mudata.read("filename.h5mu", backed=True)
         mdata_b.isbacked
         # => True
 
