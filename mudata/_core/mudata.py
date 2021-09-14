@@ -828,7 +828,7 @@ class MuData:
     @varp.setter
     def varp(self, value):
         varp = PairwiseArrays(self, 0, vals=convert_to_dict(value))
-        if self.is_vew:
+        if self.is_view:
             self._init_as_actual(self.copy())
         self._varp = varp
 
