@@ -7,7 +7,8 @@ OPTIONS = {
 
 _VALID_OPTIONS = {
     "display_style": lambda x: x in ("text", "html"),
-    "display_html_expand": lambda x: isinstance(x, int) and len(bin(x or 0b111)) == 5,
+    # Extra leading 0 will be still permitted, e.g. 0b0001 -> 0b001
+    "display_html_expand": lambda x: isinstance(x, int) and len(format(x, "#05b")) == 5,
 }
 
 
