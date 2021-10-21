@@ -661,7 +661,7 @@ class MuData:
         """
         return self.obs.index
 
-    def propagate_obs(self):
+    def propagate_obs(self, columns: List[str] = None):
         """
         Propagate global columns to all modalities
 
@@ -679,6 +679,8 @@ class MuData:
 
             tojoin = np.setdiff1d(global_keys, modcols)
             tojoin = [x for x in tojoin if not x.startswith(othermods)]
+            if columns:
+                tojoin = np.intersect1d(tojoin, columns)
 
             # Drop columns that already exist in the individual modalities
             modobs.drop(np.intersect1d(tojoin, modobs.keys()), axis=1, inplace=True)
