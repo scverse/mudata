@@ -685,7 +685,7 @@ class MuData:
             # Drop columns that already exist in the individual modalities
             modobs.drop(np.intersect1d(tojoin, modobs.keys()), axis=1, inplace=True)
             modobs = modobs.join(self.obs.loc[:, tojoin], how="left")
-            modobs.columns = modobs.columns.str.lstrip(f"{k}:")
+            modobs.columns = modobs.columns.str.replace(f"^{k}:", "", regex=True)
             self.mod[k].obs = modobs
             propagated_cols.extend(tojoin)
         # Propagated columns are no longer needed in the global df
