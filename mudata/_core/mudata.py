@@ -661,6 +661,34 @@ class MuData:
         """
         return self.obs.index
 
+    def propagate_obs(self):
+        """
+        Propagate global columns to all modalities
+
+        Columns of the format modname:xxx will only be propagated to modname.
+        Will overwrite existing columns with the same name in individual modalities.
+        """
+        global_keys = list(self.obs_keys())
+        mods = list(self.mod.keys())
+        propagated_cols = []
+
+        for k in mods:
+            modobs = self.mod[k].obs
+            modcols = [f"{k}:{x}" for x in modobs.keys()]
+            othermods = tuple(f"{x}:" for x in np.setdiff1d(mods, k))
+
+            tojoin = np.setdiff1d(global_keys, modcols)
+            tojoin = [x for x in tojoin if not x.startswith(othermods)]
+
+            # Drop columns that already exist in the individual modalities
+            modobs.drop(np.intersect1d(tojoin, modobs.keys()), axis=1, inplace=True)
+            self.mod[k].obs = modobs.join(self.obs.loc[:, tojoin], how="left")
+            propagated_cols.extend(tojoin)
+        # Propagated columns are no longer needed in the global df
+        self.obs.drop(propagated_cols, axis=1, inplace=True)
+        # Propagated columns will now appear as modname:xxx in the global df
+        self.update_obs()
+
     @property
     def var(self) -> pd.DataFrame:
         """
