@@ -572,6 +572,14 @@ class MuData:
                 ),
             )
         )
+        # Make sure modname-prefix columns exist in modalities,
+        # keep them in place if they don't
+        for mod in self.mod:
+            for i, col in enumerate(getattr(self, attr).columns):
+                if col.startswith(mod + ":"):
+                    mcol = col[len(mod) + 1 :]
+                    if mcol not in getattr(self.mod[mod], attr).columns:
+                        columns_global[i] = True
         # Only keep data from global .obs/.var columns
         newdf = getattr(self, attr).loc[:, columns_global]
         if inplace:

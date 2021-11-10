@@ -29,6 +29,18 @@ class TestMuData:
         assert mdata.mod["mod1"].X[51, 9] == pytest.approx(51.9)
         assert mdata.mod["mod2"].X[42, 18] == pytest.approx(959)
 
+    def test_write_read_h5mu_mod_obs_colname(self, mdata, filepath_h5mu):
+        mdata.obs["column"] = 0
+        mdata.obs["mod1:column"] = 1
+        mdata["mod1"].obs["column"] = 2
+        mdata.update()
+        mdata.write(filepath_h5mu)
+        mdata_ = mudata.read(filepath_h5mu)
+        assert "column" in mdata_.obs.columns
+        assert "mod1:column" in mdata_.obs.columns
+        # 2 should supercede 1 on .update()
+        assert mdata_.obs["mod1:column"].values[0] == 2
+
 
 @pytest.mark.usefixtures("filepath_h5mu")
 class TestMuDataMod:
