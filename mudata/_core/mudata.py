@@ -482,7 +482,7 @@ class MuData:
         data_mod = _restore_index(data_mod)
         data_mod.index.set_names(rowcol, inplace=True)
         data_global.index.set_names(rowcol, inplace=True)
-        for mod in self.mod.keys():
+        for mod, amod in self.mod.items():
             colname = mod + ":" + rowcol
             # use 0 as special value for missing
             # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
@@ -492,7 +492,7 @@ class MuData:
             col = col.astype(np.uint32)
             data_mod.loc[:, colname] = col
             data_mod.set_index(colname, append=True, inplace=True)
-            if mod in attrmap:
+            if mod in attrmap and np.sum(attrmap[mod] > 0) == getattr(amod, attr).shape[0]:
                 data_global.set_index(attrmap[mod], append=True, inplace=True)
                 data_global.index.set_names(colname, level=-1, inplace=True)
 
