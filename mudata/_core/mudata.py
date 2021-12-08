@@ -305,7 +305,7 @@ class MuData:
             from .io import write_h5mu, read_h5mu
 
             write_h5mu(filename, self)
-            return read_h5mu(filename, self.filemode)
+            return read_h5mu(filename, self.file._filemode)
 
     def strings_to_categoricals(self, df: Optional[pd.DataFrame] = None):
         """
