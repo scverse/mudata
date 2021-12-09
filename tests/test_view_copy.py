@@ -9,6 +9,7 @@ from anndata import AnnData
 import mudata
 from mudata import MuData
 
+
 @pytest.fixture()
 def mdata():
     mod1 = AnnData(np.arange(0, 100, 0.1).reshape(-1, 10))
@@ -19,6 +20,7 @@ def mdata():
         mods[m].var_names = [f"{m}_var{i}" for i in range(mods[m].n_vars)]
     mdata = MuData(mods)
     yield mdata
+
 
 @pytest.mark.usefixtures("filepath_h5mu", "filepath2_h5mu")
 class TestMuData:
@@ -32,7 +34,7 @@ class TestMuData:
 
     def test_view_copy(self, mdata):
         view_n_obs = 5
-        mdata_view = mdata[list(range(view_n_obs)),:]
+        mdata_view = mdata[list(range(view_n_obs)), :]
         assert mdata_view.is_view == True
         assert mdata_view.n_obs == view_n_obs
         mdata_copy = mdata_view.copy()
