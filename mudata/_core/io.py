@@ -2,12 +2,15 @@ from typing import Union
 from os import PathLike
 import os
 from warnings import warn
+from collections.abc import MutableMapping
 
 import numpy as np
 import h5py
+import zarr
 import anndata as ad
 from anndata import AnnData
 from pathlib import Path
+from scipy import sparse
 
 from mudata import MuData
 from .file_backing import MuDataFileManager, AnnDataFileManager
@@ -82,6 +85,87 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
     if not mdata.is_view or not mdata.isbacked:
         mdata.update()
 
+def write_zarr(store: Union[MutableMapping, str, Path], data: Union[MuData, AnnData], chunks=None, write_data=True, **kwargs):
+    """
+    Write MuData or AnnData object to the Zarr store
+
+    Matrices - sparse or dense - are currently stored as they are.
+    """
+    from anndata._io.utils import write_attribute
+    from anndata._io.zarr import write_zarr as anndata_write_zarr
+    from .. import __version__, __mudataversion__, __anndataversion__
+
+    if isinstance(data, AnnData):
+        adata = data
+        anndata_write_zarr(store, adata, chunks=chunks, **kwargs)
+    elif isinstance(data, MuData):
+        if isinstance(store, Path):
+            store = str(store)
+        file = zarr.open(store, mode="w")
+        mdata = data
+        write_attribute(
+            file,
+            "obs",
+            mdata.strings_to_categoricals(mdata._shrink_attr("obs", inplace=False)),
+            dataset_kwargs=kwargs,
+        )
+        write_attribute(
+            file,
+            "var",
+            mdata.strings_to_categoricals(mdata._shrink_attr("var", inplace=False)),
+            dataset_kwargs=kwargs,
+        )
+        write_attribute(file, "obsm", mdata.obsm, dataset_kwargs=kwargs)
+        write_attribute(file, "varm", mdata.varm, dataset_kwargs=kwargs)
+        write_attribute(file, "obsp", mdata.obsp, dataset_kwargs=kwargs)
+        write_attribute(file, "varp", mdata.varp, dataset_kwargs=kwargs)
+        write_attribute(file, "uns", mdata.uns, dataset_kwargs=kwargs)
+
+        write_attribute(file, "obsmap", mdata.obsmap, dataset_kwargs=kwargs)
+        write_attribute(file, "varmap", mdata.varmap, dataset_kwargs=kwargs)
+
+        mod = file.require_group("mod")
+        for k, v in mdata.mod.items():
+            group = mod.require_group(k)
+
+            adata = mdata.mod[k]
+
+            adata.strings_to_categoricals()
+            if adata.raw is not None:
+                adata.strings_to_categoricals(adata.raw.var)
+
+            if write_data:
+                if chunks is not None and not isinstance(adata.X, sparse.spmatrix):
+                    write_attribute(group, "X", adata.X, dataset_kwargs=dict(chunks=chunks, **kwargs))
+                else:
+                    write_attribute(group, "X", adata.X, dataset_kwargs=kwargs)
+            if adata.raw is not None:
+                write_h5ad_raw(group, "raw", adata.raw)
+
+            write_attribute(group, "obs", adata.obs, dataset_kwargs=kwargs)
+            write_attribute(group, "var", adata.var, dataset_kwargs=kwargs)
+            write_attribute(group, "obsm", adata.obsm, dataset_kwargs=kwargs)
+            write_attribute(group, "varm", adata.varm, dataset_kwargs=kwargs)
+            write_attribute(group, "obsp", adata.obsp, dataset_kwargs=kwargs)
+            write_attribute(group, "varp", adata.varp, dataset_kwargs=kwargs)
+            write_attribute(group, "layers", adata.layers, dataset_kwargs=kwargs)
+            write_attribute(group, "uns", adata.uns, dataset_kwargs=kwargs)
+
+            attrs = group.attrs
+            attrs["encoding-type"] = "AnnData"
+            attrs["encoding-version"] = __anndataversion__
+            attrs["encoder"] = "mudata"
+            attrs["encoder-version"] = __version__
+
+        attrs = file.attrs
+        attrs["encoding-type"] = "MuData"
+        attrs["encoding-version"] = __mudataversion__
+        attrs["encoder"] = "mudata"
+        attrs["encoder-version"] = __version__
+
+        # Restore top-level annotation
+        if not mdata.is_view or not mdata.isbacked:
+            mdata.update()
 
 def write_h5mu(filename: PathLike, mdata: MuData, **kwargs):
     """
@@ -183,38 +267,54 @@ def write_h5ad_raw(f, key, raw, **kwargs):
     write_attribute(f, f"{key}/var", raw.var, dataset_kwargs=kwargs)
     write_attribute(f, f"{key}/varm", raw.varm, dataset_kwargs=kwargs)
 
-
-def write(filename: PathLike, data: Union[MuData, AnnData]):
+def write_zarr_raw(f, key, raw, **kwargs):
     """
-    Write MuData or AnnData to an HDF5 file
+    Replicates write_raw() in anndata/_io/zarr.py but allow
+    to write raw slots to modalities inside .h5mu files
+    """
+    write_h5ad_raw(f, key, raw, **kwargs)
+
+
+def write(filename: Union[MutableMapping, PathLike], data: Union[MuData, AnnData]):
+    """
+    Write MuData or AnnData to an HDF5 file or Zarr store
 
     This function is designed to enhance I/O ease of use.
     It recognises the following formats of filename:
       - for MuData
             - FILE.h5mu
+            - FILE.zarr
       - for AnnData
               - FILE.h5mu/MODALITY
               - FILE.h5mu/mod/MODALITY
               - FILE.h5ad
+              - FILE.zarr/MODALITY
+              - FILE.zarr/mod/MODALITY
+              - FILE.zarr
     """
 
     import re
 
-    if filename.endswith(".h5mu") or isinstance(data, MuData):
+    assert isinstance(data, AnnData) or isinstance(data, MuData), "Only MuData and AnnData objects are accepted"
+
+    if isinstance(filename, MutableMapping) or (filename.endswith(".zarr") and isinstance(data, MuData)):
+        write_zarr(filename, data)
+
+    elif filename.endswith(".h5mu") or isinstance(data, MuData):
         assert filename.endswith(".h5mu") and isinstance(
             data, MuData
-        ), "Can only save MuData object to .h5mu file"
+        ), "Can only save MuData object to .h5mu or .zarr file"
 
         write_h5mu(filename, data)
-
+    
     else:
         assert isinstance(data, AnnData), "Only MuData and AnnData objects are accepted"
 
-        m = re.search("^(.+)\.(h5mu)[/]?([A-Za-z]*)[/]?([/A-Za-z]*)$", filename)
+        m = re.search("^(.+)\.(h5mu|zarr)[/]?([A-Za-z]*)[/]?([/A-Za-z]*)$", filename)
         if m is not None:
             m = m.groups()
         else:
-            raise ValueError("Expected non-empty .h5ad or .h5mu file name")
+            raise ValueError("Expected non-empty .h5ad, .h5mu, or .zarr file name")
 
         filepath = ".".join([m[0], m[1]])
 
@@ -233,6 +333,19 @@ def write(filename: PathLike, data: Union[MuData, AnnData]):
                 )
         elif m[1] == "h5ad":
             return data.write(filepath)
+        elif m[1] == "zarr":
+            if m[3] == "":
+                # .zarr/<modality>
+                return write_zarr(filepath, m[2], data)
+            elif m[2] == "mod":
+                # .zarr/mod/<modality>
+                return write_zarr(filepath, m[3], data)
+            else:
+                raise ValueError(
+                    "If a single modality to be written from a .zarr file, \
+                    provide it after the filename separated by slash symbol:\
+                    .zarr/rna or .zarr/mod/rna"
+                )
         else:
             raise ValueError()
 
@@ -290,6 +403,73 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
     mu = MuData._init_from_dict_(**d)
     mu.file = manager
     return mu
+
+def read_zarr(store: Union[str, Path, MutableMapping, zarr.Group]):
+    """\
+    Read from a hierarchical Zarr array store.
+    Parameters
+    ----------
+    store
+        The filename, a :class:`~typing.MutableMapping`, or a Zarr storage class.
+    """
+    from anndata._io.zarr import read_attribute, read_zarr as anndata_read_zarr, read_dataframe, _read_legacy_raw, _clean_uns
+    if isinstance(store, Path):
+        store = str(store)
+
+    f = zarr.open(store, mode="r")
+    d = {}
+    if "mod" not in f.keys():
+        return anndata_read_zarr(store)
+    
+    manager = MuDataFileManager()
+    for k in f.keys():
+        if k in {"obs", "var"}:
+            d[k] = read_dataframe(f[k])
+        if k == "mod":
+            mods = {}
+            gmods = f[k]
+            for m in gmods.keys():
+                ad = _read_zarr_mod(gmods[m], manager)
+                mods[m] = ad
+            d[k] = mods
+        else:  # Base case
+            d[k] = read_attribute(f[k])
+
+    mu = MuData._init_from_dict_(**d)
+    mu.file = manager
+
+    return mu
+
+def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: bool = False) -> dict:
+    from anndata._io.zarr import read_attribute, read_dataframe, _read_legacy_raw
+    from anndata import Raw
+
+    d = {}
+
+    for k in g.keys():
+        if k in ("obs", "var"):
+            d[k] = read_dataframe(g[k])
+        elif k == "X":
+            X = g["X"]
+            if isinstance(X, zarr.Group):
+                dtype = X["data"].dtype
+            elif hasattr(X, "dtype"):
+                dtype = X.dtype
+            else:
+                raise ValueError()
+            d["dtype"] = dtype
+            if not backed:
+                d["X"] = read_attribute(X)
+        elif k != "raw":
+            d[k] = read_attribute(g[k])
+    ad = AnnData(**d)
+    if manager is not None:
+        ad.file = AnnDataFileManager(ad, os.path.basename(g.name), manager)
+
+    raw = _read_legacy_raw(g, d.get("raw"), read_dataframe, read_attribute, attrs=("var", "varm") if backed else ("var", "varm", "X"))
+    if raw:
+        ad._raw = Raw(ad, **raw)
+    return ad
 
 
 def _read_h5mu_mod(
