@@ -30,8 +30,6 @@ class TestMuData:
     
     def test_write_read_zarr_basic(self, mdata, filepath_zarr):
         mdata.write_zarr(filepath_zarr)
-        mdata.write("~/Downloads/test.h5mu")
-        mdata.write_zarr("~/Downloads/test.zarr")
         mdata_ = mudata.read_zarr(filepath_zarr)
         assert list(mdata_.mod.keys()) == ["mod1", "mod2"]
         assert mdata.mod["mod1"].X[51, 9] == pytest.approx(51.9)

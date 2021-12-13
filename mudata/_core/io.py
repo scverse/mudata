@@ -275,46 +275,37 @@ def write_zarr_raw(f, key, raw, **kwargs):
     write_h5ad_raw(f, key, raw, **kwargs)
 
 
-def write(filename: Union[MutableMapping, PathLike], data: Union[MuData, AnnData]):
+def write(filename: PathLike, data: Union[MuData, AnnData]):
     """
-    Write MuData or AnnData to an HDF5 file or Zarr store
+    Write MuData or AnnData to an HDF5 file
 
     This function is designed to enhance I/O ease of use.
     It recognises the following formats of filename:
       - for MuData
             - FILE.h5mu
-            - FILE.zarr
       - for AnnData
               - FILE.h5mu/MODALITY
               - FILE.h5mu/mod/MODALITY
               - FILE.h5ad
-              - FILE.zarr/MODALITY
-              - FILE.zarr/mod/MODALITY
-              - FILE.zarr
     """
 
     import re
 
-    assert isinstance(data, AnnData) or isinstance(data, MuData), "Only MuData and AnnData objects are accepted"
-
-    if isinstance(filename, MutableMapping) or (filename.endswith(".zarr") and isinstance(data, MuData)):
-        write_zarr(filename, data)
-
-    elif filename.endswith(".h5mu") or isinstance(data, MuData):
+    if filename.endswith(".h5mu") or isinstance(data, MuData):
         assert filename.endswith(".h5mu") and isinstance(
             data, MuData
-        ), "Can only save MuData object to .h5mu or .zarr file"
+        ), "Can only save MuData object to .h5mu file"
 
         write_h5mu(filename, data)
-    
+
     else:
         assert isinstance(data, AnnData), "Only MuData and AnnData objects are accepted"
 
-        m = re.search("^(.+)\.(h5mu|zarr)[/]?([A-Za-z]*)[/]?([/A-Za-z]*)$", filename)
+        m = re.search("^(.+)\.(h5mu)[/]?([A-Za-z]*)[/]?([/A-Za-z]*)$", filename)
         if m is not None:
             m = m.groups()
         else:
-            raise ValueError("Expected non-empty .h5ad, .h5mu, or .zarr file name")
+            raise ValueError("Expected non-empty .h5ad or .h5mu file name")
 
         filepath = ".".join([m[0], m[1]])
 
@@ -333,19 +324,6 @@ def write(filename: Union[MutableMapping, PathLike], data: Union[MuData, AnnData
                 )
         elif m[1] == "h5ad":
             return data.write(filepath)
-        elif m[1] == "zarr":
-            if m[3] == "":
-                # .zarr/<modality>
-                return write_zarr(filepath, m[2], data)
-            elif m[2] == "mod":
-                # .zarr/mod/<modality>
-                return write_zarr(filepath, m[3], data)
-            else:
-                raise ValueError(
-                    "If a single modality to be written from a .zarr file, \
-                    provide it after the filename separated by slash symbol:\
-                    .zarr/rna or .zarr/mod/rna"
-                )
         else:
             raise ValueError()
 
