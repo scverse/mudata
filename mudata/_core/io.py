@@ -272,7 +272,16 @@ def write_zarr_raw(f, key, raw, **kwargs):
     Replicates write_raw() in anndata/_io/zarr.py but allow
     to write raw slots to modalities inside .h5mu files
     """
-    write_h5ad_raw(f, key, raw, **kwargs)
+    from anndata._io.zarr import write_attribute
+    from anndata._io.utils import EncodingVersions
+
+    group = f.create_group(key)
+    group.attrs["encoding-type"] = "raw"
+    group.attrs["encoding-version"] = EncodingVersions.raw.value
+    group.attrs["shape"] = raw.shape
+    write_attribute(f, f"{key}/X", raw.X, dataset_kwargs=kwargs)
+    write_attribute(f, f"{key}/var", raw.var, dataset_kwargs=kwargs)
+    write_attribute(f, f"{key}/varm", raw.varm, dataset_kwargs=kwargs)
 
 
 def write(filename: PathLike, data: Union[MuData, AnnData]):
