@@ -270,7 +270,7 @@ def write_h5ad_raw(f, key, raw, **kwargs):
 def write_zarr_raw(f, key, raw, **kwargs):
     """
     Replicates write_raw() in anndata/_io/zarr.py but allow
-    to write raw slots to modalities inside .h5mu files
+    to write raw slots to modalities inside .zarr stores
     """
     from anndata._io.zarr import write_attribute
     from anndata._io.utils import EncodingVersions
