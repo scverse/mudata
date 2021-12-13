@@ -140,7 +140,7 @@ def write_zarr(store: Union[MutableMapping, str, Path], data: Union[MuData, AnnD
                 else:
                     write_attribute(group, "X", adata.X, dataset_kwargs=kwargs)
             if adata.raw is not None:
-                write_h5ad_raw(group, "raw", adata.raw)
+                write_zarr_raw(group, "raw", adata.raw)
 
             write_attribute(group, "obs", adata.obs, dataset_kwargs=kwargs)
             write_attribute(group, "var", adata.var, dataset_kwargs=kwargs)
