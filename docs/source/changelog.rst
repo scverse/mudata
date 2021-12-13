@@ -9,6 +9,10 @@ Release notes
 
    *
 
+v0.1.1
+------
+
+This version comes with improved stability and bug fixes.
 
 v0.1.0
 ------
