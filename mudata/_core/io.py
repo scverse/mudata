@@ -33,14 +33,14 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
         mdata.strings_to_categoricals(mdata._shrink_attr("var", inplace=False)),
         dataset_kwargs=kwargs,
     )
-    write_attribute(file, "obsm", mdata.obsm, dataset_kwargs=kwargs)
-    write_attribute(file, "varm", mdata.varm, dataset_kwargs=kwargs)
-    write_attribute(file, "obsp", mdata.obsp, dataset_kwargs=kwargs)
-    write_attribute(file, "varp", mdata.varp, dataset_kwargs=kwargs)
-    write_attribute(file, "uns", mdata.uns, dataset_kwargs=kwargs)
+    write_attribute(file, "obsm", dict(mdata.obsm), dataset_kwargs=kwargs)
+    write_attribute(file, "varm", dict(mdata.varm), dataset_kwargs=kwargs)
+    write_attribute(file, "obsp", dict(mdata.obsp), dataset_kwargs=kwargs)
+    write_attribute(file, "varp", dict(mdata.varp), dataset_kwargs=kwargs)
+    write_attribute(file, "uns", dict(mdata.uns), dataset_kwargs=kwargs)
 
-    write_attribute(file, "obsmap", mdata.obsmap, dataset_kwargs=kwargs)
-    write_attribute(file, "varmap", mdata.varmap, dataset_kwargs=kwargs)
+    write_attribute(file, "obsmap", dict(mdata.obsmap), dataset_kwargs=kwargs)
+    write_attribute(file, "varmap", dict(mdata.varmap), dataset_kwargs=kwargs)
 
     mod = file.require_group("mod")
     for k, v in mdata.mod.items():
@@ -59,12 +59,12 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
 
         write_attribute(group, "obs", adata.obs, dataset_kwargs=kwargs)
         write_attribute(group, "var", adata.var, dataset_kwargs=kwargs)
-        write_attribute(group, "obsm", adata.obsm, dataset_kwargs=kwargs)
-        write_attribute(group, "varm", adata.varm, dataset_kwargs=kwargs)
-        write_attribute(group, "obsp", adata.obsp, dataset_kwargs=kwargs)
-        write_attribute(group, "varp", adata.varp, dataset_kwargs=kwargs)
-        write_attribute(group, "layers", adata.layers, dataset_kwargs=kwargs)
-        write_attribute(group, "uns", adata.uns, dataset_kwargs=kwargs)
+        write_attribute(group, "obsm", dict(adata.obsm), dataset_kwargs=kwargs)
+        write_attribute(group, "varm", dict(adata.varm), dataset_kwargs=kwargs)
+        write_attribute(group, "obsp", dict(adata.obsp), dataset_kwargs=kwargs)
+        write_attribute(group, "varp", dict(adata.varp), dataset_kwargs=kwargs)
+        write_attribute(group, "layers", dict(adata.layers), dataset_kwargs=kwargs)
+        write_attribute(group, "uns", dict(adata.uns), dataset_kwargs=kwargs)
 
         attrs = group.attrs
         attrs["encoding-type"] = "AnnData"
