@@ -18,7 +18,7 @@ jobs:
           python -m pip install mofapy2
       - name: Run tests and collect coverage
         run: |
-          coverage run tests.py
+          coverage run pytest
           coverage xml
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v2
