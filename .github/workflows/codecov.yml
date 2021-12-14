@@ -1,8 +1,5 @@
 name: Code coverage
-on:
-  pull_request:
-    branches: 
-      - '*'
+on: push
 jobs:
   run:
     runs-on: ubuntu-latest
