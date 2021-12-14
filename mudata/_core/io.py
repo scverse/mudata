@@ -85,7 +85,14 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
     if not mdata.is_view or not mdata.isbacked:
         mdata.update()
 
-def write_zarr(store: Union[MutableMapping, str, Path], data: Union[MuData, AnnData], chunks=None, write_data=True, **kwargs):
+
+def write_zarr(
+    store: Union[MutableMapping, str, Path],
+    data: Union[MuData, AnnData],
+    chunks=None,
+    write_data=True,
+    **kwargs,
+):
     """
     Write MuData or AnnData object to the Zarr store
 
@@ -136,7 +143,9 @@ def write_zarr(store: Union[MutableMapping, str, Path], data: Union[MuData, AnnD
 
             if write_data:
                 if chunks is not None and not isinstance(adata.X, sparse.spmatrix):
-                    write_attribute(group, "X", adata.X, dataset_kwargs=dict(chunks=chunks, **kwargs))
+                    write_attribute(
+                        group, "X", adata.X, dataset_kwargs=dict(chunks=chunks, **kwargs)
+                    )
                 else:
                     write_attribute(group, "X", adata.X, dataset_kwargs=kwargs)
             if adata.raw is not None:
@@ -166,6 +175,7 @@ def write_zarr(store: Union[MutableMapping, str, Path], data: Union[MuData, AnnD
         # Restore top-level annotation
         if not mdata.is_view or not mdata.isbacked:
             mdata.update()
+
 
 def write_h5mu(filename: PathLike, mdata: MuData, **kwargs):
     """
@@ -266,6 +276,7 @@ def write_h5ad_raw(f, key, raw, **kwargs):
     write_attribute(f, f"{key}/X", raw.X, dataset_kwargs=kwargs)
     write_attribute(f, f"{key}/var", raw.var, dataset_kwargs=kwargs)
     write_attribute(f, f"{key}/varm", raw.varm, dataset_kwargs=kwargs)
+
 
 def write_zarr_raw(f, key, raw, **kwargs):
     """
@@ -391,6 +402,7 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
     mu.file = manager
     return mu
 
+
 def read_zarr(store: Union[str, Path, MutableMapping, zarr.Group]):
     """\
     Read from a hierarchical Zarr array store.
@@ -399,7 +411,14 @@ def read_zarr(store: Union[str, Path, MutableMapping, zarr.Group]):
     store
         The filename, a :class:`~typing.MutableMapping`, or a Zarr storage class.
     """
-    from anndata._io.zarr import read_attribute, read_zarr as anndata_read_zarr, read_dataframe, _read_legacy_raw, _clean_uns
+    from anndata._io.zarr import (
+        read_attribute,
+        read_zarr as anndata_read_zarr,
+        read_dataframe,
+        _read_legacy_raw,
+        _clean_uns,
+    )
+
     if isinstance(store, Path):
         store = str(store)
 
@@ -407,7 +426,7 @@ def read_zarr(store: Union[str, Path, MutableMapping, zarr.Group]):
     d = {}
     if "mod" not in f.keys():
         return anndata_read_zarr(store)
-    
+
     manager = MuDataFileManager()
     for k in f.keys():
         if k in {"obs", "var"}:
@@ -426,6 +445,7 @@ def read_zarr(store: Union[str, Path, MutableMapping, zarr.Group]):
     mu.file = manager
 
     return mu
+
 
 def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: bool = False) -> dict:
     from anndata._io.zarr import read_attribute, read_dataframe, _read_legacy_raw
@@ -453,7 +473,13 @@ def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: boo
     if manager is not None:
         ad.file = AnnDataFileManager(ad, os.path.basename(g.name), manager)
 
-    raw = _read_legacy_raw(g, d.get("raw"), read_dataframe, read_attribute, attrs=("var", "varm") if backed else ("var", "varm", "X"))
+    raw = _read_legacy_raw(
+        g,
+        d.get("raw"),
+        read_dataframe,
+        read_attribute,
+        attrs=("var", "varm") if backed else ("var", "varm", "X"),
+    )
     if raw:
         ad._raw = Raw(ad, **raw)
     return ad

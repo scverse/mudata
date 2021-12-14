@@ -9,6 +9,7 @@ from anndata import AnnData
 import mudata
 from mudata import MuData
 
+
 @pytest.fixture()
 def mdata():
     yield MuData(
@@ -27,7 +28,7 @@ class TestMuData:
         assert list(mdata_.mod.keys()) == ["mod1", "mod2"]
         assert mdata.mod["mod1"].X[51, 9] == pytest.approx(51.9)
         assert mdata.mod["mod2"].X[42, 18] == pytest.approx(959)
-    
+
     def test_write_read_zarr_basic(self, mdata, filepath_zarr):
         mdata.write_zarr(filepath_zarr)
         mdata_ = mudata.read_zarr(filepath_zarr)
