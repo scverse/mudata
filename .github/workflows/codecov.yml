@@ -16,6 +16,7 @@ jobs:
           python -m pip install umap-learn
           python -m pip install .
           python -m pip install mofapy2
+          python -m pip install coverage
       - name: Run tests and collect coverage
         run: |
           coverage run pytest
