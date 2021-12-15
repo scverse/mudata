@@ -28,6 +28,7 @@ A flagship framework for multimodal omics analysis — ``muon`` — has been bui
    :caption: Getting started
 
    notebooks/quickstart_mudata.ipynb
+   nuances.rst
 
 .. toctree::
    :hidden:

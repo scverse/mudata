@@ -9,6 +9,11 @@ Release notes
 
    *
 
+v0.1.2
+------
+
+There's `a new page describing the sharp bits <nuances.rst>`__.
+
 v0.1.1
 ------
 
