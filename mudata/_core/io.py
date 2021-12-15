@@ -151,12 +151,12 @@ def write_h5ad(filename: PathLike, mod: str, data: Union[MuData, AnnData]):
 
         write_attribute(fmd, "obs", adata.obs)
         write_attribute(fmd, "var", adata.var)
-        write_attribute(fmd, "obsm", adata.obsm)
-        write_attribute(fmd, "varm", adata.varm)
-        write_attribute(fmd, "obsp", adata.obsp)
-        write_attribute(fmd, "varp", adata.varp)
-        write_attribute(fmd, "layers", adata.layers)
-        write_attribute(fmd, "uns", adata.uns)
+        write_attribute(fmd, "obsm", dict(adata.obsm))
+        write_attribute(fmd, "varm", dict(adata.varm))
+        write_attribute(fmd, "obsp", dict(adata.obsp))
+        write_attribute(fmd, "varp", dict(adata.varp))
+        write_attribute(fmd, "layers", dict(adata.layers))
+        write_attribute(fmd, "uns", dict(adata.uns))
 
         attrs = fmd.attrs
         attrs["encoding-type"] = "AnnData"
@@ -181,7 +181,7 @@ def write_h5ad_raw(f, key, raw, **kwargs):
     group.attrs["shape"] = raw.shape
     write_attribute(f, f"{key}/X", raw.X, dataset_kwargs=kwargs)
     write_attribute(f, f"{key}/var", raw.var, dataset_kwargs=kwargs)
-    write_attribute(f, f"{key}/varm", raw.varm, dataset_kwargs=kwargs)
+    write_attribute(f, f"{key}/varm", dict(raw.varm), dataset_kwargs=kwargs)
 
 
 def write(filename: PathLike, data: Union[MuData, AnnData]):
