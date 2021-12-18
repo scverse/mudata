@@ -1,3 +1,9 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import zarr
+
 from typing import Union
 from os import PathLike
 import os
@@ -403,7 +409,7 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
     return mu
 
 
-def read_zarr(store: Union[str, Path, MutableMapping, "zarr.Group"]):
+def read_zarr(store: Union[str, Path, MutableMapping, zarr.Group]):
     """\
     Read from a hierarchical Zarr array store.
     Parameters
@@ -448,9 +454,7 @@ def read_zarr(store: Union[str, Path, MutableMapping, "zarr.Group"]):
     return mu
 
 
-def _read_zarr_mod(
-    g: "zarr.Group", manager: MuDataFileManager = None, backed: bool = False
-) -> dict:
+def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: bool = False) -> dict:
     import zarr
     from anndata._io.zarr import read_attribute, read_dataframe, _read_legacy_raw
     from anndata import Raw
