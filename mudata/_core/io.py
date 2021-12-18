@@ -448,7 +448,9 @@ def read_zarr(store: Union[str, Path, MutableMapping, "zarr.Group"]):
     return mu
 
 
-def _read_zarr_mod(g: "zarr.Group", manager: MuDataFileManager = None, backed: bool = False) -> dict:
+def _read_zarr_mod(
+    g: "zarr.Group", manager: MuDataFileManager = None, backed: bool = False
+) -> dict:
     import zarr
     from anndata._io.zarr import read_attribute, read_dataframe, _read_legacy_raw
     from anndata import Raw
