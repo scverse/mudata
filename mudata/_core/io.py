@@ -6,7 +6,6 @@ from collections.abc import MutableMapping
 
 import numpy as np
 import h5py
-import zarr
 import anndata as ad
 from anndata import AnnData
 from pathlib import Path
@@ -98,6 +97,7 @@ def write_zarr(
 
     Matrices - sparse or dense - are currently stored as they are.
     """
+    import zarr
     from anndata._io.utils import write_attribute
     from anndata._io.zarr import write_zarr as anndata_write_zarr
     from .. import __version__, __mudataversion__, __anndataversion__
