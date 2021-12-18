@@ -403,7 +403,7 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
     return mu
 
 
-def read_zarr(store: Union[str, Path, MutableMapping, zarr.Group]):
+def read_zarr(store: Union[str, Path, MutableMapping, "zarr.Group"]):
     """\
     Read from a hierarchical Zarr array store.
     Parameters
@@ -411,6 +411,7 @@ def read_zarr(store: Union[str, Path, MutableMapping, zarr.Group]):
     store
         The filename, a :class:`~typing.MutableMapping`, or a Zarr storage class.
     """
+    import zarr
     from anndata._io.zarr import (
         read_attribute,
         read_zarr as anndata_read_zarr,
@@ -447,7 +448,8 @@ def read_zarr(store: Union[str, Path, MutableMapping, zarr.Group]):
     return mu
 
 
-def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: bool = False) -> dict:
+def _read_zarr_mod(g: "zarr.Group", manager: MuDataFileManager = None, backed: bool = False) -> dict:
+    import zarr
     from anndata._io.zarr import read_attribute, read_dataframe, _read_legacy_raw
     from anndata import Raw
 
