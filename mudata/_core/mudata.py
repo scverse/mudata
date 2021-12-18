@@ -1,6 +1,7 @@
 from typing import List, Tuple, Union, Optional, Mapping, Iterable, Sequence, Any
 from numbers import Integral
 from collections import abc
+from collections.abc import MutableMapping
 from functools import reduce
 from itertools import chain
 import warnings
@@ -903,6 +904,14 @@ class MuData:
                 self.file.filename = filename
 
     write = write_h5mu
+
+    def write_zarr(self, store: Union[MutableMapping, str, Path], **kwargs):
+        """
+        Write MuData object to a Zarr store
+        """
+        from .io import write_zarr
+
+        write_zarr(store, self, **kwargs)
 
     def _gen_repr(self, n_obs, n_vars, extensive: bool = False) -> str:
         backed_at = f" backed at {str(self.filename)!r}" if self.isbacked else ""
