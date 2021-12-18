@@ -1,6 +1,8 @@
 Nuances
 =======
 
+This is *the sharp bits* page for ``mudata``, which provides information on the nuances when working with ``MuData`` objects.
+
 .. contents:: :local:
     :depth: 3
 
@@ -9,7 +11,6 @@ Nuances
 
    *
 
-This is *the sharp bits* page for ``mudata``, which provides information on the nuances when working with ``MuData`` objects.
 
 Variable names
 --------------
