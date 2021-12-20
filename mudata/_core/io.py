@@ -63,7 +63,7 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
         if write_data:
             write_attribute(group, "X", adata.X, dataset_kwargs=kwargs)
         if adata.raw is not None:
-            write_h5ad_raw(group, "raw", adata.raw)
+            write_attribute(group, "raw", adata.raw)
 
         write_attribute(group, "obs", adata.obs, dataset_kwargs=kwargs)
         write_attribute(group, "var", adata.var, dataset_kwargs=kwargs)
@@ -128,14 +128,14 @@ def write_zarr(
             mdata.strings_to_categoricals(mdata._shrink_attr("var", inplace=False)),
             dataset_kwargs=kwargs,
         )
-        write_attribute(file, "obsm", mdata.obsm, dataset_kwargs=kwargs)
-        write_attribute(file, "varm", mdata.varm, dataset_kwargs=kwargs)
-        write_attribute(file, "obsp", mdata.obsp, dataset_kwargs=kwargs)
-        write_attribute(file, "varp", mdata.varp, dataset_kwargs=kwargs)
-        write_attribute(file, "uns", mdata.uns, dataset_kwargs=kwargs)
+        write_attribute(file, "obsm", dict(mdata.obsm), dataset_kwargs=kwargs)
+        write_attribute(file, "varm", dict(mdata.varm), dataset_kwargs=kwargs)
+        write_attribute(file, "obsp", dict(mdata.obsp), dataset_kwargs=kwargs)
+        write_attribute(file, "varp", dict(mdata.varp), dataset_kwargs=kwargs)
+        write_attribute(file, "uns", dict(mdata.uns), dataset_kwargs=kwargs)
 
-        write_attribute(file, "obsmap", mdata.obsmap, dataset_kwargs=kwargs)
-        write_attribute(file, "varmap", mdata.varmap, dataset_kwargs=kwargs)
+        write_attribute(file, "obsmap", dict(mdata.obsmap), dataset_kwargs=kwargs)
+        write_attribute(file, "varmap", dict(mdata.varmap), dataset_kwargs=kwargs)
 
         mod = file.require_group("mod")
         for k, v in mdata.mod.items():
@@ -155,16 +155,16 @@ def write_zarr(
                 else:
                     write_attribute(group, "X", adata.X, dataset_kwargs=kwargs)
             if adata.raw is not None:
-                write_zarr_raw(group, "raw", adata.raw)
+                write_attribute(group, "raw", adata.raw)
 
             write_attribute(group, "obs", adata.obs, dataset_kwargs=kwargs)
             write_attribute(group, "var", adata.var, dataset_kwargs=kwargs)
-            write_attribute(group, "obsm", adata.obsm, dataset_kwargs=kwargs)
-            write_attribute(group, "varm", adata.varm, dataset_kwargs=kwargs)
-            write_attribute(group, "obsp", adata.obsp, dataset_kwargs=kwargs)
-            write_attribute(group, "varp", adata.varp, dataset_kwargs=kwargs)
-            write_attribute(group, "layers", adata.layers, dataset_kwargs=kwargs)
-            write_attribute(group, "uns", adata.uns, dataset_kwargs=kwargs)
+            write_attribute(group, "obsm", dict(adata.obsm), dataset_kwargs=kwargs)
+            write_attribute(group, "varm", dict(adata.varm), dataset_kwargs=kwargs)
+            write_attribute(group, "obsp", dict(adata.obsp), dataset_kwargs=kwargs)
+            write_attribute(group, "varp", dict(adata.varp), dataset_kwargs=kwargs)
+            write_attribute(group, "layers", dict(adata.layers), dataset_kwargs=kwargs)
+            write_attribute(group, "uns", dict(adata.uns), dataset_kwargs=kwargs)
 
             attrs = group.attrs
             attrs["encoding-type"] = "AnnData"
@@ -247,7 +247,7 @@ def write_h5ad(filename: PathLike, mod: str, data: Union[MuData, AnnData]):
 
         # NOTE: Calling write_attribute() does not allow writing .raw into .h5mu modalities
         if adata.raw is not None:
-            write_h5ad_raw(f, f"mod/{mod}/raw", adata.raw)
+            write_attribute(f, f"mod/{mod}/raw", adata.raw)
 
         write_attribute(fmd, "obs", adata.obs)
         write_attribute(fmd, "var", adata.var)
@@ -266,39 +266,6 @@ def write_h5ad(filename: PathLike, mod: str, data: Union[MuData, AnnData]):
 
 
 write_anndata = write_h5ad
-
-
-def write_h5ad_raw(f, key, raw, **kwargs):
-    """
-    Replicates write_raw() in anndata/_io/h5ad.py but allow
-    to write raw slots to modalities inside .h5mu files
-    """
-    from anndata._io.utils import write_attribute, EncodingVersions
-
-    group = f.create_group(key)
-    group.attrs["encoding-type"] = "raw"
-    group.attrs["encoding-version"] = EncodingVersions.raw.value
-    group.attrs["shape"] = raw.shape
-    write_attribute(f, f"{key}/X", raw.X, dataset_kwargs=kwargs)
-    write_attribute(f, f"{key}/var", raw.var, dataset_kwargs=kwargs)
-    write_attribute(f, f"{key}/varm", dict(raw.varm), dataset_kwargs=kwargs)
-
-
-def write_zarr_raw(f, key, raw, **kwargs):
-    """
-    Replicates write_raw() in anndata/_io/zarr.py but allow
-    to write raw slots to modalities inside .zarr stores
-    """
-    from anndata._io.zarr import write_attribute
-    from anndata._io.utils import EncodingVersions
-
-    group = f.create_group(key)
-    group.attrs["encoding-type"] = "raw"
-    group.attrs["encoding-version"] = EncodingVersions.raw.value
-    group.attrs["shape"] = raw.shape
-    write_attribute(f, f"{key}/X", raw.X, dataset_kwargs=kwargs)
-    write_attribute(f, f"{key}/var", raw.var, dataset_kwargs=kwargs)
-    write_attribute(f, f"{key}/varm", raw.varm, dataset_kwargs=kwargs)
 
 
 def write(filename: PathLike, data: Union[MuData, AnnData]):
@@ -418,8 +385,8 @@ def read_zarr(store: Union[str, Path, MutableMapping, zarr.Group]):
         The filename, a :class:`~typing.MutableMapping`, or a Zarr storage class.
     """
     import zarr
+    from anndata._io.utils import read_attribute
     from anndata._io.zarr import (
-        read_attribute,
         read_zarr as anndata_read_zarr,
         read_dataframe,
         _read_legacy_raw,
@@ -456,7 +423,8 @@ def read_zarr(store: Union[str, Path, MutableMapping, zarr.Group]):
 
 def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: bool = False) -> dict:
     import zarr
-    from anndata._io.zarr import read_attribute, read_dataframe, _read_legacy_raw
+    from anndata._io.utils import read_attribute
+    from anndata._io.zarr import read_dataframe, _read_legacy_raw
     from anndata import Raw
 
     d = {}
