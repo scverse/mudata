@@ -25,12 +25,15 @@ requires = [
 ]
 
 [tool.flit.metadata.requires-extra]
-docs = [
+doc = [
     "sphinx >= 4.0",
     "sphinx-rtd-theme",
     "readthedocs-sphinx-search",
     "nbsphinx",
     "sphinx_automodapi"
+]
+test = [
+    "zarr"
 ]
 
 [tool.flit.metadata.urls]
