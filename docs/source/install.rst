@@ -20,15 +20,15 @@ Stable version
 Development version
 -------------------
 
-To use a pre-release version of ``mudata``, install it from `from the GitHub repository <https://github.com/PmBio/mudata>`_:
+To use a pre-release version of ``mudata``, install it from `from the GitHub repository <https://github.com/scverse/mudata>`_:
 ::
-	pip install git+https://github.com/PmBio/mudata
+	pip install git+https://github.com/scverse/mudata
 
 
 Troubleshooting
 ---------------
 
-Please consult the details on installing ``scanpy`` and its dependencies `here <https://scanpy.readthedocs.io/en/stable/installation.html>`_. If there are issues that have not beed described, addressed, or documented, please consider `opening an issue <https://github.com/PmBio/mudata/issues>`_.
+Please consult the details on installing ``scanpy`` and its dependencies `here <https://scanpy.readthedocs.io/en/stable/installation.html>`_. If there are issues that have not beed described, addressed, or documented, please consider `opening an issue <https://github.com/scverse/mudata/issues>`_.
 
 
 Hacking on mudata

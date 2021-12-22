@@ -7,7 +7,7 @@ module = "mudata"
 author = "Danila Bredikhin"
 author-email = "danila.bredikhin@embl.de"
 description-file = "README.md"
-home-page = "https://github.com/pmbio/mudata"
+home-page = "https://github.com/scverse/mudata"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: BSD License",

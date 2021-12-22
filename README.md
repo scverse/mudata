@@ -45,7 +45,7 @@ from mudata import MuData
 mdata = MuData({'rna': adata_rna, 'atac': adata_atac})
 ```
 
-If multimodal data from 10X Genomics is to be read, convenient readers are provided by [`muon`](https://github.com/PmBio/muon) that return a `MuData` object with AnnData objects inside, each corresponding to its own modality:
+If multimodal data from 10X Genomics is to be read, convenient readers are provided by [`muon`](https://github.com/scverse/muon) that return a `MuData` object with AnnData objects inside, each corresponding to its own modality:
 
 ```py
 import muon as mu
