@@ -33,4 +33,4 @@ h5ls pbmc_10k.h5mu/mod/rna
 
 ## Operating on MuData objects
 
-To handle `MuData` objects with multi-omics data, a [multimodal omics analysis framework (`muon`)](https://github.com/PmBio/muon) has been built. More implementation details can be found [in the respective `DESIGN.md` file](https://github.com/PMBio/muon/blob/master/DESIGN.md).
+To handle `MuData` objects with multi-omics data, a [multimodal omics analysis framework (`muon`)](https://github.com/PmBio/muon) has been built. More implementation details can be found [in the respective `DESIGN.md` file](https://github.com/scverse/muon/blob/master/DESIGN.md).

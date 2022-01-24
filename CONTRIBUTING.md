@@ -2,7 +2,7 @@
 
 This document describes details about contributing to `MuData`.
 
-The main entry point for a contribution is an issue. Please use issues to discuss the change you wish to make or the funcionality you want to add to `MuData`. For a more in-depth discussion you can also use [discussions](https://github.com/PMBio/mudata/discussions) or contact `MuData` authors or maintainers via other communication methods such as email.
+The main entry point for a contribution is an issue. Please use issues to discuss the change you wish to make or the funcionality you want to add to `MuData`. For a more in-depth discussion you can also use [discussions](https://github.com/scverse/mudata/discussions) or contact `MuData` authors or maintainers via other communication methods such as email.
 
 ## Issues
 
