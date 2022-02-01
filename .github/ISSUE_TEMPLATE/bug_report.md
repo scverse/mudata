@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Create a report to help us improve muon
+about: Create a report to help us improve mudata
 title: ''
 labels: bug
 assignees: ''
@@ -20,9 +20,9 @@ Sometimes it is not possible to share the data but usually it is possible to rep
 A clear and concise description of what you expected to happen.
 
 **System**
- - OS: [e.g. macOS Big Sur]
- - Python version [e.g. 3.8]
- - Versions of libraries involved [e.g. AnnData 0.7.4]
+ - OS: [e.g. macOS Monterey]
+ - Python version [e.g. 3.9]
+ - Versions of libraries involved [e.g. AnnData 0.8.0]
 
 **Additional context**
 Add any other context about the problem here.
