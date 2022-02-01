@@ -21,6 +21,7 @@ def mdata():
     mdata.obs["batch"] = batches
     yield mdata
 
+
 @pytest.fixture()
 def modalities():
     n_mod = 3
@@ -29,10 +30,11 @@ def modalities():
     for i in range(n_mod):
         i1 = i + 1
         m = f"mod{i1}"
-        mods[m] = AnnData(X=np.random.normal(size=1000*i1).reshape(-1, 10*i1))
+        mods[m] = AnnData(X=np.random.normal(size=1000 * i1).reshape(-1, 10 * i1))
         mods[m].obs["mod"] = m
         mods[m].var["mod"] = m
     return mods
+
 
 @pytest.mark.usefixtures("filepath_h5mu")
 class TestMuData:
@@ -46,7 +48,7 @@ class TestMuData:
             mod.var_names = [f"{m}_var{j}" for j in range(mod.n_vars)]
         mdata = MuData(modalities)
         mdata.update()
-        
+
         # Observations are the same across modalities
         # hence /mod/mod1/obs/mod -> /obs/mod1:mod
         assert f"{m}:mod" in mdata.obs.columns
@@ -68,7 +70,7 @@ class TestMuData:
             mod.var_names = [f"{m}_var{j // 2}" for j in range(mod.n_vars)]
         mdata = MuData(modalities)
         mdata.update()
-        
+
         # Observations are the same across modalities
         # hence /mod/mod1/obs/mod -> /obs/mod1:mod
         assert f"{m}:mod" in mdata.obs.columns
@@ -83,7 +85,7 @@ class TestMuData:
         """
         Update should work when
         - obs_names are the same across modalities,
-        - there are intersecting var_names, 
+        - there are intersecting var_names,
           which are unique in each modality
         """
         for m, mod in modalities.items():
@@ -91,7 +93,7 @@ class TestMuData:
             mod.var_names = [f"{m}_var{j}" if j != 0 else f"var_{j}" for j in range(mod.n_vars)]
         mdata = MuData(modalities)
         mdata.update()
-        
+
         # Observations are the same across modalities
         # hence /mod/mod1/obs/mod -> /obs/mod1:mod
         assert f"{m}:mod" in mdata.obs.columns
@@ -102,7 +104,6 @@ class TestMuData:
             # Columns are intact in individual modalities
             assert "mod" in mod.obs.columns
             assert "mod" in mod.var.columns
-
 
     def test_update_after_filter_obs_adata(self, mdata, filepath_h5mu):
         """
@@ -127,7 +128,7 @@ class TestMuData:
 #             mod.var_names = [f"{m}var_{j}" for j in range(mod.n_vars)]
 #         mdata = MuData(modalities, axis=0)
 #         mdata.update()
-        
+
 #         # Observations are the same across modalities
 #         # hence /mod/mod1/obs/mod -> /obs/mod1:mod
 #         assert f"{m}:mod" in mdata.obs.columns

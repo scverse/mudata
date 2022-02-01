@@ -379,13 +379,17 @@ class MuData:
             for m, mod in self.mod.items():
                 if m in self._mod_index:
                     if attr in self._mod_index[m]:
-                        attr_names_maybe_changed = attr_names_maybe_changed or not getattr(self.mod[m], attr).index.equals(self._mod_index[m][attr])
+                        attr_names_maybe_changed = attr_names_maybe_changed or not getattr(
+                            self.mod[m], attr
+                        ).index.equals(self._mod_index[m][attr])
 
         attr_duplicated = self._check_duplicated_attr_names(attr)
         attr_intersecting = self._check_intersecting_attr_names(attr)
 
         if attr_duplicated:
-            warnings.warn(f"{attr}_names are not unique. To make them unique, call `.{attr}_names_make_unique`.")
+            warnings.warn(
+                f"{attr}_names are not unique. To make them unique, call `.{attr}_names_make_unique`."
+            )
 
         # Check if the are same obs_names/var_names in different modalities
         # If there are, join_common=True request can not be satisfied
@@ -439,14 +443,16 @@ class MuData:
                 columns_common = reduce(
                     np.intersect1d, [getattr(self.mod[mod], attr).columns for mod in self.mod]
                 )
-                data_global = data_global.loc[:, [c not in columns_common for c in data_global.columns]]
+                data_global = data_global.loc[
+                    :, [c not in columns_common for c in data_global.columns]
+                ]
 
                 # We checked above that attr_names are guaranteed to be unique and thus are safe to be used for joins
                 data_mod = pd.concat(
                     [getattr(a, attr).drop(columns_common, axis=1) for m, a in self.mod.items()],
                     join="outer",
                     axis=axis,
-                    sort = False,
+                    sort=False,
                 )
                 data_common = pd.concat(
                     [getattr(a, attr)[columns_common] for m, a in self.mod.items()],
@@ -455,18 +461,20 @@ class MuData:
                     sort=False,
                 )
                 data_mod = data_mod.join(data_common, how="left", sort=False)
-            else: 
+            else:
                 data_mod = pd.concat(
                     [getattr(a, attr) for m, a in self.mod.items()],
                     join="outer",
                     axis=axis,
-                    sort = False,
+                    sort=False,
                 )
 
             # this occurs when join_common=True and we already have a global data frame, e.g. after reading from HDF5
             if join_common:
                 sharedcols = data_mod.columns.intersection(data_global.columns)
-                data_global.rename(columns={col: f"global:{col}" for col in sharedcols}, inplace=True)
+                data_global.rename(
+                    columns={col: f"global:{col}" for col in sharedcols}, inplace=True
+                )
 
             # TODO: is using an attrmap here has any benefit when no duplicates or intersections?
 
@@ -485,7 +493,7 @@ class MuData:
                             f"Column {col} was present in {attr} but is also a common column in all modalities, and their contents differ. {attr}.{col} was renamed to {attr}.{gcol}."
                         )
 
-            # Add data from global .obs/.var columns 
+            # Add data from global .obs/.var columns
             # This might reduce the size of .obs/.var if observations/variables were removed
             setattr(
                 # Original index is present in data_global
@@ -501,7 +509,7 @@ class MuData:
             for m in self.mod.keys():
                 mdict[m] = np.zeros(data_mod.shape[0])
                 mod_size = getattr(self.mod[m], attr).shape[0]
-                mdict[m][incr:(incr+mod_size)] = np.arange(mod_size) + 1
+                mdict[m][incr : (incr + mod_size)] = np.arange(mod_size) + 1
                 incr += mod_size
 
         #
@@ -513,7 +521,9 @@ class MuData:
                 columns_common = reduce(
                     np.intersect1d, [getattr(self.mod[mod], attr).columns for mod in self.mod]
                 )
-                data_global = data_global.loc[:, [c not in columns_common for c in data_global.columns]]
+                data_global = data_global.loc[
+                    :, [c not in columns_common for c in data_global.columns]
+                ]
                 dfs = [
                     _make_index_unique(
                         getattr(a, attr)
@@ -533,7 +543,10 @@ class MuData:
                 )
 
                 data_common = pd.concat(
-                    [_make_index_unique(getattr(a, attr)[columns_common]) for m, a in self.mod.items()],
+                    [
+                        _make_index_unique(getattr(a, attr)[columns_common])
+                        for m, a in self.mod.items()
+                    ],
                     join="outer",
                     axis=0,
                     sort=False,
@@ -576,7 +589,9 @@ class MuData:
             # this occurs when join_common=True and we already have a global data frame, e.g. after reading from HDF5
             if join_common:
                 sharedcols = data_mod.columns.intersection(data_global.columns)
-                data_global.rename(columns={col: f"global:{col}" for col in sharedcols}, inplace=True)
+                data_global.rename(
+                    columns={col: f"global:{col}" for col in sharedcols}, inplace=True
+                )
 
             data_mod = _restore_index(data_mod)
             data_mod.index.set_names(rowcol, inplace=True)
