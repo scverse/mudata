@@ -75,7 +75,7 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
         write_attribute(group, "uns", adata.uns, dataset_kwargs=kwargs)
 
         attrs = group.attrs
-        attrs["encoding-type"] = "AnnData"
+        attrs["encoding-type"] = "anndata"
         attrs["encoding-version"] = __anndataversion__
         attrs["encoder"] = "mudata"
         attrs["encoder-version"] = __version__
@@ -167,7 +167,7 @@ def write_zarr(
             write_attribute(group, "uns", adata.uns, dataset_kwargs=kwargs)
 
             attrs = group.attrs
-            attrs["encoding-type"] = "AnnData"
+            attrs["encoding-type"] = "anndata"
             attrs["encoding-version"] = __anndataversion__
             attrs["encoder"] = "mudata"
             attrs["encoder-version"] = __version__
@@ -259,7 +259,7 @@ def write_h5ad(filename: PathLike, mod: str, data: Union[MuData, AnnData]):
         write_attribute(fmd, "uns", adata.uns)
 
         attrs = fmd.attrs
-        attrs["encoding-type"] = "AnnData"
+        attrs["encoding-type"] = "anndata"
         attrs["encoding-version"] = __anndataversion__
         attrs["encoder"] = "muon"
         attrs["encoder-version"] = __version__
