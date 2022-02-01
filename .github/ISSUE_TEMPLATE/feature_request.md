@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an idea for muon
+about: Suggest an idea for mudata
 title: ''
 labels: enhancement
 assignees: ''
