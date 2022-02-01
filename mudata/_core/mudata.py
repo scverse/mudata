@@ -275,11 +275,25 @@ class MuData:
                             warnings.warn(
                                 f"Duplicated {attr}_names should not be present in different modalities due to the ambiguity that leads to."
                             )
-        return
+            return True
+        return False
 
     def _check_duplicated_names(self):
         self._check_duplicated_attr_names("obs")
         self._check_duplicated_attr_names("var")
+
+    def _check_intersecting_attr_names(self, attr: str):
+        for i, mod_i in enumerate(self.mod):
+            for j, mod_j in enumerate(self.mod):
+                if j <= i:
+                    continue
+                mod_i_attr_index = getattr(self.mod[mod_i], attr + "_names")
+                mod_j_attr_index = getattr(self.mod[mod_j], attr + "_names")
+                intersection = mod_i_attr_index.intersection(mod_j_attr_index, sort=False)
+                if intersection.shape[0] > 0:
+                    # Some of the elements are also in another index
+                    return True
+        return False
 
     def copy(self, filename: Optional[PathLike] = None) -> "MuData":
         if not self.isbacked:
@@ -349,31 +363,34 @@ class MuData:
 
     def _update_attr(self, attr: str, axis: int, join_common: bool = False):
         """
-        Update global observations/variables with observations/variables for each modality
+        Update global observations/variables with observations/variables for each modality.
+
+        The following considerations are taken into account and will influence the time it takes to .update():
+        - are there duplicated obs_names/var_names?
+        - have obs_names/var_names of modalities changed?
         """
+
         prev_index = getattr(self, attr).index
 
-        self._check_duplicated_names()
+        # No _mod_index when upon read
+        # No _mod_index in mudata < 0.1.2
+        attr_names_maybe_changed = True
+        if hasattr(self, "_mod_index"):
+            for m, mod in self.mod.items():
+                if m in self._mod_index:
+                    if attr in self._mod_index[m]:
+                        attr_names_maybe_changed = attr_names_maybe_changed or not getattr(self.mod[m], attr).index.equals(self._mod_index[m][attr])
+
+        attr_duplicated = self._check_duplicated_attr_names(attr)
+        attr_intersecting = self._check_intersecting_attr_names(attr)
+
+        if attr_duplicated:
+            warnings.warn(f"{attr}_names are not unique. To make them unique, call `.{attr}_names_make_unique`.")
 
         # Check if the are same obs_names/var_names in different modalities
         # If there are, join_common=True request can not be satisfied
-        if any(
-            list(
-                map(
-                    lambda x: len(np.intersect1d(*x)) > 0,
-                    [
-                        (
-                            getattr(self.mod[mod_i], attr + "_names").values,
-                            getattr(self.mod[mod_j], attr + "_names").values,
-                        )
-                        for i, mod_i in enumerate(self.mod)
-                        for j, mod_j in enumerate(self.mod)
-                        if j > i
-                    ],
-                )
-            )
-        ):
-            if join_common:
+        if join_common:
+            if attr_intersecting:
                 warnings.warn(
                     f"Cannot join columns with the same name because {attr}_names are intersecting."
                 )
@@ -404,137 +421,218 @@ class MuData:
         # Keep data from global .obs/.var columns
         data_global = getattr(self, attr).loc[:, columns_global]
 
-        # Join modality .obs/.var tables
+        # Generate unique colnames
         (rowcol,) = self._find_unique_colnames(attr, 1)
+
         attrm = getattr(self, attr + "m")
         attrp = getattr(self, attr + "p")
         attrmap = getattr(self, attr + "map")
 
-        if join_common:
-            # If all modalities have a column with the same name, it is not global
-            columns_common = reduce(
-                np.intersect1d, [getattr(self.mod[mod], attr).columns for mod in self.mod]
-            )
-            data_global = data_global.loc[:, [c not in columns_common for c in data_global.columns]]
-            dfs = [
-                _make_index_unique(
-                    getattr(a, attr)
-                    .drop(columns_common, axis=1)
-                    .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                    .add_prefix(m + ":")
+        #
+        # Join modality .obs/.var tables
+        #
+        # Main case: no duplicates and no intersection
+        #
+        if not attr_intersecting and not attr_duplicated:
+            if join_common:
+                # If all modalities have a column with the same name, it is not global
+                columns_common = reduce(
+                    np.intersect1d, [getattr(self.mod[mod], attr).columns for mod in self.mod]
                 )
-                for m, a in self.mod.items()
-            ]
+                data_global = data_global.loc[:, [c not in columns_common for c in data_global.columns]]
 
-            # Here, attr_names are guaranteed to be unique and are safe to be used for joins
-            data_mod = pd.concat(
-                dfs,
-                join="outer",
-                axis=axis,
-                sort=False,
+                # We checked above that attr_names are guaranteed to be unique and thus are safe to be used for joins
+                data_mod = pd.concat(
+                    [getattr(a, attr).drop(columns_common, axis=1) for m, a in self.mod.items()],
+                    join="outer",
+                    axis=axis,
+                    sort = False,
+                )
+                data_common = pd.concat(
+                    [getattr(a, attr)[columns_common] for m, a in self.mod.items()],
+                    join="outer",
+                    axis=0,
+                    sort=False,
+                )
+                data_mod = data_mod.join(data_common, how="left", sort=False)
+            else: 
+                data_mod = pd.concat(
+                    [getattr(a, attr) for m, a in self.mod.items()],
+                    join="outer",
+                    axis=axis,
+                    sort = False,
+                )
+
+            # this occurs when join_common=True and we already have a global data frame, e.g. after reading from HDF5
+            if join_common:
+                sharedcols = data_mod.columns.intersection(data_global.columns)
+                data_global.rename(columns={col: f"global:{col}" for col in sharedcols}, inplace=True)
+
+            # TODO: is using an attrmap here has any benefit when no duplicates or intersections?
+
+            if len(data_global) > 0:
+                data_mod = data_mod.join(data_global, how="left", sort=False)
+            data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
+            data_mod.index.set_names(None, inplace=True)
+
+            if join_common:
+                for col in sharedcols:
+                    gcol = f"global:{col}"
+                    if np.array_equal(data_mod[col], data_mod[gcol]):
+                        data_mod.drop(columns=gcol, inplace=True)
+                    else:
+                        warnings.warn(
+                            f"Column {col} was present in {attr} but is also a common column in all modalities, and their contents differ. {attr}.{col} was renamed to {attr}.{gcol}."
+                        )
+
+            # Add data from global .obs/.var columns 
+            # This might reduce the size of .obs/.var if observations/variables were removed
+            setattr(
+                # Original index is present in data_global
+                self,
+                "_" + attr,
+                data_mod,
             )
 
-            data_common = pd.concat(
-                [_make_index_unique(getattr(a, attr)[columns_common]) for m, a in self.mod.items()],
-                join="outer",
-                axis=0,
-                sort=False,
-            )
-            data_mod = data_mod.join(data_common, how="left", sort=False)
+            # Make simple attrmaps with anndata positions
+            # TODO: any edgecases?
+            mdict = dict()
+            incr = 0
+            for m in self.mod.keys():
+                mdict[m] = np.zeros(data_mod.shape[0])
+                mod_size = getattr(self.mod[m], attr).shape[0]
+                mdict[m][incr:(incr+mod_size)] = np.arange(mod_size) + 1
+                incr += mod_size
+
+        #
+        # General case: with duplicates and/or intersections
+        #
         else:
-            dfs = [
-                _make_index_unique(
-                    getattr(a, attr)
-                    .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                    .add_prefix(m + ":")
+            if join_common:
+                # If all modalities have a column with the same name, it is not global
+                columns_common = reduce(
+                    np.intersect1d, [getattr(self.mod[mod], attr).columns for mod in self.mod]
                 )
-                for m, a in self.mod.items()
-            ]
-            data_mod = pd.concat(
-                dfs,
-                join="outer",
-                axis=axis,
-                sort=False,
-            )
-
-        # pd.concat wrecks the ordering when doing an outer join with a MultiIndex and different data frame shapes
-        if axis == 1:
-            newidx = (
-                reduce(lambda x, y: x.union(y, sort=False), (df.index for df in dfs))
-                .to_frame()
-                .reset_index(level=1, drop=True)
-            )
-            globalidx = data_global.index.get_level_values(0)
-            mask = globalidx.isin(newidx.iloc[:, 0])
-            if len(mask) > 0:
-                negativemask = ~newidx.index.get_level_values(0).isin(globalidx)
-                newidx = pd.MultiIndex.from_frame(
-                    pd.concat(
-                        [newidx.loc[globalidx[mask], :], newidx.iloc[negativemask, :]], axis=0
+                data_global = data_global.loc[:, [c not in columns_common for c in data_global.columns]]
+                dfs = [
+                    _make_index_unique(
+                        getattr(a, attr)
+                        .drop(columns_common, axis=1)
+                        .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                        .add_prefix(m + ":")
                     )
+                    for m, a in self.mod.items()
+                ]
+
+                # Here, attr_names are guaranteed to be unique and are safe to be used for joins
+                data_mod = pd.concat(
+                    dfs,
+                    join="outer",
+                    axis=axis,
+                    sort=False,
                 )
-            data_mod = data_mod.reindex(newidx, copy=False)
 
-        # this occurs when join_common=True and we already have a global data frame, e.g. after reading from HDF5
-        if join_common:
-            sharedcols = data_mod.columns.intersection(data_global.columns)
-            data_global.rename(columns={col: f"global:{col}" for col in sharedcols}, inplace=True)
-
-        data_mod = _restore_index(data_mod)
-        data_mod.index.set_names(rowcol, inplace=True)
-        data_global.index.set_names(rowcol, inplace=True)
-        for mod, amod in self.mod.items():
-            colname = mod + ":" + rowcol
-            # use 0 as special value for missing
-            # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
-            # also, this is compatible to Muon.jl
-            col = data_mod.loc[:, colname] + 1
-            col.replace(np.NaN, 0, inplace=True)
-            col = col.astype(np.uint32)
-            data_mod.loc[:, colname] = col
-            data_mod.set_index(colname, append=True, inplace=True)
-            if mod in attrmap and np.sum(attrmap[mod] > 0) == getattr(amod, attr).shape[0]:
-                data_global.set_index(attrmap[mod], append=True, inplace=True)
-                data_global.index.set_names(colname, level=-1, inplace=True)
-
-        if len(data_global) > 0:
-            if not data_global.index.is_unique:
-                warnings.warn(
-                    f"{attr}_names is not unique, global {attr} is present, and {attr}map is empty. The update() is not well-defined, verify if global {attr} map to the correct modality-specific {attr}."
+                data_common = pd.concat(
+                    [_make_index_unique(getattr(a, attr)[columns_common]) for m, a in self.mod.items()],
+                    join="outer",
+                    axis=0,
+                    sort=False,
                 )
-                data_mod.reset_index(
-                    data_mod.index.names.difference(data_global.index.names), inplace=True
+                data_mod = data_mod.join(data_common, how="left", sort=False)
+            else:
+                dfs = [
+                    _make_index_unique(
+                        getattr(a, attr)
+                        .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                        .add_prefix(m + ":")
+                    )
+                    for m, a in self.mod.items()
+                ]
+                data_mod = pd.concat(
+                    dfs,
+                    join="outer",
+                    axis=axis,
+                    sort=False,
                 )
-                data_mod = _make_index_unique(data_mod)
-                data_global = _make_index_unique(data_global)
-            data_mod = data_mod.join(data_global, how="left", sort=False)
-        data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
-        data_mod.index.set_names(None, inplace=True)
 
-        if join_common:
-            for col in sharedcols:
-                gcol = f"global:{col}"
-                if np.array_equal(data_mod[col], data_mod[gcol]):
-                    data_mod.drop(columns=gcol, inplace=True)
-                else:
+            # pd.concat wrecks the ordering when doing an outer join with a MultiIndex and different data frame shapes
+            if axis == 1:
+                newidx = (
+                    reduce(lambda x, y: x.union(y, sort=False), (df.index for df in dfs))
+                    .to_frame()
+                    .reset_index(level=1, drop=True)
+                )
+                globalidx = data_global.index.get_level_values(0)
+                mask = globalidx.isin(newidx.iloc[:, 0])
+                if len(mask) > 0:
+                    negativemask = ~newidx.index.get_level_values(0).isin(globalidx)
+                    newidx = pd.MultiIndex.from_frame(
+                        pd.concat(
+                            [newidx.loc[globalidx[mask], :], newidx.iloc[negativemask, :]], axis=0
+                        )
+                    )
+                data_mod = data_mod.reindex(newidx, copy=False)
+
+            # this occurs when join_common=True and we already have a global data frame, e.g. after reading from HDF5
+            if join_common:
+                sharedcols = data_mod.columns.intersection(data_global.columns)
+                data_global.rename(columns={col: f"global:{col}" for col in sharedcols}, inplace=True)
+
+            data_mod = _restore_index(data_mod)
+            data_mod.index.set_names(rowcol, inplace=True)
+            data_global.index.set_names(rowcol, inplace=True)
+            for mod, amod in self.mod.items():
+                colname = mod + ":" + rowcol
+                # use 0 as special value for missing
+                # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
+                # also, this is compatible to Muon.jl
+                col = data_mod.loc[:, colname] + 1
+                col.replace(np.NaN, 0, inplace=True)
+                col = col.astype(np.uint32)
+                data_mod.loc[:, colname] = col
+                data_mod.set_index(colname, append=True, inplace=True)
+                if mod in attrmap and np.sum(attrmap[mod] > 0) == getattr(amod, attr).shape[0]:
+                    data_global.set_index(attrmap[mod], append=True, inplace=True)
+                    data_global.index.set_names(colname, level=-1, inplace=True)
+
+            if len(data_global) > 0:
+                if not data_global.index.is_unique:
                     warnings.warn(
-                        f"Column {col} was present in {attr} but is also a common column in all modalities, and their contents differ. {attr}.{col} was renamed to {attr}.{gcol}."
+                        f"{attr}_names is not unique, global {attr} is present, and {attr}map is empty. The update() is not well-defined, verify if global {attr} map to the correct modality-specific {attr}."
                     )
+                    data_mod.reset_index(
+                        data_mod.index.names.difference(data_global.index.names), inplace=True
+                    )
+                    data_mod = _make_index_unique(data_mod)
+                    data_global = _make_index_unique(data_global)
+                data_mod = data_mod.join(data_global, how="left", sort=False)
+            data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
+            data_mod.index.set_names(None, inplace=True)
 
-        # get adata positions and remove columns from the data frame
-        mdict = dict()
-        for m in self.mod.keys():
-            colname = m + ":" + rowcol
-            mdict[m] = data_mod[colname].to_numpy()
-            data_mod.drop(colname, axis=1, inplace=True)
+            if join_common:
+                for col in sharedcols:
+                    gcol = f"global:{col}"
+                    if np.array_equal(data_mod[col], data_mod[gcol]):
+                        data_mod.drop(columns=gcol, inplace=True)
+                    else:
+                        warnings.warn(
+                            f"Column {col} was present in {attr} but is also a common column in all modalities, and their contents differ. {attr}.{col} was renamed to {attr}.{gcol}."
+                        )
 
-        # Add data from global .obs/.var columns # This might reduce the size of .obs/.var if observations/variables were removed
-        setattr(
-            # Original index is present in data_global
-            self,
-            "_" + attr,
-            data_mod,
-        )
+            # get adata positions and remove columns from the data frame
+            mdict = dict()
+            for m in self.mod.keys():
+                colname = m + ":" + rowcol
+                mdict[m] = data_mod[colname].to_numpy()
+                data_mod.drop(colname, axis=1, inplace=True)
+
+            # Add data from global .obs/.var columns # This might reduce the size of .obs/.var if observations/variables were removed
+            setattr(
+                # Original index is present in data_global
+                self,
+                "_" + attr,
+                data_mod,
+            )
 
         # Update .obsm/.varm
         # this needs to be after setting _obs/_var due to dimension checking in the aligned mapping
@@ -554,6 +652,14 @@ class MuData:
             for mx_key, mx in attrp.items():
                 if mx_key not in self.mod.keys():  # not a modality name
                     attrp[mx_key] = attrp[mx_key][keep_index, keep_index]
+
+            # Write ._mod_index
+            # if attr_names_maybe_changed:
+            #     for m, mod in self.mod.items():
+            #         if not hasattr(self, "_mod_index"):
+            #             self._mod_index = dict()
+            #         self._mod_index[m] = self._mod_index.get(m, {})
+            #         self._mod_index[m][attr] = getattr(mod, attr).index
 
     def _shrink_attr(self, attr: str, inplace=True) -> pd.DataFrame:
         """
