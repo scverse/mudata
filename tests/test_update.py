@@ -49,12 +49,12 @@ class TestMuData:
         mdata = MuData(modalities)
         mdata.update()
 
-        # Observations are the same across modalities
-        # hence /mod/mod1/obs/mod -> /obs/mod1:mod
-        assert f"{m}:mod" in mdata.obs.columns
         # Variables are different across modalities
         assert "mod" in mdata.var.columns
         for m, mod in modalities.items():
+            # Observations are the same across modalities
+            # hence /mod/mod1/obs/mod -> /obs/mod1:mod
+            assert f"{m}:mod" in mdata.obs.columns
             # Columns are intact in individual modalities
             assert "mod" in mod.obs.columns
             assert "mod" in mod.var.columns
@@ -71,12 +71,12 @@ class TestMuData:
         mdata = MuData(modalities)
         mdata.update()
 
-        # Observations are the same across modalities
-        # hence /mod/mod1/obs/mod -> /obs/mod1:mod
-        assert f"{m}:mod" in mdata.obs.columns
         # Variables are different across modalities
         assert "mod" in mdata.var.columns
         for m, mod in modalities.items():
+            # Observations are the same across modalities
+            # hence /mod/mod1/obs/mod -> /obs/mod1:mod
+            assert f"{m}:mod" in mdata.obs.columns
             # Columns are intact in individual modalities
             assert "mod" in mod.obs.columns
             assert "mod" in mod.var.columns
@@ -94,10 +94,10 @@ class TestMuData:
         mdata = MuData(modalities)
         mdata.update()
 
-        # Observations are the same across modalities
-        # hence /mod/mod1/obs/mod -> /obs/mod1:mod
-        assert f"{m}:mod" in mdata.obs.columns
         for m, mod in modalities.items():
+            # Observations are the same across modalities
+            # hence /mod/mod1/obs/mod -> /obs/mod1:mod
+            assert f"{m}:mod" in mdata.obs.columns
             # Variables are intersecting
             # so they won't be merged
             assert f"{m}:mod" in mdata.var.columns
