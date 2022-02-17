@@ -659,6 +659,41 @@ class MuData:
         """
         self._update_attr("obs", axis=1)
 
+    def obs_names_make_unique(self):
+        """
+        Call .obs_names_make_unique() method on each AnnData object.
+
+        If there are obs_names, which are the same for multiple modalities,
+        append modality name to all obs_names.
+        """
+        mod_obs_sum = np.sum([a.n_obs for a in self.mod.values()])
+        if mod_obs_sum != self.n_obs:
+            self.update_obs()
+
+        for k in self.mod:
+            self.mod[k].obs_names_make_unique()
+
+        # Check if there are observations with the same name in different modalities
+        common_obs = []
+        mods = list(self.mod.keys())
+        for i in range(len(self.mod) - 1):
+            ki = mods[i]
+            for j in range(i + 1, len(self.mod)):
+                kj = mods[j]
+                common_obs.append(
+                    self.mod[ki].obs_names.intersection(self.mod[kj].obs_names.values)
+                )
+        if any(map(lambda x: len(x) > 0, common_obs)):
+            warnings.warn(
+                "Modality names will be prepended to obs_names since there are identical obs_names in different modalities."
+            )
+            for k in self.mod:
+                self.mod[k].obs_names = k + ":" + self.mod[k].obs_names.astype(str)
+
+        # Update .obs.index in the MuData
+        obs_names = [obs for a in self.mod.values() for obs in a.obs_names.values]
+        self._obs.index = obs_names
+
     @property
     def obs_names(self) -> pd.Index:
         """
