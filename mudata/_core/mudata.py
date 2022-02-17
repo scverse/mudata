@@ -3,7 +3,7 @@ from numbers import Integral
 from collections import abc
 from collections.abc import MutableMapping
 from functools import reduce
-from itertools import chain
+from itertools import chain, combinations
 import warnings
 from copy import deepcopy
 from pathlib import Path
@@ -283,16 +283,13 @@ class MuData:
         self._check_duplicated_attr_names("var")
 
     def _check_intersecting_attr_names(self, attr: str):
-        for i, mod_i in enumerate(self.mod):
-            for j, mod_j in enumerate(self.mod):
-                if j <= i:
-                    continue
-                mod_i_attr_index = getattr(self.mod[mod_i], attr + "_names")
-                mod_j_attr_index = getattr(self.mod[mod_j], attr + "_names")
-                intersection = mod_i_attr_index.intersection(mod_j_attr_index, sort=False)
-                if intersection.shape[0] > 0:
-                    # Some of the elements are also in another index
-                    return True
+        for mod_i, mod_j in combinations(self.mod, 2):
+            mod_i_attr_index = getattr(self.mod[mod_i], attr + "_names")
+            mod_j_attr_index = getattr(self.mod[mod_j], attr + "_names")
+            intersection = mod_i_attr_index.intersection(mod_j_attr_index, sort=False)
+            if intersection.shape[0] > 0:
+                # Some of the elements are also in another index
+                return True
         return False
 
     def copy(self, filename: Optional[PathLike] = None) -> "MuData":
@@ -367,21 +364,30 @@ class MuData:
 
         The following considerations are taken into account and will influence the time it takes to .update():
         - are there duplicated obs_names/var_names?
+        - are there intersecting obs_names/var_names between modalities?
         - have obs_names/var_names of modalities changed?
         """
 
         prev_index = getattr(self, attr).index
 
-        # No _mod_index when upon read
-        # No _mod_index in mudata < 0.1.2
-        attr_names_maybe_changed = True
-        if hasattr(self, "_mod_index"):
-            for m, mod in self.mod.items():
-                if m in self._mod_index:
-                    if attr in self._mod_index[m]:
-                        attr_names_maybe_changed = attr_names_maybe_changed or not getattr(
-                            self.mod[m], attr
-                        ).index.equals(self._mod_index[m][attr])
+        # # No _mod_index when upon read
+        # # No _mod_index in mudata < 0.1.2
+        # attr_names_maybe_changed = False
+        # if not hasattr(self, "_mod_index"):
+        #     attr_names_maybe_changed = True
+        # else:
+        #     for m, mod in self.mod.items():
+        #         if m in self._mod_index:
+        #             if attr in self._mod_index[m]:
+        #                 if not getattr(self.mod[m], attr).index.equals(self._mod_index[m][attr]):
+        #                     attr_names_maybe_changed = True
+        #                     break
+        #             else:
+        #                 attr_names_maybe_changed = True
+        #                 break
+        #         else:
+        #             attr_names_maybe_changed = True
+        #             break
 
         attr_duplicated = self._check_duplicated_attr_names(attr)
         attr_intersecting = self._check_intersecting_attr_names(attr)
@@ -432,6 +438,14 @@ class MuData:
         attrp = getattr(self, attr + "p")
         attrmap = getattr(self, attr + "map")
 
+        if join_common:
+            # If all modalities have a column with the same name, it is not global
+            columns_common = reduce(
+                lambda a, b: a.intersection(b),
+                [getattr(self.mod[mod], attr).columns for mod in self.mod],
+            )
+            data_global = data_global.loc[:, [c not in columns_common for c in data_global.columns]]
+
         #
         # Join modality .obs/.var tables
         #
@@ -439,17 +453,15 @@ class MuData:
         #
         if not attr_intersecting and not attr_duplicated:
             if join_common:
-                # If all modalities have a column with the same name, it is not global
-                columns_common = reduce(
-                    np.intersect1d, [getattr(self.mod[mod], attr).columns for mod in self.mod]
-                )
-                data_global = data_global.loc[
-                    :, [c not in columns_common for c in data_global.columns]
-                ]
-
                 # We checked above that attr_names are guaranteed to be unique and thus are safe to be used for joins
                 data_mod = pd.concat(
-                    [getattr(a, attr).drop(columns_common, axis=1) for m, a in self.mod.items()],
+                    [
+                        getattr(a, attr)
+                        .drop(columns_common, axis=1)
+                        .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                        .add_prefix(m + ":")
+                        for m, a in self.mod.items()
+                    ],
                     join="outer",
                     axis=axis,
                     sort=False,
@@ -463,7 +475,12 @@ class MuData:
                 data_mod = data_mod.join(data_common, how="left", sort=False)
             else:
                 data_mod = pd.concat(
-                    [getattr(a, attr) for m, a in self.mod.items()],
+                    [
+                        getattr(a, attr)
+                        .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                        .add_prefix(m + ":")
+                        for m, a in self.mod.items()
+                    ],
                     join="outer",
                     axis=axis,
                     sort=False,
@@ -476,54 +493,34 @@ class MuData:
                     columns={col: f"global:{col}" for col in sharedcols}, inplace=True
                 )
 
-            # TODO: is using an attrmap here has any benefit when no duplicates or intersections?
+            for mod, amod in self.mod.items():
+                colname = mod + ":" + rowcol
+                # use 0 as special value for missing
+                # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
+                # also, this is compatible to Muon.jl
+                col = data_mod.loc[:, colname] + 1
+                col.replace(np.NaN, 0, inplace=True)
+                col = col.astype(np.uint32)
+                data_mod.loc[:, colname] = col
 
             if len(data_global) > 0:
                 data_mod = data_mod.join(data_global, how="left", sort=False)
-            data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
-            data_mod.index.set_names(None, inplace=True)
 
             if join_common:
                 for col in sharedcols:
                     gcol = f"global:{col}"
-                    if np.array_equal(data_mod[col], data_mod[gcol]):
+                    if data_mod[col].equals(data_mod[gcol]):
                         data_mod.drop(columns=gcol, inplace=True)
                     else:
                         warnings.warn(
                             f"Column {col} was present in {attr} but is also a common column in all modalities, and their contents differ. {attr}.{col} was renamed to {attr}.{gcol}."
                         )
 
-            # Add data from global .obs/.var columns
-            # This might reduce the size of .obs/.var if observations/variables were removed
-            setattr(
-                # Original index is present in data_global
-                self,
-                "_" + attr,
-                data_mod,
-            )
-
-            # Make simple attrmaps with anndata positions
-            # TODO: any edgecases?
-            mdict = dict()
-            incr = 0
-            for m in self.mod.keys():
-                mdict[m] = np.zeros(data_mod.shape[0])
-                mod_size = getattr(self.mod[m], attr).shape[0]
-                mdict[m][incr : (incr + mod_size)] = np.arange(mod_size) + 1
-                incr += mod_size
-
         #
         # General case: with duplicates and/or intersections
         #
         else:
             if join_common:
-                # If all modalities have a column with the same name, it is not global
-                columns_common = reduce(
-                    np.intersect1d, [getattr(self.mod[mod], attr).columns for mod in self.mod]
-                )
-                data_global = data_global.loc[
-                    :, [c not in columns_common for c in data_global.columns]
-                ]
                 dfs = [
                     _make_index_unique(
                         getattr(a, attr)
@@ -627,27 +624,27 @@ class MuData:
             if join_common:
                 for col in sharedcols:
                     gcol = f"global:{col}"
-                    if np.array_equal(data_mod[col], data_mod[gcol]):
+                    if data_mod[col].equals(data_mod[gcol]):
                         data_mod.drop(columns=gcol, inplace=True)
                     else:
                         warnings.warn(
                             f"Column {col} was present in {attr} but is also a common column in all modalities, and their contents differ. {attr}.{col} was renamed to {attr}.{gcol}."
                         )
 
-            # get adata positions and remove columns from the data frame
-            mdict = dict()
-            for m in self.mod.keys():
-                colname = m + ":" + rowcol
-                mdict[m] = data_mod[colname].to_numpy()
-                data_mod.drop(colname, axis=1, inplace=True)
+        # get adata positions and remove columns from the data frame
+        mdict = dict()
+        for m in self.mod.keys():
+            colname = m + ":" + rowcol
+            mdict[m] = data_mod[colname].to_numpy()
+            data_mod.drop(colname, axis=1, inplace=True)
 
-            # Add data from global .obs/.var columns # This might reduce the size of .obs/.var if observations/variables were removed
-            setattr(
-                # Original index is present in data_global
-                self,
-                "_" + attr,
-                data_mod,
-            )
+        # Add data from global .obs/.var columns # This might reduce the size of .obs/.var if observations/variables were removed
+        setattr(
+            # Original index is present in data_global
+            self,
+            "_" + attr,
+            data_mod,
+        )
 
         # Update .obsm/.varm
         # this needs to be after setting _obs/_var due to dimension checking in the aligned mapping
@@ -668,13 +665,13 @@ class MuData:
                 if mx_key not in self.mod.keys():  # not a modality name
                     attrp[mx_key] = attrp[mx_key][keep_index, keep_index]
 
-            # Write ._mod_index
-            # if attr_names_maybe_changed:
-            #     for m, mod in self.mod.items():
-            #         if not hasattr(self, "_mod_index"):
-            #             self._mod_index = dict()
-            #         self._mod_index[m] = self._mod_index.get(m, {})
-            #         self._mod_index[m][attr] = getattr(mod, attr).index
+        # # Write ._mod_index
+        # if attr_names_maybe_changed:
+        #     for m, mod in self.mod.items():
+        #         if not hasattr(self, "_mod_index"):
+        #             self._mod_index = dict()
+        #         self._mod_index[m] = self._mod_index.get(m, {})
+        #         self._mod_index[m][attr] = getattr(mod, attr).index
 
     def _shrink_attr(self, attr: str, inplace=True) -> pd.DataFrame:
         """
