@@ -506,16 +506,6 @@ class MuData:
             if len(data_global) > 0:
                 data_mod = data_mod.join(data_global, how="left", sort=False)
 
-            if join_common:
-                for col in sharedcols:
-                    gcol = f"global:{col}"
-                    if data_mod[col].equals(data_mod[gcol]):
-                        data_mod.drop(columns=gcol, inplace=True)
-                    else:
-                        warnings.warn(
-                            f"Column {col} was present in {attr} but is also a common column in all modalities, and their contents differ. {attr}.{col} was renamed to {attr}.{gcol}."
-                        )
-
         #
         # General case: with duplicates and/or intersections
         #
@@ -621,15 +611,15 @@ class MuData:
             data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
             data_mod.index.set_names(None, inplace=True)
 
-            if join_common:
-                for col in sharedcols:
-                    gcol = f"global:{col}"
-                    if data_mod[col].equals(data_mod[gcol]):
-                        data_mod.drop(columns=gcol, inplace=True)
-                    else:
-                        warnings.warn(
-                            f"Column {col} was present in {attr} but is also a common column in all modalities, and their contents differ. {attr}.{col} was renamed to {attr}.{gcol}."
-                        )
+        if join_common:
+            for col in sharedcols:
+                gcol = f"global:{col}"
+                if data_mod[col].equals(data_mod[gcol]):
+                    data_mod.drop(columns=gcol, inplace=True)
+                else:
+                    warnings.warn(
+                        f"Column {col} was present in {attr} but is also a common column in all modalities, and their contents differ. {attr}.{col} was renamed to {attr}.{gcol}."
+                    )
 
         # get adata positions and remove columns from the data frame
         mdict = dict()
