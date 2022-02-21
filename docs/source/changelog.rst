@@ -12,7 +12,9 @@ Release notes
 v0.1.2
 ------
 
-There's `a new page describing the sharp bits <nuances.rst>`__.
+Updating a MuData object with :func:`mudata.MuData.update` is now much faster.
+
+This version also comes with an improved documentation, including `a new page describing the sharp bits <notebooks/nuances.ipynb>`__.
 
 v0.1.1
 ------
