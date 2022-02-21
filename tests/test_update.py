@@ -7,23 +7,48 @@ from mudata import MuData
 
 
 @pytest.fixture()
-def mdata():
+def mdata(request, obs_n, obs_across, obs_mod):
+    # Generate unique, intersecting, and joint observations by default
     np.random.seed(100)
     mod1 = AnnData(X=np.random.normal(size=1000).reshape(-1, 10))
     mod2 = AnnData(X=np.random.normal(size=1000).reshape(-1, 10))
-    batches = np.random.choice(["a", "b", "c"], size=100, replace=True)
+
     mods = {"mod1": mod1, "mod2": mod2}
     # Make var_names different in different modalities
     for m in ["mod1", "mod2"]:
+        mods[m].obs_names = [f"obs{i}" for i in range(mods[m].n_obs)]
         mods[m].var_names = [f"{m}_var{i}" for i in range(mods[m].n_vars)]
         mods[m].obs["min_count"] = mods[m].X.min(axis=1)
+
+    if obs_n:
+        if obs_n == "disjoint":
+            mod2_which_obs = np.random.choice(
+                mods["mod2"].obs_names, size=mods["mod2"].n_obs // 2, replace=False
+            )
+            mods["mod2"] = mods["mod2"][mod2_which_obs].copy()
+
+    if obs_across:
+        if obs_across != "intersecting":
+            raise NotImplementedError("Tests for non-intersecting obs_names are not implemented")
+
+    if obs_mod:
+        if obs_mod == "duplicated":
+            for m in ["mod1", "mod2"]:
+                # Index does not support mutable operations
+                obs_names = mods[m].obs_names.values.copy()
+                obs_names[1] = obs_names[0]
+                mods[m].obs_names = obs_names
+
     mdata = MuData(mods)
+
+    batches = np.random.choice(["a", "b", "c"], size=mdata.shape[0], replace=True)
     mdata.obs["batch"] = batches
+
     yield mdata
 
 
 @pytest.fixture()
-def modalities():
+def modalities(request, obs_n, obs_across, obs_mod):
     n_mod = 3
     mods = dict()
     np.random.seed(100)
@@ -33,11 +58,34 @@ def modalities():
         mods[m] = AnnData(X=np.random.normal(size=1000 * i1).reshape(-1, 10 * i1))
         mods[m].obs["mod"] = m
         mods[m].var["mod"] = m
+
+    if obs_n:
+        if obs_n == "disjoint":
+            mod2_which_obs = np.random.choice(
+                mods["mod2"].obs_names, size=mods["mod2"].n_obs // 2, replace=False
+            )
+            mods["mod2"] = mods["mod2"][mod2_which_obs].copy()
+
+    if obs_across:
+        if obs_across != "intersecting":
+            raise NotImplementedError("Tests for non-intersecting obs_names are not implemented")
+
+    if obs_mod:
+        if obs_mod == "duplicated":
+            for m in ["mod1", "mod2"]:
+                # Index does not support mutable operations
+                obs_names = mods[m].obs_names.values.copy()
+                obs_names[1] = obs_names[0]
+                mods[m].obs_names = obs_names
+
     return mods
 
 
 @pytest.mark.usefixtures("filepath_h5mu")
 class TestMuData:
+    @pytest.mark.parametrize("obs_mod", ["unique", "duplicated"])
+    @pytest.mark.parametrize("obs_across", ["intersecting"])
+    @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
     def test_update_simple(self, modalities):
         """
         Update should work when
@@ -57,8 +105,13 @@ class TestMuData:
             assert f"{m}:mod" in mdata.obs.columns
             # Columns are intact in individual modalities
             assert "mod" in mod.obs.columns
+            assert all(mod.obs["mod"] == m)
             assert "mod" in mod.var.columns
+            assert all(mod.var["mod"] == m)
 
+    @pytest.mark.parametrize("obs_mod", ["unique", "duplicated"])
+    @pytest.mark.parametrize("obs_across", ["intersecting"])
+    @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
     def test_update_duplicates(self, modalities):
         """
         Update should work when
@@ -79,8 +132,13 @@ class TestMuData:
             assert f"{m}:mod" in mdata.obs.columns
             # Columns are intact in individual modalities
             assert "mod" in mod.obs.columns
+            assert all(mod.obs["mod"] == m)
             assert "mod" in mod.var.columns
+            assert all(mod.var["mod"] == m)
 
+    @pytest.mark.parametrize("obs_mod", ["unique", "duplicated"])
+    @pytest.mark.parametrize("obs_across", ["intersecting"])
+    @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
     def test_update_intersecting(self, modalities):
         """
         Update should work when
@@ -103,8 +161,13 @@ class TestMuData:
             assert f"{m}:mod" in mdata.var.columns
             # Columns are intact in individual modalities
             assert "mod" in mod.obs.columns
+            assert all(mod.obs["mod"] == m)
             assert "mod" in mod.var.columns
+            assert all(mod.var["mod"] == m)
 
+    @pytest.mark.parametrize("obs_mod", ["unique", "duplicated"])
+    @pytest.mark.parametrize("obs_across", ["intersecting"])
+    @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
     def test_update_after_filter_obs_adata(self, mdata, filepath_h5mu):
         """
         Check for muon issue #44.
