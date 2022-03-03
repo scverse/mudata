@@ -643,9 +643,14 @@ class MuData:
         for mod, mapping in mdict.items():
             attrm[mod] = mapping > 0
 
-        keep_index = prev_index.isin(getattr(self, attr).index)
+        now_index = getattr(self, attr).index
+        keep_index = prev_index.isin(now_index)
+        new_index = now_index.isin(prev_index)
 
-        if keep_index.sum() != len(prev_index):
+        if len(prev_index) == 0:
+            # New object
+            pass
+        elif keep_index.sum() != len(prev_index) and new_index.sum() == 0:
             for mx_key, mx in attrm.items():
                 if mx_key not in self.mod.keys():  # not a modality name
                     attrm[mx_key] = attrm[mx_key][keep_index, :]
@@ -654,6 +659,21 @@ class MuData:
             for mx_key, mx in attrp.items():
                 if mx_key not in self.mod.keys():  # not a modality name
                     attrp[mx_key] = attrp[mx_key][keep_index, keep_index]
+        elif new_index.sum() != 0 and len(now_index) == len(prev_index):
+            for mx_key, mx in attrm.items():
+                if mx_key not in self.mod.keys():  # not a modality name
+                    attrm[mx_key] = attrm[mx_key][keep_index, :]
+
+            # Update .obsp/.varp (size might have changed)
+            for mx_key, mx in attrp.items():
+                if mx_key not in self.mod.keys():  # not a modality name
+                    attrp[mx_key] = attrp[mx_key][keep_index, keep_index]
+        else:
+            raise NotImplementedError(
+                f"{attr}_names seem to have been renamed and filtered at the same time. "
+                "There is no way to restore the order. MuData object has to be re-created from these modalities:\n"
+                "  mdata1 = MuData(mdata.mod)"
+            )
 
         # # Write ._mod_index
         # if attr_names_maybe_changed:
