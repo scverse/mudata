@@ -221,7 +221,7 @@ class MuData:
         self._obsmap = MuAxisArrays(self, 0, convert_to_dict(data.obsmap))
         self._varm = MuAxisArrays(self, 1, convert_to_dict(data.varm))
         self._varp = PairwiseArrays(self, 1, convert_to_dict(data.varp))
-        self._varmap = MuAxisArrays(self, 1, convert_to_dict(data.obsmap))
+        self._varmap = MuAxisArrays(self, 1, convert_to_dict(data.varmap))
         self.uns = data.uns
 
     @classmethod
