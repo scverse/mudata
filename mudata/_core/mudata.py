@@ -645,10 +645,13 @@ class MuData:
 
         now_index = getattr(self, attr).index
         keep_index = prev_index.isin(now_index)
-        new_index = now_index.isin(prev_index)
+        new_index = ~now_index.isin(prev_index)
 
         if len(prev_index) == 0:
             # New object
+            pass
+        elif now_index.equals(prev_index):
+            # Index is the same
             pass
         elif keep_index.sum() != len(prev_index) and new_index.sum() == 0:
             for mx_key, mx in attrm.items():

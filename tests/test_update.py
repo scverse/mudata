@@ -83,7 +83,7 @@ def modalities(request, obs_n, obs_across, obs_mod):
 
 @pytest.mark.usefixtures("filepath_h5mu")
 class TestMuData:
-    @pytest.mark.parametrize("obs_mod", ["unique", "duplicated"])
+    @pytest.mark.parametrize("obs_mod", ["unique"])
     @pytest.mark.parametrize("obs_across", ["intersecting"])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
     def test_update_simple(self, modalities):
@@ -109,7 +109,7 @@ class TestMuData:
             assert "mod" in mod.var.columns
             assert all(mod.var["mod"] == m)
 
-    @pytest.mark.parametrize("obs_mod", ["unique", "duplicated"])
+    @pytest.mark.parametrize("obs_mod", ["unique"])
     @pytest.mark.parametrize("obs_across", ["intersecting"])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
     def test_update_duplicates(self, modalities):
@@ -136,7 +136,7 @@ class TestMuData:
             assert "mod" in mod.var.columns
             assert all(mod.var["mod"] == m)
 
-    @pytest.mark.parametrize("obs_mod", ["unique", "duplicated"])
+    @pytest.mark.parametrize("obs_mod", ["unique"])
     @pytest.mark.parametrize("obs_across", ["intersecting"])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
     def test_update_intersecting(self, modalities):
@@ -165,7 +165,7 @@ class TestMuData:
             assert "mod" in mod.var.columns
             assert all(mod.var["mod"] == m)
 
-    @pytest.mark.parametrize("obs_mod", ["unique", "duplicated"])
+    @pytest.mark.parametrize("obs_mod", ["unique"])
     @pytest.mark.parametrize("obs_across", ["intersecting"])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
     def test_update_after_filter_obs_adata(self, mdata, filepath_h5mu):
