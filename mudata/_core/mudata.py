@@ -654,6 +654,7 @@ class MuData:
             # Index is the same
             pass
         elif keep_index.sum() != len(prev_index) and new_index.sum() == 0:
+            # FIXME
             for mx_key, mx in attrm.items():
                 if mx_key not in self.mod.keys():  # not a modality name
                     attrm[mx_key] = attrm[mx_key][keep_index, :]
@@ -662,15 +663,27 @@ class MuData:
             for mx_key, mx in attrp.items():
                 if mx_key not in self.mod.keys():  # not a modality name
                     attrp[mx_key] = attrp[mx_key][keep_index, keep_index]
-        elif new_index.sum() != 0 and len(now_index) == len(prev_index):
-            for mx_key, mx in attrm.items():
-                if mx_key not in self.mod.keys():  # not a modality name
-                    attrm[mx_key] = attrm[mx_key][keep_index, :]
+        elif len(now_index) == len(prev_index):
+            # FIXME
+            # Index items were reordered or renamed
+            if new_index.sum() == 0:  # reordered
+                for mx_key, mx in attrm.items():
+                    if mx_key not in self.mod.keys():  # not a modality name
+                        attrm[mx_key] = attrm[mx_key][keep_index, :]
 
-            # Update .obsp/.varp (size might have changed)
-            for mx_key, mx in attrp.items():
-                if mx_key not in self.mod.keys():  # not a modality name
-                    attrp[mx_key] = attrp[mx_key][keep_index, keep_index]
+                # Update .obsp/.varp (size might have changed)
+                for mx_key, mx in attrp.items():
+                    if mx_key not in self.mod.keys():  # not a modality name
+                        attrp[mx_key] = attrp[mx_key][keep_index, keep_index]
+            else:  # renamed
+                for mx_key, mx in attrm.items():
+                    if mx_key not in self.mod.keys():  # not a modality name
+                        attrm[mx_key] = attrm[mx_key][keep_index, :]
+
+                # Update .obsp/.varp (size might have changed)
+                for mx_key, mx in attrp.items():
+                    if mx_key not in self.mod.keys():  # not a modality name
+                        attrp[mx_key] = attrp[mx_key][keep_index, keep_index]
         else:
             raise NotImplementedError(
                 f"{attr}_names seem to have been renamed and filtered at the same time. "

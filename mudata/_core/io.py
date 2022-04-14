@@ -14,6 +14,8 @@ import numpy as np
 import h5py
 import anndata as ad
 from anndata import AnnData
+
+# from anndata.compat import _read_hdf5_attribute  # 0.8
 from pathlib import Path
 from scipy import sparse
 
@@ -79,6 +81,9 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
         attrs["encoding-version"] = __anndataversion__
         attrs["encoder"] = "mudata"
         attrs["encoder-version"] = __version__
+
+    mod_attrs = mod.attrs
+    mod_attrs["mod-order"] = list(mdata.mod.keys())
 
     attrs = file.attrs
     attrs["encoding-type"] = "MuData"
@@ -400,6 +405,15 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
                 for m in gmods.keys():
                     ad = _read_h5mu_mod(gmods[m], manager, backed not in (None, False))
                     mods[m] = ad
+
+                mod_order = None
+                if "mod-order" in gmods.attrs:
+                    mod_order = gmods.attrs["mod-order"]
+                # TODO: use in v0.8
+                # mod_order = _read_hdf5_attribute(k, "mod-order")
+                if mod_order is not None and all([m in gmods for m in mod_order]):
+                    mods = {k: mods[k] for k in mod_order}
+
                 d[k] = mods
             else:
                 d[k] = read_attribute(f[k])
