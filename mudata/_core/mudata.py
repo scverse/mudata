@@ -654,36 +654,22 @@ class MuData:
             # Index is the same
             pass
         elif keep_index.sum() != len(prev_index) and new_index.sum() == 0:
-            # FIXME
+            # Update .obsm/.varm (size might have changed)
             for mx_key, mx in attrm.items():
                 if mx_key not in self.mod.keys():  # not a modality name
-                    attrm[mx_key] = attrm[mx_key][keep_index, :]
+                    attrm[mx_key] = attrm[mx_key][keep_index]
 
             # Update .obsp/.varp (size might have changed)
             for mx_key, mx in attrp.items():
-                if mx_key not in self.mod.keys():  # not a modality name
-                    attrp[mx_key] = attrp[mx_key][keep_index, keep_index]
+                attrp[mx_key] = attrp[mx_key][keep_index, keep_index]
         elif len(now_index) == len(prev_index):
-            # FIXME
-            # Index items were reordered or renamed
-            if new_index.sum() == 0:  # reordered
-                for mx_key, mx in attrm.items():
-                    if mx_key not in self.mod.keys():  # not a modality name
-                        attrm[mx_key] = attrm[mx_key][keep_index, :]
-
-                # Update .obsp/.varp (size might have changed)
-                for mx_key, mx in attrp.items():
-                    if mx_key not in self.mod.keys():  # not a modality name
-                        attrp[mx_key] = attrp[mx_key][keep_index, keep_index]
+            # NOTE: when new_index.sum() == 0,
+            # the old index wouldn't be reordered
+            if new_index.sum() == 0:
+                pass
             else:  # renamed
-                for mx_key, mx in attrm.items():
-                    if mx_key not in self.mod.keys():  # not a modality name
-                        attrm[mx_key] = attrm[mx_key][keep_index, :]
-
-                # Update .obsp/.varp (size might have changed)
-                for mx_key, mx in attrp.items():
-                    if mx_key not in self.mod.keys():  # not a modality name
-                        attrp[mx_key] = attrp[mx_key][keep_index, keep_index]
+                # We have to assume the order hasn't changed
+                pass
         else:
             raise NotImplementedError(
                 f"{attr}_names seem to have been renamed and filtered at the same time. "

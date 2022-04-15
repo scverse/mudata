@@ -168,7 +168,7 @@ class TestMuData:
     @pytest.mark.parametrize("obs_mod", ["unique"])
     @pytest.mark.parametrize("obs_across", ["intersecting"])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
-    def test_update_after_filter_obs_adata(self, mdata, filepath_h5mu):
+    def test_update_after_filter_obs_adata(self, mdata):
         """
         Check for muon issue #44.
         """
@@ -177,6 +177,26 @@ class TestMuData:
         mdata.mod["mod1"] = mdata["mod1"][mdata["mod1"].obs["min_count"] < -2].copy()
         mdata.update()
         assert mdata.obs["batch"].isna().sum() == 0
+
+    @pytest.mark.parametrize("obs_mod", ["unique"])
+    @pytest.mark.parametrize("obs_across", ["intersecting"])
+    @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
+    def test_update_after_obs_reordered(self, mdata):
+        """
+        Update should work if obs are reordered.
+        """
+        mdata.obsm["test_obsm"] = np.random.normal(size=(mdata.n_obs, 2))
+
+        some_obs_names = mdata.obs_names.values[:2]
+
+        true_obsm_values = [mdata.obsm["test_obsm"][np.where(mdata.obs_names.values == name)[0][0]] for name in some_obs_names]
+
+        mdata.mod["mod1"] = mdata["mod1"][::-1].copy()
+        mdata.update()
+
+        test_obsm_values = [mdata.obsm["test_obsm"][np.where(mdata.obs_names == name)[0][0]] for name in some_obs_names]        
+        
+        assert all([all(true_obsm_values[i] == test_obsm_values[i]) for i in range(len(true_obsm_values))])
 
 
 # @pytest.mark.usefixtures("filepath_h5mu")
