@@ -128,6 +128,8 @@ class MuData:
             self._obsmap = MuAxisArrays(self, 0, kwargs.get("obsmap", {}))
             self._varmap = MuAxisArrays(self, 1, kwargs.get("varmap", {}))
 
+            self._axis = kwargs.get("axis") or 0
+
             # Restore proper .obs and .var
             self.update()
 
@@ -150,6 +152,8 @@ class MuData:
         self._varm = MuAxisArrays(self, 1, dict())
         self._varp = PairwiseArrays(self, 1, dict())
         self._varmap = MuAxisArrays(self, 1, dict())
+
+        self._axis = 0
 
         self.update()
 
@@ -210,6 +214,7 @@ class MuData:
         self.is_view = True
         self.file = mudata_ref.file
         self._mudata_ref = mudata_ref
+        self._axis = mudata_ref._axis
 
     def _init_as_actual(self, data: "MuData"):
         self._init_common()
@@ -223,6 +228,7 @@ class MuData:
         self._varp = PairwiseArrays(self, 1, convert_to_dict(data.varp))
         self._varmap = MuAxisArrays(self, 1, convert_to_dict(data.varmap))
         self.uns = data.uns
+        self._axis = data._axis
 
     @classmethod
     def _init_from_dict_(
@@ -237,6 +243,7 @@ class MuData:
         varp: Optional[Union[np.ndarray, Mapping[str, Sequence[Any]]]] = None,
         obsmap: Optional[Mapping[str, Sequence[int]]] = None,
         varmap: Optional[Mapping[str, Sequence[int]]] = None,
+        axis: anndata.compat.Literal[0, 1] = 0,
     ):
 
         return cls(
@@ -250,6 +257,7 @@ class MuData:
             varp=varp,
             obsmap=obsmap,
             varmap=varmap,
+            axis=axis,
         )
 
     def _check_duplicated_attr_names(self, attr: str):
@@ -308,6 +316,7 @@ class MuData:
                 self.varp.copy(),
                 self.obsmap.copy(),
                 self.varmap.copy(),
+                self.axis,
             )
         else:
             if filename is None:
@@ -787,7 +796,7 @@ class MuData:
         """
         Update .obs slot of MuData with the newest .obs data from all the modalities
         """
-        self._update_attr("obs", axis=1)
+        self._update_attr("obs", axis=1, join_common=bool(True * self.axis == 1))
 
     def obs_names_make_unique(self):
         """
@@ -879,7 +888,7 @@ class MuData:
         """
         Update .var slot of MuData with the newest .var data from all the modalities
         """
-        self._update_attr("var", axis=0, join_common=True)
+        self._update_attr("var", axis=0, join_common=bool(True * self.axis == 0))
 
     def var_names_make_unique(self):
         """
@@ -1048,6 +1057,14 @@ class MuData:
         """
         self.update_var()
         self.update_obs()
+
+    @property
+    def axis(self) -> int:
+        """
+        MuData axis
+        """
+        return self._axis
+
 
     def write_h5mu(self, filename: Optional[str] = None, **kwargs):
         """

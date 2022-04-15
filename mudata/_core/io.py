@@ -52,6 +52,9 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
     write_attribute(file, "obsmap", mdata.obsmap, dataset_kwargs=kwargs)
     write_attribute(file, "varmap", mdata.varmap, dataset_kwargs=kwargs)
 
+    attrs = file.attrs
+    attrs["axis"] = mdata.axis
+
     mod = file.require_group("mod")
     for k, v in mdata.mod.items():
         group = mod.require_group(k)
@@ -142,6 +145,9 @@ def write_zarr(
         write_attribute(file, "obsmap", mdata.obsmap, dataset_kwargs=kwargs)
         write_attribute(file, "varmap", mdata.varmap, dataset_kwargs=kwargs)
 
+        attrs = file.attrs
+        attrs["axis"] = mdata.axis
+
         mod = file.require_group("mod")
         for k, v in mdata.mod.items():
             group = mod.require_group(k)
@@ -176,6 +182,9 @@ def write_zarr(
             attrs["encoding-version"] = __anndataversion__
             attrs["encoder"] = "mudata"
             attrs["encoder-version"] = __version__
+
+        mod_attrs = mod.attrs
+        mod_attrs["mod-order"] = list(mdata.mod.keys())
 
         attrs = file.attrs
         attrs["encoding-type"] = "MuData"
@@ -417,6 +426,9 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
                 d[k] = mods
             else:
                 d[k] = read_attribute(f[k])
+
+        if "axis" in f.attrs:
+            d["axis"] = f.attrs["axis"]
 
     mu = MuData._init_from_dict_(**d)
     mu.file = manager
