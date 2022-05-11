@@ -654,6 +654,8 @@ class MuData:
 
         now_index = getattr(self, attr).index
         keep_index = prev_index.isin(now_index)
+        # keep_index = np.sum(list(mdict.values()), axis=0) > 0
+        # ^-- old map vs new map?!
         new_index = ~now_index.isin(prev_index)
 
         if len(prev_index) == 0:
@@ -662,7 +664,7 @@ class MuData:
         elif now_index.equals(prev_index):
             # Index is the same
             pass
-        elif keep_index.sum() != len(prev_index) and new_index.sum() == 0:
+        elif len(now_index) != len(prev_index) and new_index.sum() == 0:
             # Update .obsm/.varm (size might have changed)
             for mx_key, mx in attrm.items():
                 if mx_key not in self.mod.keys():  # not a modality name
@@ -677,6 +679,7 @@ class MuData:
             if new_index.sum() == 0:
                 pass
             else:  # renamed
+                # TODO: tru to use obsmap/varmap
                 # We have to assume the order hasn't changed
                 pass
         else:
@@ -1064,7 +1067,6 @@ class MuData:
         MuData axis
         """
         return self._axis
-
 
     def write_h5mu(self, filename: Optional[str] = None, **kwargs):
         """
