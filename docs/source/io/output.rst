@@ -15,7 +15,7 @@ In order to save & share multimodal data, ``.h5mu`` file format has been designe
 .h5mu files
 -----------
 
-``.h5mu`` files are the default storage for ``MuData`` objects. These are HDF5 files with a standardised structure, which is similar to the one of ``.h5ad`` files where ``AnnData`` objects are stored. The most noticeable distinction is ``.mod`` group presence where individual modalities are stored — in the same way as they would be stored in the ``.h5ad`` files.
+``.h5mu`` files are the default storage for MuData objects. These are HDF5 files with a standardised structure, which is similar to the one of ``.h5ad`` files where AnnData objects are stored. The most noticeable distinction is ``.mod`` group presence where individual modalities are stored — in the same way as they would be stored in the ``.h5ad`` files.
 ::
 	mdata.write("mudata.h5mu")
 
@@ -46,3 +46,5 @@ Individual modalities in the ``.h5mu`` file are stored in exactly the same way a
 	mudata.write("mudata.h5mu/rna", adata)
 
 The function :func:`mudata.read` automatically decides based on the input if :func:`mudata.read_h5mu` or rather :func:`mudata.read_h5ad` should be called.
+
+Learn more about the on-disk format specification shared by MuData and AnnData `in the AnnData documentation <https://anndata.readthedocs.io/en/latest/fileformat-prose.html>`_.
