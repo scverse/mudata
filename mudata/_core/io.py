@@ -28,29 +28,29 @@ from .file_backing import MuDataFileManager, AnnDataFileManager
 
 
 def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
-    from anndata._io.utils import write_attribute
+    from anndata._io.specs.registry import write_elem
     from .. import __version__, __mudataversion__, __anndataversion__
 
-    write_attribute(
+    write_elem(
         file,
         "obs",
         mdata.strings_to_categoricals(mdata._shrink_attr("obs", inplace=False)),
         dataset_kwargs=kwargs,
     )
-    write_attribute(
+    write_elem(
         file,
         "var",
         mdata.strings_to_categoricals(mdata._shrink_attr("var", inplace=False)),
         dataset_kwargs=kwargs,
     )
-    write_attribute(file, "obsm", dict(mdata.obsm), dataset_kwargs=kwargs)
-    write_attribute(file, "varm", dict(mdata.varm), dataset_kwargs=kwargs)
-    write_attribute(file, "obsp", dict(mdata.obsp), dataset_kwargs=kwargs)
-    write_attribute(file, "varp", dict(mdata.varp), dataset_kwargs=kwargs)
-    write_attribute(file, "uns", dict(mdata.uns), dataset_kwargs=kwargs)
+    write_elem(file, "obsm", dict(mdata.obsm), dataset_kwargs=kwargs)
+    write_elem(file, "varm", dict(mdata.varm), dataset_kwargs=kwargs)
+    write_elem(file, "obsp", dict(mdata.obsp), dataset_kwargs=kwargs)
+    write_elem(file, "varp", dict(mdata.varp), dataset_kwargs=kwargs)
+    write_elem(file, "uns", dict(mdata.uns), dataset_kwargs=kwargs)
 
-    write_attribute(file, "obsmap", dict(mdata.obsmap), dataset_kwargs=kwargs)
-    write_attribute(file, "varmap", dict(mdata.varmap), dataset_kwargs=kwargs)
+    write_elem(file, "obsmap", dict(mdata.obsmap), dataset_kwargs=kwargs)
+    write_elem(file, "varmap", dict(mdata.varmap), dataset_kwargs=kwargs)
 
     attrs = file.attrs
     attrs["axis"] = mdata.axis
@@ -66,18 +66,18 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
             adata.strings_to_categoricals(adata.raw.var)
 
         if write_data:
-            write_attribute(group, "X", adata.X, dataset_kwargs=kwargs)
+            write_elem(group, "X", adata.X, dataset_kwargs=kwargs)
         if adata.raw is not None:
-            write_attribute(group, "raw", adata.raw)
+            write_elem(group, "raw", adata.raw)
 
-        write_attribute(group, "obs", adata.obs, dataset_kwargs=kwargs)
-        write_attribute(group, "var", adata.var, dataset_kwargs=kwargs)
-        write_attribute(group, "obsm", dict(adata.obsm), dataset_kwargs=kwargs)
-        write_attribute(group, "varm", dict(adata.varm), dataset_kwargs=kwargs)
-        write_attribute(group, "obsp", dict(adata.obsp), dataset_kwargs=kwargs)
-        write_attribute(group, "varp", dict(adata.varp), dataset_kwargs=kwargs)
-        write_attribute(group, "layers", dict(adata.layers), dataset_kwargs=kwargs)
-        write_attribute(group, "uns", dict(adata.uns), dataset_kwargs=kwargs)
+        write_elem(group, "obs", adata.obs, dataset_kwargs=kwargs)
+        write_elem(group, "var", adata.var, dataset_kwargs=kwargs)
+        write_elem(group, "obsm", dict(adata.obsm), dataset_kwargs=kwargs)
+        write_elem(group, "varm", dict(adata.varm), dataset_kwargs=kwargs)
+        write_elem(group, "obsp", dict(adata.obsp), dataset_kwargs=kwargs)
+        write_elem(group, "varp", dict(adata.varp), dataset_kwargs=kwargs)
+        write_elem(group, "layers", dict(adata.layers), dataset_kwargs=kwargs)
+        write_elem(group, "uns", dict(adata.uns), dataset_kwargs=kwargs)
 
         attrs = group.attrs
         attrs["encoding-type"] = "anndata"
@@ -112,7 +112,7 @@ def write_zarr(
     Matrices - sparse or dense - are currently stored as they are.
     """
     import zarr
-    from anndata._io.utils import write_attribute
+    from anndata._io.specs.registry import write_elem
     from anndata._io.zarr import write_zarr as anndata_write_zarr
     from .. import __version__, __mudataversion__, __anndataversion__
 
@@ -124,26 +124,26 @@ def write_zarr(
             store = str(store)
         file = zarr.open(store, mode="w")
         mdata = data
-        write_attribute(
+        write_elem(
             file,
             "obs",
             mdata.strings_to_categoricals(mdata._shrink_attr("obs", inplace=False)),
             dataset_kwargs=kwargs,
         )
-        write_attribute(
+        write_elem(
             file,
             "var",
             mdata.strings_to_categoricals(mdata._shrink_attr("var", inplace=False)),
             dataset_kwargs=kwargs,
         )
-        write_attribute(file, "obsm", dict(mdata.obsm), dataset_kwargs=kwargs)
-        write_attribute(file, "varm", dict(mdata.varm), dataset_kwargs=kwargs)
-        write_attribute(file, "obsp", dict(mdata.obsp), dataset_kwargs=kwargs)
-        write_attribute(file, "varp", dict(mdata.varp), dataset_kwargs=kwargs)
-        write_attribute(file, "uns", dict(mdata.uns), dataset_kwargs=kwargs)
+        write_elem(file, "obsm", dict(mdata.obsm), dataset_kwargs=kwargs)
+        write_elem(file, "varm", dict(mdata.varm), dataset_kwargs=kwargs)
+        write_elem(file, "obsp", dict(mdata.obsp), dataset_kwargs=kwargs)
+        write_elem(file, "varp", dict(mdata.varp), dataset_kwargs=kwargs)
+        write_elem(file, "uns", dict(mdata.uns), dataset_kwargs=kwargs)
 
-        write_attribute(file, "obsmap", dict(mdata.obsmap), dataset_kwargs=kwargs)
-        write_attribute(file, "varmap", dict(mdata.varmap), dataset_kwargs=kwargs)
+        write_elem(file, "obsmap", dict(mdata.obsmap), dataset_kwargs=kwargs)
+        write_elem(file, "varmap", dict(mdata.varmap), dataset_kwargs=kwargs)
 
         attrs = file.attrs
         attrs["axis"] = mdata.axis
@@ -160,22 +160,20 @@ def write_zarr(
 
             if write_data:
                 if chunks is not None and not isinstance(adata.X, sparse.spmatrix):
-                    write_attribute(
-                        group, "X", adata.X, dataset_kwargs=dict(chunks=chunks, **kwargs)
-                    )
+                    write_elem(group, "X", adata.X, dataset_kwargs=dict(chunks=chunks, **kwargs))
                 else:
-                    write_attribute(group, "X", adata.X, dataset_kwargs=kwargs)
+                    write_elem(group, "X", adata.X, dataset_kwargs=kwargs)
             if adata.raw is not None:
-                write_attribute(group, "raw", adata.raw)
+                write_elem(group, "raw", adata.raw)
 
-            write_attribute(group, "obs", adata.obs, dataset_kwargs=kwargs)
-            write_attribute(group, "var", adata.var, dataset_kwargs=kwargs)
-            write_attribute(group, "obsm", dict(adata.obsm), dataset_kwargs=kwargs)
-            write_attribute(group, "varm", dict(adata.varm), dataset_kwargs=kwargs)
-            write_attribute(group, "obsp", dict(adata.obsp), dataset_kwargs=kwargs)
-            write_attribute(group, "varp", dict(adata.varp), dataset_kwargs=kwargs)
-            write_attribute(group, "layers", dict(adata.layers), dataset_kwargs=kwargs)
-            write_attribute(group, "uns", dict(adata.uns), dataset_kwargs=kwargs)
+            write_elem(group, "obs", adata.obs, dataset_kwargs=kwargs)
+            write_elem(group, "var", adata.var, dataset_kwargs=kwargs)
+            write_elem(group, "obsm", dict(adata.obsm), dataset_kwargs=kwargs)
+            write_elem(group, "varm", dict(adata.varm), dataset_kwargs=kwargs)
+            write_elem(group, "obsp", dict(adata.obsp), dataset_kwargs=kwargs)
+            write_elem(group, "varp", dict(adata.varp), dataset_kwargs=kwargs)
+            write_elem(group, "layers", dict(adata.layers), dataset_kwargs=kwargs)
+            write_elem(group, "uns", dict(adata.uns), dataset_kwargs=kwargs)
 
             attrs = group.attrs
             attrs["encoding-type"] = "anndata"
@@ -227,7 +225,7 @@ def write_h5ad(filename: PathLike, mod: str, data: Union[MuData, AnnData]):
 
     Ideally this is merged later to anndata._io.h5ad.write_h5ad.
     """
-    from anndata._io.utils import write_attribute
+    from anndata._io.specs.registry import write_elem
     from anndata._io.h5ad import write_h5ad
     from .. import __version__, __anndataversion__
 
@@ -257,20 +255,20 @@ def write_h5ad(filename: PathLike, mod: str, data: Union[MuData, AnnData]):
         filepath = Path(filename)
 
         if not (adata.isbacked and Path(adata.filename) == Path(filepath)):
-            write_attribute(fmd, f"X", adata.X)
+            write_elem(fmd, f"X", adata.X)
 
-        # NOTE: Calling write_attribute() does not allow writing .raw into .h5mu modalities
+        # NOTE: Calling write_elem() does not allow writing .raw into .h5mu modalities
         if adata.raw is not None:
-            write_attribute(f, f"mod/{mod}/raw", adata.raw)
+            write_elem(f, f"mod/{mod}/raw", adata.raw)
 
-        write_attribute(fmd, "obs", adata.obs)
-        write_attribute(fmd, "var", adata.var)
-        write_attribute(fmd, "obsm", dict(adata.obsm))
-        write_attribute(fmd, "varm", dict(adata.varm))
-        write_attribute(fmd, "obsp", dict(adata.obsp))
-        write_attribute(fmd, "varp", dict(adata.varp))
-        write_attribute(fmd, "layers", dict(adata.layers))
-        write_attribute(fmd, "uns", dict(adata.uns))
+        write_elem(fmd, "obs", adata.obs)
+        write_elem(fmd, "var", adata.var)
+        write_elem(fmd, "obsm", dict(adata.obsm))
+        write_elem(fmd, "varm", dict(adata.varm))
+        write_elem(fmd, "obsp", dict(adata.obsp))
+        write_elem(fmd, "varp", dict(adata.varp))
+        write_elem(fmd, "layers", dict(adata.layers))
+        write_elem(fmd, "uns", dict(adata.uns))
 
         attrs = fmd.attrs
         attrs["encoding-type"] = "anndata"
@@ -352,7 +350,7 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
         "r+",
     ], "Argument `backed` should be boolean, or r/r+, or None"
 
-    from anndata._io.utils import read_attribute
+    from anndata._io.specs.registry import read_elem
     from anndata._io.h5ad import read_dataframe
 
     if backed is True or not backed:
@@ -392,7 +390,7 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
 
                 d[k] = mods
             else:
-                d[k] = read_attribute(f[k])
+                d[k] = read_elem(f[k])
 
         if "axis" in f.attrs:
             d["axis"] = f.attrs["axis"]
@@ -411,7 +409,7 @@ def read_zarr(store: Union[str, Path, MutableMapping, zarr.Group]):
         The filename, a :class:`~typing.MutableMapping`, or a Zarr storage class.
     """
     import zarr
-    from anndata._io.utils import read_attribute
+    from anndata._io.specs.registry import read_elem
     from anndata._io.zarr import (
         read_zarr as anndata_read_zarr,
         read_dataframe,
@@ -439,7 +437,7 @@ def read_zarr(store: Union[str, Path, MutableMapping, zarr.Group]):
                 mods[m] = ad
             d[k] = mods
         else:  # Base case
-            d[k] = read_attribute(f[k])
+            d[k] = read_elem(f[k])
 
     mu = MuData._init_from_dict_(**d)
     mu.file = manager
@@ -449,7 +447,7 @@ def read_zarr(store: Union[str, Path, MutableMapping, zarr.Group]):
 
 def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: bool = False) -> dict:
     import zarr
-    from anndata._io.utils import read_attribute
+    from anndata._io.specs.registry import read_elem
     from anndata._io.zarr import read_dataframe, _read_legacy_raw
     from anndata import Raw
 
@@ -468,9 +466,9 @@ def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: boo
                 raise ValueError()
             d["dtype"] = dtype
             if not backed:
-                d["X"] = read_attribute(X)
+                d["X"] = read_elem(X)
         elif k != "raw":
-            d[k] = read_attribute(g[k])
+            d[k] = read_elem(g[k])
     ad = AnnData(**d)
     if manager is not None:
         ad.file = AnnDataFileManager(ad, os.path.basename(g.name), manager)
@@ -479,7 +477,7 @@ def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: boo
         g,
         d.get("raw"),
         read_dataframe,
-        read_attribute,
+        read_elem,
         attrs=("var", "varm") if backed else ("var", "varm", "X"),
     )
     if raw:
@@ -490,7 +488,7 @@ def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: boo
 def _read_h5mu_mod(
     g: "h5py.Group", manager: MuDataFileManager = None, backed: bool = False
 ) -> dict:
-    from anndata._io.utils import read_attribute
+    from anndata._io.specs.registry import read_elem
     from anndata._io.h5ad import read_dataframe, _read_raw
     from anndata import Raw
 
@@ -509,9 +507,9 @@ def _read_h5mu_mod(
                 raise ValueError()
             d["dtype"] = dtype
             if not backed:
-                d["X"] = read_attribute(X)
+                d["X"] = read_elem(X)
         elif k != "raw":
-            d[k] = read_attribute(g[k])
+            d[k] = read_elem(g[k])
     ad = AnnData(**d)
     if manager is not None:
         ad.file = AnnDataFileManager(ad, os.path.basename(g.name), manager)
@@ -544,7 +542,7 @@ def read_h5ad(
         "r+",
     ], "Argument `backed` should be boolean, or r/r+, or None"
 
-    from anndata._io.utils import read_attribute
+    from anndata._io.specs.registry import read_elem
     from anndata._io.h5ad import read_dataframe, _read_raw
 
     d = {}
