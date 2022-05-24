@@ -301,6 +301,35 @@ class MuData:
                 return True
         return False
 
+    def _check_changed_attr_names(self, attr: str):
+        attrhash = f"_{attr}hash"
+        attr_names_changed, attr_columns_changed = False, False
+        if not hasattr(self, attrhash):
+            attr_names_changed, attr_columns_changed = True, True
+        else:
+            for m, mod in self.mod.items():
+                if m in getattr(self, attrhash):
+                    cached_hash = getattr(self, attrhash)[m]
+                    new_hash = (
+                        sha1(
+                            np.ascontiguousarray(getattr(self.mod[m], attr).index.values)
+                        ).hexdigest(),
+                        sha1(
+                            np.ascontiguousarray(getattr(self.mod[m], attr).columns.values)
+                        ).hexdigest(),
+                    )
+                    if cached_hash[0] != new_hash[0]:
+                        attr_names_changed = True
+                        if not attr_columns_changed:
+                            attr_columns_changed = None
+                        break
+                    if cached_hash[1] != new_hash[1]:
+                        attr_columns_changed = True
+                else:
+                    attr_names_changed, attr_columns_changed = True, None
+                    break
+        return (attr_names_changed, attr_columns_changed)
+
     def copy(self, filename: Optional[PathLike] = None) -> "MuData":
         if not self.isbacked:
             mod = {}
@@ -368,6 +397,10 @@ class MuData:
     #     setattr(self, f"_{attr}", value)
     #     AnnData._set_dim_index(self, value_idx, attr)
 
+    def _get_global_attr_index(self, attr: str, axis: int):
+        # TODO: implement
+        return
+
     def _update_attr(self, attr: str, axis: int, join_common: bool = False):
         """
         Update global observations/variables with observations/variables for each modality.
@@ -381,22 +414,9 @@ class MuData:
         prev_index = getattr(self, attr).index
 
         # # No _attrhash when upon read
-        # # No _attrhash in mudata < 0.1.2
-        attr_names_maybe_changed = False
-        attrhash = f"_{attr}hash"
-        if not hasattr(self, attrhash):
-            attr_names_maybe_changed = True
-        else:
-            for m, mod in self.mod.items():
-                if m in getattr(self, attrhash):
-                    cached_hash = getattr(self, attrhash)[m]
-                    new_hash = sha1(getattr(self, attr).index.values).hexdigest()
-                    if cached_hash != new_hash:
-                        attr_names_maybe_changed = True
-                        break
-                else:
-                    attr_names_maybe_changed = True
-                    break
+        # # No _attrhash in mudata < 0.2.0
+        _attrhash = f"_{attr}hash"
+        attr_changed = self._check_changed_attr_names(attr)
 
         attr_duplicated = self._check_duplicated_attr_names(attr)
         attr_intersecting = self._check_intersecting_attr_names(attr)
@@ -414,6 +434,18 @@ class MuData:
                     f"Cannot join columns with the same name because {attr}_names are intersecting."
                 )
                 join_common = False
+
+        #
+        # Step 1: Create global attr_names
+        #
+
+        if attr_changed:
+            # attr_names have changed
+            now_index = self._get_global_attr_index(attr, axis)
+            pass
+        else:
+            # No need to update
+            return
 
         # Figure out which global columns exist
         columns_global = getattr(self, attr).columns[
@@ -649,8 +681,6 @@ class MuData:
         # this needs to be after setting _obs/_var due to dimension checking in the aligned mapping
         attrmap.clear()
         attrmap.update(mdict)
-        for mod, mapping in mdict.items():
-            attrm[mod] = mapping > 0
 
         now_index = getattr(self, attr).index
         keep_index = prev_index.isin(now_index)
@@ -667,8 +697,7 @@ class MuData:
         elif len(now_index) != len(prev_index) and new_index.sum() == 0:
             # Update .obsm/.varm (size might have changed)
             for mx_key, mx in attrm.items():
-                if mx_key not in self.mod.keys():  # not a modality name
-                    attrm[mx_key] = attrm[mx_key][keep_index]
+                attrm[mx_key] = attrm[mx_key][keep_index]
 
             # Update .obsp/.varp (size might have changed)
             for mx_key, mx in attrp.items():
@@ -690,11 +719,14 @@ class MuData:
             )
 
         # Write _attrhash
-        if attr_names_maybe_changed:
-            if not hasattr(self, attrhash):
-                setattr(self, attrhash, dict())
+        if attr_changed:
+            if not hasattr(self, _attrhash):
+                setattr(self, _attrhash, dict())
             for m, mod in self.mod.items():
-                getattr(self, attrhash)[m] = sha1(getattr(mod, attr).index.values).hexdigest()
+                getattr(self, _attrhash)[m] = (
+                    sha1(np.ascontiguousarray(getattr(mod, attr).index.values)).hexdigest(),
+                    sha1(np.ascontiguousarray(getattr(mod, attr).columns.values)).hexdigest(),
+                )
 
     def _shrink_attr(self, attr: str, inplace=True) -> pd.DataFrame:
         """
