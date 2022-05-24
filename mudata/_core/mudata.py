@@ -10,6 +10,7 @@ from pathlib import Path
 from os import PathLike
 from random import choices
 from string import ascii_letters, digits
+from hashlib import sha1
 
 import numpy as np
 import pandas as pd
@@ -379,24 +380,23 @@ class MuData:
 
         prev_index = getattr(self, attr).index
 
-        # # No _mod_index when upon read
-        # # No _mod_index in mudata < 0.1.2
-        # attr_names_maybe_changed = False
-        # if not hasattr(self, "_mod_index"):
-        #     attr_names_maybe_changed = True
-        # else:
-        #     for m, mod in self.mod.items():
-        #         if m in self._mod_index:
-        #             if attr in self._mod_index[m]:
-        #                 if not getattr(self.mod[m], attr).index.equals(self._mod_index[m][attr]):
-        #                     attr_names_maybe_changed = True
-        #                     break
-        #             else:
-        #                 attr_names_maybe_changed = True
-        #                 break
-        #         else:
-        #             attr_names_maybe_changed = True
-        #             break
+        # # No _attrhash when upon read
+        # # No _attrhash in mudata < 0.1.2
+        attr_names_maybe_changed = False
+        attrhash = f"_{attr}hash"
+        if not hasattr(self, attrhash):
+            attr_names_maybe_changed = True
+        else:
+            for m, mod in self.mod.items():
+                if m in getattr(self, attrhash):
+                    cached_hash = getattr(self, attrhash)[m]
+                    new_hash = sha1(getattr(self, attr).index.values).hexdigest()
+                    if cached_hash != new_hash:
+                        attr_names_maybe_changed = True
+                        break
+                else:
+                    attr_names_maybe_changed = True
+                    break
 
         attr_duplicated = self._check_duplicated_attr_names(attr)
         attr_intersecting = self._check_intersecting_attr_names(attr)
@@ -689,13 +689,12 @@ class MuData:
                 "  mdata1 = MuData(mdata.mod)"
             )
 
-        # # Write ._mod_index
-        # if attr_names_maybe_changed:
-        #     for m, mod in self.mod.items():
-        #         if not hasattr(self, "_mod_index"):
-        #             self._mod_index = dict()
-        #         self._mod_index[m] = self._mod_index.get(m, {})
-        #         self._mod_index[m][attr] = getattr(mod, attr).index
+        # Write _attrhash
+        if attr_names_maybe_changed:
+            if not hasattr(self, attrhash):
+                setattr(self, attrhash, dict())
+            for m, mod in self.mod.items():
+                getattr(self, attrhash)[m] = sha1(getattr(mod, attr).index.values).hexdigest()
 
     def _shrink_attr(self, attr: str, inplace=True) -> pd.DataFrame:
         """
