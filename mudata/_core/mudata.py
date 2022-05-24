@@ -397,9 +397,21 @@ class MuData:
     #     setattr(self, f"_{attr}", value)
     #     AnnData._set_dim_index(self, value_idx, attr)
 
-    def _get_global_attr_index(self, attr: str, axis: int):
-        # TODO: implement
-        return
+    def _create_global_attr_index(self, attr: str, axis: int):
+        if axis == (1 - self._axis):
+            # Shared indices
+            modindices = [getattr(self.mod[m], attr).index for m in self.mod]
+            if all([modindices[i].equals(modindices[i + 1]) for i in range(len(modindices) - 1)]):
+                attrindex = modindices[0].copy()
+            attrindex = reduce(
+                np.union1d, [getattr(self.mod[m], attr).index.values for m in self.mod]
+            )
+        else:
+            # Modality-specific indices
+            attrindex = np.concatenate(
+                [getattr(self.mod[m], attr).index.values for m in self.mod], axis=0
+            )
+        return attrindex
 
     def _update_attr(self, attr: str, axis: int, join_common: bool = False):
         """
@@ -435,16 +447,8 @@ class MuData:
                 )
                 join_common = False
 
-        #
-        # Step 1: Create global attr_names
-        #
-
-        if attr_changed:
-            # attr_names have changed
-            now_index = self._get_global_attr_index(attr, axis)
-            pass
-        else:
-            # No need to update
+        if not any(attr_changed):
+            # Nothing to update
             return
 
         # Figure out which global columns exist
@@ -487,52 +491,68 @@ class MuData:
             )
             data_global = data_global.loc[:, [c not in columns_common for c in data_global.columns]]
 
+        # TODO: take advantage when attr_changed[0] == False — only new columns to be added
+
         #
         # Join modality .obs/.var tables
         #
-        # Main case: no duplicates and no intersection
+        # Main case: no duplicates and no intersection if the axis is not shared
         #
-        if not attr_intersecting and not attr_duplicated:
-            if join_common:
-                # We checked above that attr_names are guaranteed to be unique and thus are safe to be used for joins
+        if not attr_duplicated:
+            # Shared axis
+            if axis == (1 - self._axis):
+                # We assume attr_intersecting and can't join_common
                 data_mod = pd.concat(
                     [
                         getattr(a, attr)
-                        .drop(columns_common, axis=1)
                         .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
                         .add_prefix(m + ":")
                         for m, a in self.mod.items()
                     ],
                     join="outer",
-                    axis=axis,
+                    axis=1,
                     sort=False,
                 )
-                data_common = pd.concat(
-                    [getattr(a, attr)[columns_common] for m, a in self.mod.items()],
-                    join="outer",
-                    axis=0,
-                    sort=False,
-                )
-                data_mod = data_mod.join(data_common, how="left", sort=False)
             else:
-                data_mod = pd.concat(
-                    [
-                        getattr(a, attr)
-                        .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                        .add_prefix(m + ":")
-                        for m, a in self.mod.items()
-                    ],
-                    join="outer",
-                    axis=axis,
-                    sort=False,
-                )
+                if join_common:
+                    # We checked above that attr_names are guaranteed to be unique and thus are safe to be used for joins
+                    data_mod = pd.concat(
+                        [
+                            getattr(a, attr)
+                            .drop(columns_common, axis=1)
+                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                            .add_prefix(m + ":")
+                            for m, a in self.mod.items()
+                        ],
+                        join="outer",
+                        axis=0,
+                        sort=False,
+                    )
+                    data_common = pd.concat(
+                        [getattr(a, attr)[columns_common] for m, a in self.mod.items()],
+                        join="outer",
+                        axis=0,
+                        sort=False,
+                    )
+                    data_mod = data_mod.join(data_common, how="left", sort=False)
 
-            # this occurs when join_common=True and we already have a global data frame, e.g. after reading from HDF5
-            if join_common:
-                sharedcols = data_mod.columns.intersection(data_global.columns)
-                data_global.rename(
-                    columns={col: f"global:{col}" for col in sharedcols}, inplace=True
-                )
+                    # this occurs when join_common=True and we already have a global data frame, e.g. after reading from H5MU
+                    sharedcols = data_mod.columns.intersection(data_global.columns)
+                    data_global.rename(
+                        columns={col: f"global:{col}" for col in sharedcols}, inplace=True
+                    )
+                else:
+                    data_mod = pd.concat(
+                        [
+                            getattr(a, attr)
+                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                            .add_prefix(m + ":")
+                            for m, a in self.mod.items()
+                        ],
+                        join="outer",
+                        axis=0,
+                        sort=False,
+                    )
 
             for mod, amod in self.mod.items():
                 colname = mod + ":" + rowcol
@@ -688,29 +708,31 @@ class MuData:
         # ^-- old map vs new map?!
         new_index = ~now_index.isin(prev_index)
 
+        # import ipdb; ipdb.set_trace()
+
         if len(prev_index) == 0:
             # New object
             pass
         elif now_index.equals(prev_index):
             # Index is the same
             pass
-        elif len(now_index) != len(prev_index) and new_index.sum() == 0:
+        elif new_index.sum() == 0:
+            # Another length (filtered) or same length (reordered)
             # Update .obsm/.varm (size might have changed)
+            index_order = [prev_index.get_loc(i) for i in now_index]
+
             for mx_key, mx in attrm.items():
-                attrm[mx_key] = attrm[mx_key][keep_index]
+                attrm[mx_key] = attrm[mx_key][index_order]
 
             # Update .obsp/.varp (size might have changed)
             for mx_key, mx in attrp.items():
-                attrp[mx_key] = attrp[mx_key][keep_index, keep_index]
+                attrp[mx_key] = attrp[mx_key][index_order, index_order]
+
         elif len(now_index) == len(prev_index):
-            # NOTE: when new_index.sum() == 0,
-            # the old index wouldn't be reordered
-            if new_index.sum() == 0:
-                pass
-            else:  # renamed
-                # TODO: tru to use obsmap/varmap
-                # We have to assume the order hasn't changed
-                pass
+            # Renamed since new_index.sum() != 0
+            # TODO: try to use obsmap/varmap:
+            # We have to assume the order hasn't changed
+            pass
         else:
             raise NotImplementedError(
                 f"{attr}_names seem to have been renamed and filtered at the same time. "
