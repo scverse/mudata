@@ -703,12 +703,6 @@ class MuData:
         attrmap.update(mdict)
 
         now_index = getattr(self, attr).index
-        keep_index = prev_index.isin(now_index)
-        # keep_index = np.sum(list(mdict.values()), axis=0) > 0
-        # ^-- old map vs new map?!
-        new_index = ~now_index.isin(prev_index)
-
-        # import ipdb; ipdb.set_trace()
 
         if len(prev_index) == 0:
             # New object
@@ -716,29 +710,32 @@ class MuData:
         elif now_index.equals(prev_index):
             # Index is the same
             pass
-        elif new_index.sum() == 0:
-            # Another length (filtered) or same length (reordered)
-            # Update .obsm/.varm (size might have changed)
-            index_order = [prev_index.get_loc(i) for i in now_index]
-
-            for mx_key, mx in attrm.items():
-                attrm[mx_key] = attrm[mx_key][index_order]
-
-            # Update .obsp/.varp (size might have changed)
-            for mx_key, mx in attrp.items():
-                attrp[mx_key] = attrp[mx_key][index_order, index_order]
-
-        elif len(now_index) == len(prev_index):
-            # Renamed since new_index.sum() != 0
-            # TODO: try to use obsmap/varmap:
-            # We have to assume the order hasn't changed
-            pass
         else:
-            raise NotImplementedError(
-                f"{attr}_names seem to have been renamed and filtered at the same time. "
-                "There is no way to restore the order. MuData object has to be re-created from these modalities:\n"
-                "  mdata1 = MuData(mdata.mod)"
-            )
+            keep_index = prev_index.isin(now_index)
+            new_index = ~now_index.isin(prev_index)
+            if new_index.sum() == 0:
+                # Another length (filtered) or same length (reordered)
+                # Update .obsm/.varm (size might have changed)
+                index_order = [prev_index.get_loc(i) for i in now_index]
+
+                for mx_key, mx in attrm.items():
+                    attrm[mx_key] = attrm[mx_key][index_order]
+
+                # Update .obsp/.varp (size might have changed)
+                for mx_key, mx in attrp.items():
+                    attrp[mx_key] = attrp[mx_key][index_order, index_order]
+
+            elif len(now_index) == len(prev_index):
+                # Renamed since new_index.sum() != 0
+                # TODO: try to use obsmap/varmap:
+                # We have to assume the order hasn't changed
+                pass
+            else:
+                raise NotImplementedError(
+                    f"{attr}_names seem to have been renamed and filtered at the same time. "
+                    "There is no way to restore the order. MuData object has to be re-created from these modalities:\n"
+                    "  mdata1 = MuData(mdata.mod)"
+                )
 
         # Write _attrhash
         if attr_changed:
