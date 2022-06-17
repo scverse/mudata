@@ -437,6 +437,10 @@ class MuData:
             warnings.warn(
                 f"{attr}_names are not unique. To make them unique, call `.{attr}_names_make_unique`."
             )
+            if self._axis == -1:
+                warnings.warn(
+                    f"Behaviour is not defined with axis=-1, {attr}_names need to be made unique first."
+                )
 
         # Check if the are same obs_names/var_names in different modalities
         # If there are, join_common=True request can not be satisfied
