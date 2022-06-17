@@ -500,7 +500,7 @@ class MuData:
         #
         if not attr_duplicated:
             # Shared axis
-            if axis == (1 - self._axis):
+            if axis == (1 - self._axis) or self._axis == -1:
                 # We assume attr_intersecting and can't join_common
                 data_mod = pd.concat(
                     [
@@ -849,7 +849,8 @@ class MuData:
         """
         Update .obs slot of MuData with the newest .obs data from all the modalities
         """
-        self._update_attr("obs", axis=1, join_common=bool(True * self.axis == 1))
+        join_common = self.axis == 1
+        self._update_attr("obs", axis=1, join_common=join_common)
 
     def obs_names_make_unique(self):
         """
@@ -941,7 +942,8 @@ class MuData:
         """
         Update .var slot of MuData with the newest .var data from all the modalities
         """
-        self._update_attr("var", axis=0, join_common=bool(True * self.axis == 0))
+        join_common = self.axis == 0
+        self._update_attr("var", axis=0, join_common=join_common)
 
     def var_names_make_unique(self):
         """
