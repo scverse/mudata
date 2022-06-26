@@ -569,6 +569,9 @@ class MuData:
                 data_mod.loc[:, colname] = col
 
             if len(data_global) > 0:
+                # TODO: if there were intersecting attrnames between modalities,
+                #       this will increase the size of the index
+                # Should we use attrmap to figure the index out?
                 data_mod = data_mod.join(data_global, how="left", sort=False)
 
         #
@@ -717,17 +720,21 @@ class MuData:
         else:
             keep_index = prev_index.isin(now_index)
             new_index = ~now_index.isin(prev_index)
-            if new_index.sum() == 0:
+            if new_index.sum() == 0 or (keep_index.sum() + new_index.sum() == len(now_index)):
                 # Another length (filtered) or same length (reordered)
+                # or new modality added
                 # Update .obsm/.varm (size might have changed)
-                index_order = [prev_index.get_loc(i) for i in now_index]
+                index_order = prev_index.get_indexer(now_index)
 
                 for mx_key, mx in attrm.items():
                     attrm[mx_key] = attrm[mx_key][index_order]
+                    attrm[mx_key][index_order == -1] = np.nan
 
                 # Update .obsp/.varp (size might have changed)
                 for mx_key, mx in attrp.items():
                     attrp[mx_key] = attrp[mx_key][index_order, index_order]
+                    attrp[mx_key][index_order == -1, :] = -1
+                    attrp[mx_key][:, index_order == -1] = -1
 
             elif len(now_index) == len(prev_index):
                 # Renamed since new_index.sum() != 0
@@ -1180,7 +1187,7 @@ class MuData:
                     )
                     if any(global_keys):
                         descr += f"\n  {attr}:\t{str([keys[i] for i in range(len(keys)) if global_keys[i]])[1:-1]}"
-        descr += f"\n  {len(self.mod)} modalities"
+        descr += f"\n  {len(self.mod)} modalit{'y' if len(self.mod) == 1 else 'ies'}"
         for k, v in self.mod.items():
             descr += f"\n    {k}:\t{v.n_obs} x {v.n_vars}"
             for attr in [
