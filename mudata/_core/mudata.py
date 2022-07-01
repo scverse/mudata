@@ -724,7 +724,9 @@ class MuData:
                 # Another length (filtered) or same length (reordered)
                 # or new modality added
                 # Update .obsm/.varm (size might have changed)
-                index_order = prev_index.get_indexer(now_index)
+                # NOTE: .get_index doesn't work with duplicated indices
+                # index_order = prev_index.get_indexer(now_index)
+                index_order = [prev_index.get_loc(i) for i in now_index]
 
                 for mx_key, mx in attrm.items():
                     attrm[mx_key] = attrm[mx_key][index_order]
