@@ -10,6 +10,7 @@ from pathlib import Path
 from os import PathLike
 from random import choices
 from string import ascii_letters, digits
+from hashlib import sha1
 
 import numpy as np
 import pandas as pd
@@ -300,6 +301,35 @@ class MuData:
                 return True
         return False
 
+    def _check_changed_attr_names(self, attr: str):
+        attrhash = f"_{attr}hash"
+        attr_names_changed, attr_columns_changed = False, False
+        if not hasattr(self, attrhash):
+            attr_names_changed, attr_columns_changed = True, True
+        else:
+            for m, mod in self.mod.items():
+                if m in getattr(self, attrhash):
+                    cached_hash = getattr(self, attrhash)[m]
+                    new_hash = (
+                        sha1(
+                            np.ascontiguousarray(getattr(self.mod[m], attr).index.values)
+                        ).hexdigest(),
+                        sha1(
+                            np.ascontiguousarray(getattr(self.mod[m], attr).columns.values)
+                        ).hexdigest(),
+                    )
+                    if cached_hash[0] != new_hash[0]:
+                        attr_names_changed = True
+                        if not attr_columns_changed:
+                            attr_columns_changed = None
+                        break
+                    if cached_hash[1] != new_hash[1]:
+                        attr_columns_changed = True
+                else:
+                    attr_names_changed, attr_columns_changed = True, None
+                    break
+        return (attr_names_changed, attr_columns_changed)
+
     def copy(self, filename: Optional[PathLike] = None) -> "MuData":
         if not self.isbacked:
             mod = {}
@@ -367,6 +397,22 @@ class MuData:
     #     setattr(self, f"_{attr}", value)
     #     AnnData._set_dim_index(self, value_idx, attr)
 
+    def _create_global_attr_index(self, attr: str, axis: int):
+        if axis == (1 - self._axis):
+            # Shared indices
+            modindices = [getattr(self.mod[m], attr).index for m in self.mod]
+            if all([modindices[i].equals(modindices[i + 1]) for i in range(len(modindices) - 1)]):
+                attrindex = modindices[0].copy()
+            attrindex = reduce(
+                np.union1d, [getattr(self.mod[m], attr).index.values for m in self.mod]
+            )
+        else:
+            # Modality-specific indices
+            attrindex = np.concatenate(
+                [getattr(self.mod[m], attr).index.values for m in self.mod], axis=0
+            )
+        return attrindex
+
     def _update_attr(self, attr: str, axis: int, join_common: bool = False):
         """
         Update global observations/variables with observations/variables for each modality.
@@ -379,24 +425,10 @@ class MuData:
 
         prev_index = getattr(self, attr).index
 
-        # # No _mod_index when upon read
-        # # No _mod_index in mudata < 0.1.2
-        # attr_names_maybe_changed = False
-        # if not hasattr(self, "_mod_index"):
-        #     attr_names_maybe_changed = True
-        # else:
-        #     for m, mod in self.mod.items():
-        #         if m in self._mod_index:
-        #             if attr in self._mod_index[m]:
-        #                 if not getattr(self.mod[m], attr).index.equals(self._mod_index[m][attr]):
-        #                     attr_names_maybe_changed = True
-        #                     break
-        #             else:
-        #                 attr_names_maybe_changed = True
-        #                 break
-        #         else:
-        #             attr_names_maybe_changed = True
-        #             break
+        # # No _attrhash when upon read
+        # # No _attrhash in mudata < 0.2.0
+        _attrhash = f"_{attr}hash"
+        attr_changed = self._check_changed_attr_names(attr)
 
         attr_duplicated = self._check_duplicated_attr_names(attr)
         attr_intersecting = self._check_intersecting_attr_names(attr)
@@ -414,6 +446,10 @@ class MuData:
                     f"Cannot join columns with the same name because {attr}_names are intersecting."
                 )
                 join_common = False
+
+        if not any(attr_changed):
+            # Nothing to update
+            return
 
         # Figure out which global columns exist
         columns_global = getattr(self, attr).columns[
@@ -455,52 +491,68 @@ class MuData:
             )
             data_global = data_global.loc[:, [c not in columns_common for c in data_global.columns]]
 
+        # TODO: take advantage when attr_changed[0] == False — only new columns to be added
+
         #
         # Join modality .obs/.var tables
         #
-        # Main case: no duplicates and no intersection
+        # Main case: no duplicates and no intersection if the axis is not shared
         #
-        if not attr_intersecting and not attr_duplicated:
-            if join_common:
-                # We checked above that attr_names are guaranteed to be unique and thus are safe to be used for joins
+        if not attr_duplicated:
+            # Shared axis
+            if axis == (1 - self._axis):
+                # We assume attr_intersecting and can't join_common
                 data_mod = pd.concat(
                     [
                         getattr(a, attr)
-                        .drop(columns_common, axis=1)
                         .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
                         .add_prefix(m + ":")
                         for m, a in self.mod.items()
                     ],
                     join="outer",
-                    axis=axis,
+                    axis=1,
                     sort=False,
                 )
-                data_common = pd.concat(
-                    [getattr(a, attr)[columns_common] for m, a in self.mod.items()],
-                    join="outer",
-                    axis=0,
-                    sort=False,
-                )
-                data_mod = data_mod.join(data_common, how="left", sort=False)
             else:
-                data_mod = pd.concat(
-                    [
-                        getattr(a, attr)
-                        .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                        .add_prefix(m + ":")
-                        for m, a in self.mod.items()
-                    ],
-                    join="outer",
-                    axis=axis,
-                    sort=False,
-                )
+                if join_common:
+                    # We checked above that attr_names are guaranteed to be unique and thus are safe to be used for joins
+                    data_mod = pd.concat(
+                        [
+                            getattr(a, attr)
+                            .drop(columns_common, axis=1)
+                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                            .add_prefix(m + ":")
+                            for m, a in self.mod.items()
+                        ],
+                        join="outer",
+                        axis=0,
+                        sort=False,
+                    )
+                    data_common = pd.concat(
+                        [getattr(a, attr)[columns_common] for m, a in self.mod.items()],
+                        join="outer",
+                        axis=0,
+                        sort=False,
+                    )
+                    data_mod = data_mod.join(data_common, how="left", sort=False)
 
-            # this occurs when join_common=True and we already have a global data frame, e.g. after reading from HDF5
-            if join_common:
-                sharedcols = data_mod.columns.intersection(data_global.columns)
-                data_global.rename(
-                    columns={col: f"global:{col}" for col in sharedcols}, inplace=True
-                )
+                    # this occurs when join_common=True and we already have a global data frame, e.g. after reading from H5MU
+                    sharedcols = data_mod.columns.intersection(data_global.columns)
+                    data_global.rename(
+                        columns={col: f"global:{col}" for col in sharedcols}, inplace=True
+                    )
+                else:
+                    data_mod = pd.concat(
+                        [
+                            getattr(a, attr)
+                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                            .add_prefix(m + ":")
+                            for m, a in self.mod.items()
+                        ],
+                        join="outer",
+                        axis=0,
+                        sort=False,
+                    )
 
             for mod, amod in self.mod.items():
                 colname = mod + ":" + rowcol
@@ -649,14 +701,8 @@ class MuData:
         # this needs to be after setting _obs/_var due to dimension checking in the aligned mapping
         attrmap.clear()
         attrmap.update(mdict)
-        for mod, mapping in mdict.items():
-            attrm[mod] = mapping > 0
 
         now_index = getattr(self, attr).index
-        keep_index = prev_index.isin(now_index)
-        # keep_index = np.sum(list(mdict.values()), axis=0) > 0
-        # ^-- old map vs new map?!
-        new_index = ~now_index.isin(prev_index)
 
         if len(prev_index) == 0:
             # New object
@@ -664,38 +710,42 @@ class MuData:
         elif now_index.equals(prev_index):
             # Index is the same
             pass
-        elif len(now_index) != len(prev_index) and new_index.sum() == 0:
-            # Update .obsm/.varm (size might have changed)
-            for mx_key, mx in attrm.items():
-                if mx_key not in self.mod.keys():  # not a modality name
-                    attrm[mx_key] = attrm[mx_key][keep_index]
-
-            # Update .obsp/.varp (size might have changed)
-            for mx_key, mx in attrp.items():
-                attrp[mx_key] = attrp[mx_key][keep_index, keep_index]
-        elif len(now_index) == len(prev_index):
-            # NOTE: when new_index.sum() == 0,
-            # the old index wouldn't be reordered
+        else:
+            keep_index = prev_index.isin(now_index)
+            new_index = ~now_index.isin(prev_index)
             if new_index.sum() == 0:
-                pass
-            else:  # renamed
-                # TODO: tru to use obsmap/varmap
+                # Another length (filtered) or same length (reordered)
+                # Update .obsm/.varm (size might have changed)
+                index_order = [prev_index.get_loc(i) for i in now_index]
+
+                for mx_key, mx in attrm.items():
+                    attrm[mx_key] = attrm[mx_key][index_order]
+
+                # Update .obsp/.varp (size might have changed)
+                for mx_key, mx in attrp.items():
+                    attrp[mx_key] = attrp[mx_key][index_order, index_order]
+
+            elif len(now_index) == len(prev_index):
+                # Renamed since new_index.sum() != 0
+                # TODO: try to use obsmap/varmap:
                 # We have to assume the order hasn't changed
                 pass
-        else:
-            raise NotImplementedError(
-                f"{attr}_names seem to have been renamed and filtered at the same time. "
-                "There is no way to restore the order. MuData object has to be re-created from these modalities:\n"
-                "  mdata1 = MuData(mdata.mod)"
-            )
+            else:
+                raise NotImplementedError(
+                    f"{attr}_names seem to have been renamed and filtered at the same time. "
+                    "There is no way to restore the order. MuData object has to be re-created from these modalities:\n"
+                    "  mdata1 = MuData(mdata.mod)"
+                )
 
-        # # Write ._mod_index
-        # if attr_names_maybe_changed:
-        #     for m, mod in self.mod.items():
-        #         if not hasattr(self, "_mod_index"):
-        #             self._mod_index = dict()
-        #         self._mod_index[m] = self._mod_index.get(m, {})
-        #         self._mod_index[m][attr] = getattr(mod, attr).index
+        # Write _attrhash
+        if attr_changed:
+            if not hasattr(self, _attrhash):
+                setattr(self, _attrhash, dict())
+            for m, mod in self.mod.items():
+                getattr(self, _attrhash)[m] = (
+                    sha1(np.ascontiguousarray(getattr(mod, attr).index.values)).hexdigest(),
+                    sha1(np.ascontiguousarray(getattr(mod, attr).columns.values)).hexdigest(),
+                )
 
     def _shrink_attr(self, attr: str, inplace=True) -> pd.DataFrame:
         """
