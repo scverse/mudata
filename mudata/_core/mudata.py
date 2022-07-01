@@ -437,6 +437,10 @@ class MuData:
             warnings.warn(
                 f"{attr}_names are not unique. To make them unique, call `.{attr}_names_make_unique`."
             )
+            if self._axis == -1:
+                warnings.warn(
+                    f"Behaviour is not defined with axis=-1, {attr}_names need to be made unique first."
+                )
 
         # Check if the are same obs_names/var_names in different modalities
         # If there are, join_common=True request can not be satisfied
@@ -500,7 +504,7 @@ class MuData:
         #
         if not attr_duplicated:
             # Shared axis
-            if axis == (1 - self._axis):
+            if axis == (1 - self._axis) or self._axis == -1:
                 # We assume attr_intersecting and can't join_common
                 data_mod = pd.concat(
                     [
@@ -565,6 +569,9 @@ class MuData:
                 data_mod.loc[:, colname] = col
 
             if len(data_global) > 0:
+                # TODO: if there were intersecting attrnames between modalities,
+                #       this will increase the size of the index
+                # Should we use attrmap to figure the index out?
                 data_mod = data_mod.join(data_global, how="left", sort=False)
 
         #
@@ -713,17 +720,23 @@ class MuData:
         else:
             keep_index = prev_index.isin(now_index)
             new_index = ~now_index.isin(prev_index)
-            if new_index.sum() == 0:
+            if new_index.sum() == 0 or (keep_index.sum() + new_index.sum() == len(now_index)):
                 # Another length (filtered) or same length (reordered)
+                # or new modality added
                 # Update .obsm/.varm (size might have changed)
+                # NOTE: .get_index doesn't work with duplicated indices
+                # index_order = prev_index.get_indexer(now_index)
                 index_order = [prev_index.get_loc(i) for i in now_index]
 
                 for mx_key, mx in attrm.items():
                     attrm[mx_key] = attrm[mx_key][index_order]
+                    attrm[mx_key][index_order == -1] = np.nan
 
                 # Update .obsp/.varp (size might have changed)
                 for mx_key, mx in attrp.items():
                     attrp[mx_key] = attrp[mx_key][index_order, index_order]
+                    attrp[mx_key][index_order == -1, :] = -1
+                    attrp[mx_key][:, index_order == -1] = -1
 
             elif len(now_index) == len(prev_index):
                 # Renamed since new_index.sum() != 0
@@ -849,7 +862,8 @@ class MuData:
         """
         Update .obs slot of MuData with the newest .obs data from all the modalities
         """
-        self._update_attr("obs", axis=1, join_common=bool(True * self.axis == 1))
+        join_common = self.axis == 1
+        self._update_attr("obs", axis=1, join_common=join_common)
 
     def obs_names_make_unique(self):
         """
@@ -941,7 +955,8 @@ class MuData:
         """
         Update .var slot of MuData with the newest .var data from all the modalities
         """
-        self._update_attr("var", axis=0, join_common=bool(True * self.axis == 0))
+        join_common = self.axis == 0
+        self._update_attr("var", axis=0, join_common=join_common)
 
     def var_names_make_unique(self):
         """
@@ -1174,7 +1189,7 @@ class MuData:
                     )
                     if any(global_keys):
                         descr += f"\n  {attr}:\t{str([keys[i] for i in range(len(keys)) if global_keys[i]])[1:-1]}"
-        descr += f"\n  {len(self.mod)} modalities"
+        descr += f"\n  {len(self.mod)} modalit{'y' if len(self.mod) == 1 else 'ies'}"
         for k, v in self.mod.items():
             descr += f"\n    {k}:\t{v.n_obs} x {v.n_vars}"
             for attr in [
