@@ -9,6 +9,16 @@ Release notes
 
    *
 
+v0.2.0
+------
+
+This version uses new I/O serialisation of `AnnData v0.8 <https://anndata.readthedocs.io/en/latest/release-notes/index.html#th-march-2022>`_.
+
+Updating a MuData object with :func:`mudata.MuData.update` is even faster in many use cases.
+
+There's `a new axes interface <https://github.com/scverse/mudata/blob/master/docs/source/notebooks/axes.ipynb>`_ that allows to use MuData objects as containers with different shared dimensions.
+
+
 v0.1.2
 ------
 
