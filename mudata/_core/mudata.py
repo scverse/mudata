@@ -708,6 +708,8 @@ class MuData:
         # this needs to be after setting _obs/_var due to dimension checking in the aligned mapping
         attrmap.clear()
         attrmap.update(mdict)
+        for mod, mapping in mdict.items():
+            attrm[mod] = mapping > 0
 
         now_index = getattr(self, attr).index
 
