@@ -731,8 +731,9 @@ class MuData:
                 index_order = [prev_index.get_loc(i) for i in now_index]
 
                 for mx_key, mx in attrm.items():
-                    attrm[mx_key] = attrm[mx_key][index_order]
-                    attrm[mx_key][index_order == -1] = np.nan
+                    if mx_key not in self.mod.keys():  # not a modality name
+                        attrm[mx_key] = attrm[mx_key][index_order]
+                        attrm[mx_key][index_order == -1] = np.nan
 
                 # Update .obsp/.varp (size might have changed)
                 for mx_key, mx in attrp.items():
