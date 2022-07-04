@@ -724,16 +724,15 @@ class MuData:
         elif now_index.equals(prev_index):
             # Index is the same
             pass
-        elif len(now_index) == len(prev_index):
-            # Renamed since new_index.sum() != 0
-            # We have to assume the order hasn't changed
-            pass
         else:
             keep_index = prev_index.isin(now_index)
             new_index = ~now_index.isin(prev_index)
-            if new_index.sum() == 0 or (keep_index.sum() + new_index.sum() == len(now_index)):
-                # Another length (filtered) or same length (reordered)
-                # or new modality added
+
+            if new_index.sum() == 0 or (
+                keep_index.sum() + new_index.sum() == len(now_index)
+                and len(now_index) > len(prev_index)
+            ):
+                # Another length (filtered) or new modality added
                 # Update .obsm/.varm (size might have changed)
                 # NOTE: .get_index doesn't work with duplicated indices
                 if any(prev_index.duplicated()):
@@ -768,6 +767,11 @@ class MuData:
                     attrp[mx_key] = attrp[mx_key][index_order, index_order]
                     attrp[mx_key][index_order == -1, :] = -1
                     attrp[mx_key][:, index_order == -1] = -1
+
+            elif len(now_index) == len(prev_index):
+                # Renamed since new_index.sum() != 0
+                # We have to assume the order hasn't changed
+                pass
 
             else:
                 raise NotImplementedError(
