@@ -573,7 +573,7 @@ class MuData:
                 col = col.astype(np.uint32)
                 data_mod.loc[:, colname] = col
 
-            if len(data_global) > 0:
+            if len(data_global.columns) > 0:
                 # TODO: if there were intersecting attrnames between modalities,
                 #       this will increase the size of the index
                 # Should we use attrmap to figure the index out?
@@ -724,6 +724,10 @@ class MuData:
         elif now_index.equals(prev_index):
             # Index is the same
             pass
+        elif len(now_index) == len(prev_index):
+            # Renamed since new_index.sum() != 0
+            # We have to assume the order hasn't changed
+            pass
         else:
             keep_index = prev_index.isin(now_index)
             new_index = ~now_index.isin(prev_index)
@@ -765,11 +769,6 @@ class MuData:
                     attrp[mx_key][index_order == -1, :] = -1
                     attrp[mx_key][:, index_order == -1] = -1
 
-            elif len(now_index) == len(prev_index):
-                # Renamed since new_index.sum() != 0
-                # TODO: try to use obsmap/varmap:
-                # We have to assume the order hasn't changed
-                pass
             else:
                 raise NotImplementedError(
                     f"{attr}_names seem to have been renamed and filtered at the same time. "
