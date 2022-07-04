@@ -262,13 +262,18 @@ class MuData:
         )
 
     def _check_duplicated_attr_names(self, attr: str):
-        if any([not getattr(self.mod[mod_i], attr + "_names").is_unique for mod_i in self.mod]):
+        if any(
+            [
+                not getattr(self.mod[mod_i], attr + "_names").astype(str).is_unique
+                for mod_i in self.mod
+            ]
+        ):
             # If there are non-unique attr_names, we can only handle outer joins
             # under the condition the duplicated values are restricted to one modality
             dups = [
                 np.unique(
                     getattr(self.mod[mod_i], attr + "_names")[
-                        getattr(self.mod[mod_i], attr + "_names").duplicated()
+                        getattr(self.mod[mod_i], attr + "_names").astype(str).duplicated()
                     ]
                 )
                 for mod_i in self.mod
@@ -727,8 +732,27 @@ class MuData:
                 # or new modality added
                 # Update .obsm/.varm (size might have changed)
                 # NOTE: .get_index doesn't work with duplicated indices
-                # index_order = prev_index.get_indexer(now_index)
-                index_order = [prev_index.get_loc(i) for i in now_index]
+                if any(prev_index.duplicated()):
+                    # Assume the relative order of duplicates hasn't changed
+                    # NOTE: .get_loc() for each element is too slow
+                    # We will rename duplicated in prev_index and now_index
+                    # in order to use .get_indexer
+                    # index_order = [
+                    #    prev_index.get_loc(i) if i in prev_index else -1 for i in now_index
+                    # ]
+                    prev_values = prev_index.values
+                    now_values = now_index.values
+                    for value in prev_index[np.where(prev_index.duplicated())[0]]:
+                        v_now = np.where(now_index == value)[0]
+                        v_prev = np.where(prev_index.get_loc(value))[0]
+                        for i in range(min(len(v_now), len(v_prev))):
+                            prev_values[v_prev[i]] = f"{str(value)}-{i}"
+                            now_values[v_now[i]] = f"{str(value)}-{i}"
+
+                    prev_index = pd.Index(prev_values)
+                    now_index = pd.Index(now_values)
+
+                index_order = prev_index.get_indexer(now_index)
 
                 for mx_key, mx in attrm.items():
                     if mx_key not in self.mod.keys():  # not a modality name
