@@ -36,6 +36,17 @@ class TestMuData:
             "demo"
         ]
 
+    def test_obs_propagate(self, mdata, filepath_h5mu):
+        for m, mod in mdata.mod.items():
+            mod.obs["demo"] = m
+        mdata.obs["demo"] = "global"
+        mdata.obs["mod1:one"] = "one"
+        mdata.propagate_obs()
+        mdata.write(filepath_h5mu)
+        mdata_ = mudata.read(filepath_h5mu)
+        assert list(mdata_.mod["mod1"].obs.one == "one")
+        assert list([mdata.mod[k].obs.demo.values[0] == "global" for k in mdata_.mod])
+
     def test_var_global_columns(self, mdata, filepath_h5mu):
         for m, mod in mdata.mod.items():
             mod.var["demo"] = m
