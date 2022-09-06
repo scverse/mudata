@@ -393,6 +393,10 @@ class MuData:
         """Shape of data, all variables and observations combined (:attr:`n_obs`, :attr:`n_var`)."""
         return self.n_obs, self.n_vars
 
+    def __len__(self) -> int:
+        """Length defined as a total number of observations (:attr:`n_obs`)."""
+        return self.n_obs
+
     # # Currently rely on AnnData's interface for setting .obs / .var
     # # This code implements AnnData._set_dim_df for another namespace
     # def _set_dim_df(self, value: pd.DataFrame, attr: str):
