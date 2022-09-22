@@ -127,9 +127,9 @@ def details_block_table(data, attr, name, expand=0, dims=True, square=False):
                                        <td class='col-index'>{}</td>  <td class='hl-types'>{}</td>  <td><span class='hl-import'>{}</span>{}</td>  <td class='hl-dims'>{}</td>
                                    </tr>""".format(
                             attr_key,
-                            obj[attr_key].dtype,
+                            obj[attr_key].dtype if hasattr(obj[attr_key], "dtype") else "",
                             *maybe_module_class(obj[attr_key]),
-                            f"{obj[attr_key].shape[1]} dims"
+                            f"{obj[attr_key].shape[1]} columns"
                             if len(obj[attr_key].shape) > 1 and dims
                             else "",
                         )
