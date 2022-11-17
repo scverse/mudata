@@ -1200,7 +1200,7 @@ class MuData:
         backed_at = f" backed at {str(self.filename)!r}" if self.isbacked else ""
         view_of = "View of " if self.is_view else ""
         descr = f"{view_of}MuData object with n_obs × n_vars = {n_obs} × {n_vars}{backed_at}"
-        for attr in ["obs", "var", "obsm", "varm", "obsp", "varp"]:
+        for attr in ["obs", "var", "uns", "obsm", "varm", "obsp", "varp"]:
             if hasattr(self, attr) and getattr(self, attr) is not None:
                 keys = list(getattr(self, attr).keys())
                 if len(keys) > 0:
