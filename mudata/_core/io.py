@@ -306,7 +306,7 @@ def write(filename: PathLike, data: Union[MuData, AnnData]):
     else:
         assert isinstance(data, AnnData), "Only MuData and AnnData objects are accepted"
 
-        m = re.search("^(.+)\.(h5mu)[/]?([A-Za-z]*)[/]?([/A-Za-z]*)$", filename)
+        m = re.search("^(.+)\.(h5mu)[/]?([A-Za-z]*)[/]?([/A-Za-z]*)$", str(filename))
         if m is not None:
             m = m.groups()
         else:
@@ -582,7 +582,7 @@ def read(filename: PathLike, **kwargs) -> Union[MuData, AnnData]:
     """
     import re
 
-    m = re.search("^(.+)\.(h5mu)[/]?([A-Za-z]*)[/]?([/A-Za-z]*)$", filename)
+    m = re.search("^(.+)\.(h5mu)[/]?([A-Za-z]*)[/]?([/A-Za-z]*)$", str(filename))
     if m is not None:
         m = m.groups()
     else:
