@@ -1,4 +1,4 @@
-name: Python package
+name: Package dev versions
 
 on: [push, pull_request]
 
