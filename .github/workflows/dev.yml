@@ -1,0 +1,30 @@
+name: Python package
+
+on: [push, pull_request]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, "3.10"]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install flake8 pytest flit
+        flit install --deps=develop
+    - name: Install dev versions
+      run: |
+        python -m pip install -U git+https://github.com/scverse/anndata
+        python -m pip install -U git+https://github.com/scverse/scanpy
+    - name: Test with pytest
+      run: |
+        pytest
