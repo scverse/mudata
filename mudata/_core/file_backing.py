@@ -1,7 +1,7 @@
 from pathlib import Path
 from os import PathLike
 from os.path import abspath
-from typing import Optional, Iterator
+from typing import Optional, Iterator, Literal
 from collections import defaultdict
 from weakref import WeakSet
 
@@ -14,7 +14,7 @@ class MuDataFileManager(AnnDataFileManager):
     def __init__(
         self,
         filename: Optional[PathLike] = None,
-        filemode: Optional[ad.compat.Literal["r", "r+"]] = None,
+        filemode: Optional[Literal["r", "r+"]] = None,
     ):
         self._counter = 0
         self._children = WeakSet()
@@ -25,7 +25,7 @@ class MuDataFileManager(AnnDataFileManager):
     def open(
         self,
         filename: Optional[PathLike] = None,
-        filemode: Optional[ad.compat.Literal["r", "r+"]] = None,
+        filemode: Optional[Literal["r", "r+"]] = None,
         add_ref=False,
     ) -> bool:
         if self.is_open and (
@@ -99,7 +99,7 @@ class AnnDataFileManager(ad._core.file_backing.AnnDataFileManager):
     def open(
         self,
         filename: Optional[PathLike] = None,
-        filemode: Optional[ad.compat.Literal["r", "r+"]] = None,
+        filemode: Optional[Literal["r", "r+"]] = None,
     ):
         if not self._parent.open(filename, filemode, add_ref=True):
             self._set_file()

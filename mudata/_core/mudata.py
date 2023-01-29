@@ -1,4 +1,4 @@
-from typing import List, Tuple, Union, Optional, Mapping, Iterable, Sequence, Any
+from typing import List, Tuple, Union, Optional, Mapping, Iterable, Sequence, Any, Literal
 from numbers import Integral
 from collections import abc
 from collections.abc import MutableMapping
@@ -244,7 +244,7 @@ class MuData:
         varp: Optional[Union[np.ndarray, Mapping[str, Sequence[Any]]]] = None,
         obsmap: Optional[Mapping[str, Sequence[int]]] = None,
         varmap: Optional[Mapping[str, Sequence[int]]] = None,
-        axis: anndata.compat.Literal[0, 1] = 0,
+        axis: Literal[0, 1] = 0,
     ):
 
         return cls(

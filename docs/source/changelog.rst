@@ -9,6 +9,20 @@ Release notes
 
    *
 
+v0.2.2
+------
+
+Path objects ``pathlib.Path`` now work in :func:`mudata.read`.
+
+v0.2.1
+------
+
+This version comes with :func:`mudata.MuData.update` improvements and optimisations.
+
+There is now :func:`mudata.MuData.__len__`. This should make it easier to build MuData into workflows that operate on data containers with length. In practice using :func:`mudata.MuData.n_obs` should be preferred.
+
+In this implementation of MuData, default ``dict`` has replaced ``OrderedDict``, e.g. in the ``.uns`` slot, to improve compatibility with new serialisation versions. As of Python 3.6, dictionaries are insertion-ordered.
+
 v0.2.0
 ------
 
