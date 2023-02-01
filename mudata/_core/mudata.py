@@ -246,7 +246,6 @@ class MuData:
         varmap: Optional[Mapping[str, Sequence[int]]] = None,
         axis: Literal[0, 1] = 0,
     ):
-
         return cls(
             data={k: (v if isinstance(v, AnnData) else AnnData(**v)) for k, v in mod.items()},
             obs=obs,

@@ -78,6 +78,7 @@ html_theme_options = {
     "display_version": False,
 }
 
+
 # app setup hook
 def setup(app):
     app.add_config_value(
