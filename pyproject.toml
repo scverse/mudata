@@ -27,7 +27,8 @@ requires = [
 [tool.flit.metadata.requires-extra]
 docs = [
     "sphinx >= 4.0",
-    "sphinx-book-theme",
+    "sphinx-book-theme==0.3.3",
+    "pydata-sphinx-theme==0.8.1",
     "readthedocs-sphinx-search",
     "nbsphinx",
     "sphinx_automodapi"
