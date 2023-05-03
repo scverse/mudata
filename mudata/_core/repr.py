@@ -38,6 +38,8 @@ def format_values(x):
     elif isinstance(x, str):
         s += x
     else:
+        if not len(x):
+            return s
         x = x[: min(100, len(x))]
         if hasattr(x, "shape"):
             if isinstance(x, np.ndarray):
@@ -49,12 +51,15 @@ def format_values(x):
                 return type(x)
         testval = None
         if x.dtype == object:
-            testval = next(
-                filter(
-                    lambda y: ~np.isnan(y) if isinstance(y, Number) else x is not None,
-                    x,
+            try:
+                testval = next(
+                    filter(
+                        lambda y: ~np.isnan(y) if isinstance(y, Number) else x is not None,
+                        x,
+                    )
                 )
-            )
+            except StopIteration:
+                pass
         if testval is None:
             testval = x[0]
         if isinstance(testval, Integral):
