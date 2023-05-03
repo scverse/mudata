@@ -3,7 +3,7 @@
 #
 
 from typing import Tuple, Iterable
-from numbers import Integral, Real, Complex
+from numbers import Number, Integral, Real, Complex
 from warnings import warn
 import numpy as np
 import pandas as pd
@@ -41,23 +41,32 @@ def format_values(x):
         x = x[: min(100, len(x))]
         if hasattr(x, "shape"):
             if isinstance(x, np.ndarray):
-                x = x.flat
+                x = x.reshape(-1)
             elif isinstance(x, pd.Series):
                 x = x.to_numpy()
             else:
                 warn(f"got unknown array type {type(x)}, don't know how handle it.")
                 return type(x)
-        if isinstance(x[0], Integral):
+        testval = None
+        if x.dtype == object:
+            testval = next(
+                filter(
+                    lambda y: ~np.isnan(y) if isinstance(y, Number) else x is not None,
+                    x,
+                )
+            )
+        if testval is None:
+            testval = x[0]
+        if isinstance(testval, Integral):
             s += ",".join([f"{i}" for i in x])
-        elif isinstance(x[0], Real):
+        elif isinstance(testval, Real):
             s += ",".join([f"{i:.2f}" for i in x])
-        elif isinstance(x[0], Complex):
+        elif isinstance(testval, Complex):
             warn("got complex number, don't know how to handle it")
-        elif isinstance(x[0], Iterable):
+        elif isinstance(testval, Iterable):
             s += ",".join(map(format_values, x))
-        s = s[:50]
-        while s[-1] != ",":
-            s = s[:-1]
+        lastidx = max(50, s.find(","))
+        s = s[:lastidx]
         s += "..."
     return s
 
