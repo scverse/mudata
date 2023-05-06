@@ -41,6 +41,7 @@ def format_values(x):
         if not len(x):
             return s
         x = x[: min(100, len(x))]
+        testval = None
         if hasattr(x, "shape"):
             if isinstance(x, np.ndarray):
                 x = x.reshape(-1)
@@ -49,17 +50,16 @@ def format_values(x):
             else:
                 warn(f"got unknown array type {type(x)}, don't know how handle it.")
                 return type(x)
-        testval = None
-        if x.dtype == object:
-            try:
-                testval = next(
-                    filter(
-                        lambda y: ~np.isnan(y) if isinstance(y, Number) else x is not None,
-                        x,
+            if x.dtype == object:
+                try:
+                    testval = next(
+                        filter(
+                            lambda y: ~np.isnan(y) if isinstance(y, Number) else x is not None,
+                            x,
+                        )
                     )
-                )
-            except StopIteration:
-                pass
+                except StopIteration:
+                    pass
         if testval is None:
             testval = x[0]
         if isinstance(testval, Integral):
