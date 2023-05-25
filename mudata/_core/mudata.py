@@ -28,7 +28,7 @@ from anndata._core.aligned_mapping import (
 from anndata._core.views import DataFrameView
 
 from .file_backing import MuDataFileManager
-from .utils import _make_index_unique, _restore_index
+from .utils import _make_index_unique, _restore_index, _maybe_coerce_to_boolean
 
 from .repr import *
 from .config import OPTIONS
@@ -541,7 +541,10 @@ class MuData:
                         sort=False,
                     )
                     data_common = pd.concat(
-                        [getattr(a, attr)[columns_common] for m, a in self.mod.items()],
+                        [
+                            _maybe_coerce_to_boolean(getattr(a, attr)[columns_common])
+                            for m, a in self.mod.items()
+                        ],
                         join="outer",
                         axis=0,
                         sort=False,
@@ -587,11 +590,13 @@ class MuData:
         else:
             if join_common:
                 dfs = [
-                    _make_index_unique(
-                        getattr(a, attr)
-                        .drop(columns_common, axis=1)
-                        .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                        .add_prefix(m + ":")
+                    _maybe_coerce_to_boolean(
+                        _make_index_unique(
+                            getattr(a, attr)
+                            .drop(columns_common, axis=1)
+                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                            .add_prefix(m + ":")
+                        )
                     )
                     for m, a in self.mod.items()
                 ]
@@ -606,7 +611,9 @@ class MuData:
 
                 data_common = pd.concat(
                     [
-                        _make_index_unique(getattr(a, attr)[columns_common])
+                        _maybe_coerce_to_boolean(
+                            _make_index_unique(getattr(a, attr)[columns_common])
+                        )
                         for m, a in self.mod.items()
                     ],
                     join="outer",
