@@ -573,8 +573,7 @@ class MuData:
                 # also, this is compatible to Muon.jl
                 col = data_mod.loc[:, colname] + 1
                 col.replace(np.NaN, 0, inplace=True)
-                col = col.astype(np.uint32)
-                data_mod.loc[:, colname] = col
+                data_mod[colname] = col.astype(np.uint32)
 
             if len(data_global.columns) > 0:
                 # TODO: if there were intersecting attrnames between modalities,
