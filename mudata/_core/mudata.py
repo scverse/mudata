@@ -206,7 +206,7 @@ class MuData:
         for attr, idx in (("obs", obsidx), ("var", varidx)):
             posmap = {}
             for mod, mapping in getattr(mudata_ref, attr + "map").items():
-                newmap = mapping[idx]
+                newmap = mapping[idx].copy()
                 nz = newmap > 0
                 newmap[nz] = np.nonzero(nz)[0] + np.uint(1)
                 posmap[mod] = newmap
