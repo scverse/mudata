@@ -62,7 +62,11 @@ def format_values(x):
                     pass
         if testval is None:
             testval = x[0]
-        if isinstance(testval, Integral):
+        if (
+            isinstance(testval, Integral)
+            or isinstance(testval, np.bool_)
+            or isinstance(testval, bool)
+        ):
             s += ",".join([f"{i}" for i in x])
         elif isinstance(testval, Real):
             s += ",".join([f"{i:.2f}" for i in x])
