@@ -206,10 +206,7 @@ class MuData:
         for attr, idx in (("obs", obsidx), ("var", varidx)):
             posmap = {}
             for mod, mapping in getattr(mudata_ref, attr + "map").items():
-                newmap = mapping[idx].copy()
-                nz = newmap > 0
-                newmap[nz] = np.nonzero(nz)[0] + np.uint(1)
-                posmap[mod] = newmap
+                posmap[mod] = mapping[idx].copy()
             setattr(self, "_" + attr + "map", posmap)
 
         self.is_view = True
@@ -574,7 +571,7 @@ class MuData:
                 # use 0 as special value for missing
                 # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
                 # also, this is compatible to Muon.jl
-                col = data_mod.loc[:, colname] + 1
+                col = data_mod[colname] + 1
                 col.replace(np.NaN, 0, inplace=True)
                 data_mod[colname] = col.astype(np.uint32)
 
