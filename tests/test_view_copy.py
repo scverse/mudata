@@ -41,6 +41,17 @@ class TestMuData:
         assert mdata_copy.is_view == False
         assert mdata_copy.n_obs == view_n_obs
 
+    def test_view_view(self, mdata):
+        view_n_obs = 5
+        mdata_view = mdata[list(range(view_n_obs)), :]
+        assert mdata_view.is_view == True
+        assert mdata_view.n_obs == view_n_obs
+
+        view_view_n_obs = 2
+        mdata_view_view = mdata_view[list(range(view_view_n_obs)), :]
+        assert mdata_view_view.is_view == True
+        assert mdata_view_view.n_obs == view_view_n_obs
+
     def test_backed_copy(self, mdata, filepath_h5mu, filepath2_h5mu):
         mdata.write(filepath_h5mu)
         mdata_b = mudata.read_h5mu(filepath_h5mu, backed="r")

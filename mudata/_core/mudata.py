@@ -28,7 +28,7 @@ from anndata._core.aligned_mapping import (
 from anndata._core.views import DataFrameView
 
 from .file_backing import MuDataFileManager
-from .utils import _make_index_unique, _restore_index
+from .utils import _make_index_unique, _restore_index, _maybe_coerce_to_boolean
 
 from .repr import *
 from .config import OPTIONS
@@ -194,7 +194,10 @@ class MuData:
                     cobsidx = slice(None)
                 if len(cvaridx) == a.n_vars and np.all(np.diff(cvaridx) == 1):
                     cvaridx = slice(None)
-            self.mod[m] = a[cobsidx, cvaridx]
+            if a.is_view:
+                self.mod[m] = a._adata_ref[cobsidx, cvaridx]
+            else:
+                self.mod[m] = a[cobsidx, cvaridx]
 
         self._obs = DataFrameView(mudata_ref.obs.iloc[obsidx, :], view_args=(self, "obs"))
         self._obsm = mudata_ref.obsm._view(self, (obsidx,))
@@ -206,16 +209,17 @@ class MuData:
         for attr, idx in (("obs", obsidx), ("var", varidx)):
             posmap = {}
             for mod, mapping in getattr(mudata_ref, attr + "map").items():
-                newmap = mapping[idx].copy()
-                nz = newmap > 0
-                newmap[nz] = np.nonzero(nz)[0] + np.uint(1)
-                posmap[mod] = newmap
+                posmap[mod] = mapping[idx].copy()
             setattr(self, "_" + attr + "map", posmap)
 
         self.is_view = True
         self.file = mudata_ref.file
-        self._mudata_ref = mudata_ref
         self._axis = mudata_ref._axis
+
+        if mudata_ref.is_view:
+            self._mudata_ref = mudata_ref._mudata_ref
+        else:
+            self._mudata_ref = mudata_ref
 
     def _init_as_actual(self, data: "MuData"):
         self._init_common()
@@ -541,7 +545,10 @@ class MuData:
                         sort=False,
                     )
                     data_common = pd.concat(
-                        [getattr(a, attr)[columns_common] for m, a in self.mod.items()],
+                        [
+                            _maybe_coerce_to_boolean(getattr(a, attr)[columns_common])
+                            for m, a in self.mod.items()
+                        ],
                         join="outer",
                         axis=0,
                         sort=False,
@@ -571,10 +578,9 @@ class MuData:
                 # use 0 as special value for missing
                 # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
                 # also, this is compatible to Muon.jl
-                col = data_mod.loc[:, colname] + 1
+                col = data_mod[colname] + 1
                 col.replace(np.NaN, 0, inplace=True)
-                col = col.astype(np.uint32)
-                data_mod.loc[:, colname] = col
+                data_mod[colname] = col.astype(np.uint32)
 
             if len(data_global.columns) > 0:
                 # TODO: if there were intersecting attrnames between modalities,
@@ -588,11 +594,13 @@ class MuData:
         else:
             if join_common:
                 dfs = [
-                    _make_index_unique(
-                        getattr(a, attr)
-                        .drop(columns_common, axis=1)
-                        .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                        .add_prefix(m + ":")
+                    _maybe_coerce_to_boolean(
+                        _make_index_unique(
+                            getattr(a, attr)
+                            .drop(columns_common, axis=1)
+                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                            .add_prefix(m + ":")
+                        )
                     )
                     for m, a in self.mod.items()
                 ]
@@ -607,7 +615,9 @@ class MuData:
 
                 data_common = pd.concat(
                     [
-                        _make_index_unique(getattr(a, attr)[columns_common])
+                        _maybe_coerce_to_boolean(
+                            _make_index_unique(getattr(a, attr)[columns_common])
+                        )
                         for m, a in self.mod.items()
                     ],
                     join="outer",
