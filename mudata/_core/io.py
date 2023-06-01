@@ -582,7 +582,7 @@ def read(filename: PathLike, **kwargs) -> Union[MuData, AnnData]:
     """
     import re
 
-    m = re.search("^(.+)\.(h5mu)[/]?([A-Za-z]*)[/]?([/A-Za-z]*)$", str(filename))
+    m = re.search("^(.+)\.(h5mu)[/]?([^/]*)[/]?(.*)$", str(filename))
     if m is not None:
         m = m.groups()
     else:
