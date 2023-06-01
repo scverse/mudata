@@ -65,7 +65,7 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
         if adata.raw is not None:
             adata.strings_to_categoricals(adata.raw.var)
 
-        if write_data:
+        if write_data or not adata.isbacked:
             write_elem(group, "X", adata.X, dataset_kwargs=kwargs)
         if adata.raw is not None:
             write_elem(group, "raw", adata.raw)
@@ -158,7 +158,7 @@ def write_zarr(
             if adata.raw is not None:
                 adata.strings_to_categoricals(adata.raw.var)
 
-            if write_data:
+            if write_data or not adata.isbacked:
                 if chunks is not None and not isinstance(adata.X, sparse.spmatrix):
                     write_elem(group, "X", adata.X, dataset_kwargs=dict(chunks=chunks, **kwargs))
                 else:
@@ -306,7 +306,7 @@ def write(filename: PathLike, data: Union[MuData, AnnData]):
     else:
         assert isinstance(data, AnnData), "Only MuData and AnnData objects are accepted"
 
-        m = re.search("^(.+)\.(h5mu)[/]?([A-Za-z]*)[/]?([/A-Za-z]*)$", str(filename))
+        m = re.search("^(.+)\.(h5mu)[/]?([^/]*)[/]?(.*)$", str(filename))
         if m is not None:
             m = m.groups()
         else:
