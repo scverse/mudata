@@ -194,7 +194,10 @@ class MuData:
                     cobsidx = slice(None)
                 if len(cvaridx) == a.n_vars and np.all(np.diff(cvaridx) == 1):
                     cvaridx = slice(None)
-            self.mod[m] = a[cobsidx, cvaridx]
+            if a.is_view:
+                self.mod[m] = a._adata_ref[cobsidx, cvaridx]
+            else:
+                self.mod[m] = a[cobsidx, cvaridx]
 
         self._obs = DataFrameView(mudata_ref.obs.iloc[obsidx, :], view_args=(self, "obs"))
         self._obsm = mudata_ref.obsm._view(self, (obsidx,))
@@ -211,8 +214,12 @@ class MuData:
 
         self.is_view = True
         self.file = mudata_ref.file
-        self._mudata_ref = mudata_ref
         self._axis = mudata_ref._axis
+
+        if mudata_ref.is_view:
+            self._mudata_ref = mudata_ref._mudata_ref
+        else:
+            self._mudata_ref = mudata_ref
 
     def _init_as_actual(self, data: "MuData"):
         self._init_common()
