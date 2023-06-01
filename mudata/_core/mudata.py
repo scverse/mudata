@@ -1205,10 +1205,13 @@ class MuData:
 
         write_zarr(store, self, **kwargs)
 
-    def _gen_repr(self, n_obs, n_vars, extensive: bool = False) -> str:
+    def _gen_repr(self, n_obs, n_vars, extensive: bool = False, nest_level: int = 0) -> str:
+        indent = "    " * nest_level
         backed_at = f" backed at {str(self.filename)!r}" if self.isbacked else ""
         view_of = "View of " if self.is_view else ""
-        descr = f"{view_of}MuData object with n_obs × n_vars = {n_obs} × {n_vars}{backed_at}"
+        descr = (
+            f"{indent}{view_of}MuData object with n_obs × n_vars = {n_obs} × {n_vars}{backed_at}"
+        )
         for attr in ["obs", "var", "uns", "obsm", "varm", "obsp", "varp"]:
             if hasattr(self, attr) and getattr(self, attr) is not None:
                 keys = list(getattr(self, attr).keys())
@@ -1231,10 +1234,14 @@ class MuData:
                         )
                     )
                     if any(global_keys):
-                        descr += f"\n  {attr}:\t{str([keys[i] for i in range(len(keys)) if global_keys[i]])[1:-1]}"
-        descr += f"\n  {len(self.mod)} modalit{'y' if len(self.mod) == 1 else 'ies'}"
+                        descr += f"\n{indent}  {attr}:\t{str([keys[i] for i in range(len(keys)) if global_keys[i]])[1:-1]}"
+        descr += f"\n{indent}  {len(self.mod)} modalit{'y' if len(self.mod) == 1 else 'ies'}"
         for k, v in self.mod.items():
-            descr += f"\n    {k}:\t{v.n_obs} x {v.n_vars}"
+            if isinstance(v, MuData):
+                descr += "\n" + v._gen_repr(n_obs, n_vars, extensive, nest_level + 1)
+                continue
+            mod_indent = "    " * (nest_level + 1)
+            descr += f"\n{mod_indent}{k}:\t{v.n_obs} x {v.n_vars}"
             for attr in [
                 "obs",
                 "var",
@@ -1245,9 +1252,12 @@ class MuData:
                 "obsp",
                 "varp",
             ]:
-                keys = getattr(v, attr).keys()
-                if len(keys) > 0:
-                    descr += f"\n      {attr}:\t{str(list(keys))[1:-1]}"
+                try:
+                    keys = getattr(v, attr).keys()
+                    if len(keys) > 0:
+                        descr += f"\n{mod_indent}  {attr}:\t{str(list(keys))[1:-1]}"
+                except AttributeError:
+                    pass
         return descr
 
     def __repr__(self) -> str:
