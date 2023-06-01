@@ -272,7 +272,16 @@ class MuData:
         axis: Literal[0, 1] = 0,
     ):
         return cls(
-            data={k: (v if isinstance(v, AnnData) else AnnData(**v)) for k, v in mod.items()},
+            data={
+                k: (
+                    v
+                    if isinstance(v, AnnData) or isinstance(v, MuData)
+                    else MuData(**v)
+                    if "mod" in v
+                    else AnnData(**v)
+                )
+                for k, v in mod.items()
+            },
             obs=obs,
             var=var,
             uns=uns,
@@ -1230,9 +1239,7 @@ class MuData:
         indent = "    " * nest_level
         backed_at = f" backed at {str(self.filename)!r}" if self.isbacked else ""
         view_of = "View of " if self.is_view else ""
-        descr = (
-            f"{indent}{view_of}MuData object with n_obs × n_vars = {n_obs} × {n_vars}{backed_at}"
-        )
+        descr = f"{view_of}MuData object with n_obs × n_vars = {n_obs} × {n_vars}{backed_at}"
         for attr in ["obs", "var", "uns", "obsm", "varm", "obsp", "varp"]:
             if hasattr(self, attr) and getattr(self, attr) is not None:
                 keys = list(getattr(self, attr).keys())
@@ -1258,10 +1265,12 @@ class MuData:
                         descr += f"\n{indent}  {attr}:\t{str([keys[i] for i in range(len(keys)) if global_keys[i]])[1:-1]}"
         descr += f"\n{indent}  {len(self.mod)} modalit{'y' if len(self.mod) == 1 else 'ies'}"
         for k, v in self.mod.items():
-            if isinstance(v, MuData):
-                descr += "\n" + v._gen_repr(n_obs, n_vars, extensive, nest_level + 1)
-                continue
             mod_indent = "    " * (nest_level + 1)
+            if isinstance(v, MuData):
+                descr += f"\n{mod_indent}{k}:\t" + v._gen_repr(
+                    n_obs, n_vars, extensive, nest_level + 1
+                )
+                continue
             descr += f"\n{mod_indent}{k}:\t{v.n_obs} x {v.n_vars}"
             for attr in [
                 "obs",
