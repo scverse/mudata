@@ -190,12 +190,33 @@ class MuData:
             cobsidx, cvaridx = mudata_ref.obsmap[m][obsidx], mudata_ref.varmap[m][varidx]
             cobsidx, cvaridx = cobsidx[cobsidx > 0] - 1, cvaridx[cvaridx > 0] - 1
             if len(cobsidx) > 0 and len(cvaridx) > 0:
-                if len(cobsidx) == a.n_obs and np.all(np.diff(cobsidx) == 1):
-                    cobsidx = slice(None)
-                if len(cvaridx) == a.n_vars and np.all(np.diff(cvaridx) == 1):
-                    cvaridx = slice(None)
+                if np.all(np.diff(cobsidx) == 1):
+                    if a.is_view:
+                        if (
+                            isinstance(a, MuData)
+                            and len(cobsidx) == a._mudata_ref.n_obs
+                            or isinstance(a, AnnData)
+                            and len(cobsidx) == a._adata_ref.n_obs
+                        ):
+                            cobsidx = slice(None)
+                    elif len(cobsidx) == a.n_obs:
+                        cobsidx = slice(None)
+                if np.all(np.diff(cvaridx) == 1):
+                    if a.is_view:
+                        if (
+                            isinstance(a, MuData)
+                            and len(cvaridx) == a._mudata_ref.n_vars
+                            or isinstance(a, AnnData)
+                            and len(cvaridx) == a._adata_ref.n_vars
+                        ):
+                            cvaridx = slice(None)
+                    elif len(cvaridx) == a.n_vars:
+                        cvaridx = slice(None)
             if a.is_view:
-                self.mod[m] = a._adata_ref[cobsidx, cvaridx]
+                if isinstance(a, MuData):
+                    self.mod[m] = a._mudata_ref[cobsidx, cvaridx]
+                else:
+                    self.mod[m] = a._adata_ref[cobsidx, cvaridx]
             else:
                 self.mod[m] = a[cobsidx, cvaridx]
 
