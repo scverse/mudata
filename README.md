@@ -2,6 +2,22 @@
 
 [![Documentation Status](https://readthedocs.org/projects/mudata/badge/?version=latest)](http://mudata.readthedocs.io/)
 [![PyPi version](https://img.shields.io/pypi/v/mudata)](https://pypi.org/project/mudata)
+[![Powered by NumFOCUS][badge-numfocus]][link-numfocus]
+
+[//]: # "numfocus-fiscal-sponsor-attribution"
+
+MuData is part of the scverse project ([website](https://scverse.org), [governance](https://scverse.org/about/roles)) and is fiscally sponsored by [NumFOCUS](https://numfocus.org/).
+Please consider making a tax-deductible [donation](https://numfocus.org/donate-to-scverse) to help the project pay for developer time, professional services, travel, workshops, and a variety of other needs.
+
+<a href="https://numfocus.org/project/scverse">
+  <img
+    src="https://raw.githubusercontent.com/numfocus/templates/master/images/numfocus-logo.png"
+    width="200"
+  >
+</a>
+
+[badge-numfocus]: https://img.shields.io/badge/powered%20by-NumFOCUS-orange.svg?style=flat&colorA=E1523D&colorB=007D8A
+[link-numfocus]: http://numfocus.org
 
 # MuData – multimodal data
 
