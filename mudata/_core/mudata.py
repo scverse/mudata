@@ -786,8 +786,8 @@ class MuData:
                     # index_order = [
                     #    prev_index.get_loc(i) if i in prev_index else -1 for i in now_index
                     # ]
-                    prev_values = prev_index.values
-                    now_values = now_index.values
+                    prev_values = prev_index.values.copy()
+                    now_values = now_index.values.copy()
                     for value in prev_index[np.where(prev_index.duplicated())[0]]:
                         v_now = np.where(now_index == value)[0]
                         v_prev = np.where(prev_index.get_loc(value))[0]
