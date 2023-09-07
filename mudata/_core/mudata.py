@@ -1239,7 +1239,8 @@ class MuData:
         indent = "    " * nest_level
         backed_at = f" backed at {str(self.filename)!r}" if self.isbacked else ""
         view_of = "View of " if self.is_view else ""
-        descr = f"{view_of}MuData object with n_obs × n_vars = {n_obs} × {n_vars}{backed_at}"
+        maybe_axis = f" (axis={self.axis}) " if hasattr(self, "axis") and self.axis != 0 else ""
+        descr = f"{view_of}MuData object with n_obs × n_vars = {n_obs} × {n_vars}{maybe_axis}{backed_at}"
         for attr in ["obs", "var", "uns", "obsm", "varm", "obsp", "varp"]:
             if hasattr(self, attr) and getattr(self, attr) is not None:
                 keys = list(getattr(self, attr).keys())
@@ -1268,7 +1269,7 @@ class MuData:
             mod_indent = "    " * (nest_level + 1)
             if isinstance(v, MuData):
                 descr += f"\n{mod_indent}{k}:\t" + v._gen_repr(
-                    n_obs, n_vars, extensive, nest_level + 1
+                    v.n_obs, v.n_vars, extensive, nest_level + 1
                 )
                 continue
             descr += f"\n{mod_indent}{k}:\t{v.n_obs} x {v.n_vars}"
