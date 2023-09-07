@@ -2,7 +2,7 @@
 
 [![Documentation Status](https://readthedocs.org/projects/mudata/badge/?version=latest)](http://mudata.readthedocs.io/)
 [![PyPi version](https://img.shields.io/pypi/v/mudata)](https://pypi.org/project/mudata)
-[![Powered by NumFOCUS][https://img.shields.io/badge/powered%20by-NumFOCUS-orange.svg?style=flat&colorA=E1523D&colorB=007D8A]][https://numfocus.org]
+[![Powered by NumFOCUS](https://img.shields.io/badge/powered%20by-NumFOCUS-orange.svg?style=flat&colorA=E1523D&colorB=007D8A)](https://numfocus.org)
 
 # MuData – multimodal data
 
