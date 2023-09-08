@@ -19,7 +19,7 @@ from anndata import AnnData
 from pathlib import Path
 from scipy import sparse
 
-from mudata import MuData
+from .mudata import ModDict, MuData
 from .file_backing import MuDataFileManager, AnnDataFileManager
 
 #
@@ -374,7 +374,7 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
             if k in ["obs", "var"]:
                 d[k] = read_dataframe(f[k])
             if k == "mod":
-                mods = {}
+                mods = ModDict()
                 gmods = f[k]
                 for m in gmods.keys():
                     ad = _read_h5mu_mod(gmods[m], manager, backed not in (None, False))

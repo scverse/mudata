@@ -50,6 +50,74 @@ class MuAxisArrays(AxisArrays):
     _view_class = MuAxisArraysView
 
 
+class ModDict(dict):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def _repr_hierarchy(
+        self, nest_level: int = 0, is_last: bool = False, active_levels: Optional[List[int]] = None
+    ) -> str:
+        descr = ""
+        active_levels = active_levels or []
+        for i, kv in enumerate(self.items()):
+            k, v = kv
+            indent = ("   " * nest_level) + ("└─ " if i == len(self) - 1 else "├─ ")
+
+            if len(active_levels) > 0:
+                indent_list = list(indent)
+                for level in active_levels:
+                    indent_list[level * 3] = "│"
+                indent = "".join(indent_list)
+
+            is_view = " view" if v.is_view else ""
+            backed_at = f" backed at {str(v.filename)!r}" if v.isbacked else ""
+
+            if isinstance(v, MuData):
+                maybe_axis = (
+                    (
+                        f" [shared obs] "
+                        if v.axis == 0
+                        else f" [shared var] "
+                        if v.axis == 1
+                        else f" [shared obs and var] "
+                    )
+                    if hasattr(v, "axis")
+                    else ""
+                )
+                descr += (
+                    f"\n{indent}{k} MuData{maybe_axis}({v.n_obs} × {v.n_vars}){backed_at}{is_view}"
+                )
+
+                if i != len(self) - 1:
+                    levels = [nest_level] + [level for level in active_levels]
+                else:
+                    levels = [level for level in active_levels if level != nest_level]
+                descr += v.mod._repr_hierarchy(nest_level=nest_level + 1, active_levels=levels)
+            elif isinstance(v, AnnData):
+                descr += f"\n{indent}{k} AnnData ({v.n_obs} x {v.n_vars}){backed_at}{is_view}"
+            else:
+                continue
+
+        return descr
+
+    def __repr__(self) -> str:
+        """
+        Represent the hierarchy of the modalities in the object.
+
+        A MuData object with two modalities, protein and RNA,
+        with the latter being a MuData containing raw, QC'ed and hvg-filtered AnnData objects,
+        will be represented as:
+
+        root MuData (axis=0) (5000 x 20100)
+        ├── protein AnnData (5000 x 100)
+        └── rna MuData (axis=-1) (5000 x 20000)
+            ├── raw AnnData (5000 x 20000)
+            ├── quality-filtered AnnData (3000 x 20000)
+            └── hvg-filtered AnnData (3000 x 4000)
+        """
+        return "MuData" + self._repr_hierarchy()
+
+
 class MuData:
     """
     Multimodal data object
@@ -81,7 +149,7 @@ class MuData:
             return
 
         # Add all modalities to a MuData object
-        self.mod = dict()
+        self.mod = ModDict()
         if isinstance(data, abc.Mapping):
             for k, v in data.items():
                 self.mod[k] = v
@@ -185,7 +253,7 @@ class MuData:
         if isinstance(varidx, Integral):
             varidx = slice(varidx, varidx + 1)
 
-        self.mod = dict()
+        self.mod = ModDict()
         for m, a in mudata_ref.mod.items():
             cobsidx, cvaridx = mudata_ref.obsmap[m][obsidx], mudata_ref.varmap[m][varidx]
             cobsidx, cvaridx = cobsidx[cobsidx > 0] - 1, cvaridx[cvaridx > 0] - 1
@@ -1239,7 +1307,17 @@ class MuData:
         indent = "    " * nest_level
         backed_at = f" backed at {str(self.filename)!r}" if self.isbacked else ""
         view_of = "View of " if self.is_view else ""
-        maybe_axis = f" (axis={self.axis}) " if hasattr(self, "axis") and self.axis != 0 else ""
+        maybe_axis = (
+            (
+                f" (shared obs) "
+                if self.axis == 0
+                else f" (shared var) "
+                if self.axis == 1
+                else f" (shared obs and var) "
+            )
+            if hasattr(self, "axis")
+            else ""
+        )
         descr = f"{view_of}MuData object with n_obs × n_vars = {n_obs} × {n_vars}{maybe_axis}{backed_at}"
         for attr in ["obs", "var", "uns", "obsm", "varm", "obsp", "varp"]:
             if hasattr(self, attr) and getattr(self, attr) is not None:
