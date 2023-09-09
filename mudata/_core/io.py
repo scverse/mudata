@@ -1,10 +1,10 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import Any, Callable, Optional, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
     import zarr
+    import fsspec
 
-from typing import Union
 from os import PathLike
 import os
 from warnings import warn
@@ -14,8 +14,8 @@ import numpy as np
 import h5py
 import anndata as ad
 from anndata import AnnData
+from anndata.compat import _read_attr
 
-# from anndata.compat import _read_hdf5_attribute  # 0.8
 from pathlib import Path
 from scipy import sparse
 
@@ -306,7 +306,7 @@ def write(filename: PathLike, data: Union[MuData, AnnData]):
     else:
         assert isinstance(data, AnnData), "Only MuData and AnnData objects are accepted"
 
-        m = re.search("^(.+)\.(h5mu)[/]?([^/]*)[/]?(.*)$", str(filename))
+        m = re.search("^(.+).(h5mu)[/]?([^/]*)[/]?(.*)$", str(filename))
         if m is not None:
             m = m.groups()
         else:
@@ -338,6 +338,54 @@ def write(filename: PathLike, data: Union[MuData, AnnData]):
 #
 
 
+def _validate_h5mu(filename: PathLike) -> (str, Optional[Callable]):
+    fname: [str, Path, "fsspec.core.io.BufferedReader", "fsspec.core.OpenFile"] = filename
+    callback = None
+
+    try:
+        with open(filename, "rb") as f:
+            ish5mu = f.read(6) == b"MuData"
+    except TypeError as e:
+        # Support for fsspec
+        #
+        # Namely, opening remote files should work via
+        # with fsspec.open("s3://bucket/file.h5mu") as f:
+        #     mdata = read_h5mu(f)
+        # or
+        # mdata = read_h5mu(fsspec.open("s3://bucket/file.h5mu")
+        if (
+            filename.__class__.__name__ == "BufferedReader"
+            or filename.__class__.__name__ == "OpenFile"
+        ):
+            try:
+                from fsspec.core import OpenFile
+
+                if isinstance(filename, OpenFile):
+                    fname = filename.__enter__()
+                    callback = lambda: fname.__exit__()
+                ish5mu = fname.read(6) == b"MuData"
+            except ImportError as e:
+                raise ImportError(
+                    "To read from remote storage or cache, install fsspec: pip install fsspec"
+                ) from e
+        else:
+            ish5mu = False
+            raise e
+
+    if not ish5mu:
+        if isinstance(filename, str) or isinstance(filename, Path):
+            if h5py.is_hdf5(filename):
+                warn(
+                    "The HDF5 file was not created by muon/mudata, we can't guarantee that everything will work correctly"
+                )
+            else:
+                raise ValueError("The file is not an HDF5 file")
+        else:
+            warn("Cannot verify that the (remote) file is a valid H5MU file")
+
+    return fname, callback
+
+
 def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
     """
     Read MuData object from HDF5 file
@@ -358,17 +406,10 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
     else:
         mode = backed
     manager = MuDataFileManager(filename, mode) if backed else MuDataFileManager()
-    with open(filename, "rb") as f:
-        ish5mu = f.read(6) == b"MuData"
-    if not ish5mu:
-        if h5py.is_hdf5(filename):
-            warn(
-                "The HDF5 file was not created by muon, we can't guarantee that everything will work correctly"
-            )
-        else:
-            raise ValueError("The file is not an HDF5 file")
 
-    with h5py.File(filename, mode) as f:
+    fname, callback = _validate_h5mu(filename)
+
+    with h5py.File(fname, mode) as f:
         d = {}
         for k in f.keys():
             if k in ["obs", "var"]:
@@ -382,9 +423,7 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
 
                 mod_order = None
                 if "mod-order" in gmods.attrs:
-                    mod_order = gmods.attrs["mod-order"]
-                # TODO: use in v0.8
-                # mod_order = _read_hdf5_attribute(k, "mod-order")
+                    mod_order = _read_attr(gmods.attrs, "mod-order")
                 if mod_order is not None and all([m in gmods for m in mod_order]):
                     mods = {k: mods[k] for k in mod_order}
 
@@ -394,6 +433,9 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
 
         if "axis" in f.attrs:
             d["axis"] = f.attrs["axis"]
+
+        if callback is not None:
+            callback()
 
     mu = MuData._init_from_dict_(**d)
     mu.file = manager
@@ -522,12 +564,12 @@ def _read_h5mu_mod(
 
 def read_h5ad(
     filename: PathLike,
-    mod: str,
+    mod: Optional[str],
     backed: Union[str, bool, None] = None,
 ) -> AnnData:
     """
     Read AnnData object from inside a .h5mu file
-    or from a standalone .h5ad file
+    or from a standalone .h5ad file (mod=None)
 
     Currently replicates and modifies anndata._io.h5ad.read_h5ad.
     Matrices are loaded as they are in the file (sparse or dense).
@@ -542,10 +584,37 @@ def read_h5ad(
         "r+",
     ], "Argument `backed` should be boolean, or r/r+, or None"
 
+    from anndata import read_h5ad
     from anndata._io.specs.registry import read_elem
     from anndata._io.h5ad import read_dataframe, _read_raw
 
-    d = {}
+    if mod is None:
+        try:
+            return read_h5ad(filename, backed=backed)
+        except TypeError as e:
+            fname, callback = filename, None
+            # Support fsspec
+            if (
+                filename.__class__.__name__ == "BufferedReader"
+                or filename.__class__.__name__ == "OpenFile"
+            ):
+                try:
+                    from fsspec.core import OpenFile
+
+                    if isinstance(filename, OpenFile):
+                        fname = filename.__enter__()
+                        callback = lambda: fname.__exit__()
+                except ImportError as e:
+                    raise ImportError(
+                        "To read from remote storage or cache, install fsspec: pip install fsspec"
+                    ) from e
+
+                adata = read_h5ad(fname, backed=backed)
+                if callable is not None:
+                    callback()
+                return adata
+            else:
+                raise e
 
     hdf5_mode = "r"
     if backed not in {None, False}:
@@ -579,22 +648,43 @@ def read(filename: PathLike, **kwargs) -> Union[MuData, AnnData]:
       - FILE.h5mu/MODALITY
       - FILE.h5mu/mod/MODALITY
       - FILE.h5ad
+
+    OpenFile and BufferedReader from fsspec are supported for remote storage, e.g.:
+      - mdata = read(fsspec.open("s3://bucket/file.h5mu")))
+      - with fsspec.open("s3://bucket/file.h5mu") as f:
+            mdata = read(f)
+      - with fsspec.open("https://server/file.h5ad") as f:
+            adata = read(f)
     """
     import re
 
-    m = re.search("^(.+)\.(h5mu)[/]?([^/]*)[/]?(.*)$", str(filename))
+    if filename.__class__.__name__ == "BufferedReader":
+        raise TypeError(
+            "Use format-specific functions (read_h5mu, read_zarr) to read from BufferedReader or provide an OpenFile instance."
+        )
+    elif filename.__class__.__name__ == "OpenFile":
+        fname = filename.path
+    else:
+        fname = str(filename)
+
+    m = re.search("^(.+).(h5mu)[/]?([^/]*)[/]?(.*)$", fname)
     if m is not None:
         m = m.groups()
     else:
-        if filename.endswith(".h5ad"):
+        if fname.endswith(".h5ad"):
             m = [filename[:-5], "h5ad", "", ""]
         else:
             raise ValueError("Expected non-empty .h5ad or .h5mu file name")
 
-    filepath = ".".join([m[0], m[1]])
+    if isinstance(filename, str) or isinstance(filename, Path):
+        pathstrlike = True
+        filepath = ".".join([m[0], m[1]])
+    else:
+        pathstrlike = False
+        filepath = filename
 
     if m[1] == "h5mu":
-        if all(i == 0 for i in map(len, m[2:])):
+        if all(i == 0 for i in map(len, m[2:])) or not pathstrlike:
             # Ends with .h5mu
             return read_h5mu(filepath, **kwargs)
         elif m[3] == "":
