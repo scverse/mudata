@@ -304,6 +304,7 @@ class MuData:
         self.is_view = True
         self.file = mudata_ref.file
         self._axis = mudata_ref._axis
+        self.uns = mudata_ref.uns
 
         if mudata_ref.is_view:
             self._mudata_ref = mudata_ref._mudata_ref
