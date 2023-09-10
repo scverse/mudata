@@ -193,6 +193,8 @@ def write_zarr(
         # Restore top-level annotation
         if not mdata.is_view or not mdata.isbacked:
             mdata.update()
+    else:
+        raise TypeError("Expected MuData or AnnData object")
 
 
 def write_h5mu(filename: PathLike, mdata: MuData, **kwargs):
@@ -477,6 +479,13 @@ def read_zarr(store: Union[str, Path, MutableMapping, zarr.Group]):
             for m in gmods.keys():
                 ad = _read_zarr_mod(gmods[m], manager)
                 mods[m] = ad
+
+            mod_order = None
+            if "mod-order" in gmods.attrs:
+                mod_order = _read_attr(gmods.attrs, "mod-order")
+            if mod_order is not None and all([m in gmods for m in mod_order]):
+                mods = {k: mods[k] for k in mod_order}
+
             d[k] = mods
         else:  # Base case
             d[k] = read_elem(f[k])
