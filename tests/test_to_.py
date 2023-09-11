@@ -51,4 +51,3 @@ class TestMuData:
         assert isinstance(mdata_from_adata, MuData)
         assert mdata_from_adata.shape == adata.shape
         assert mdata_from_adata.shape == mdata.shape
-
