@@ -1323,6 +1323,27 @@ class MuData:
         from .io import write_zarr
 
         write_zarr(store, self, **kwargs)
+    
+    def to_anndata(self, **kwargs) -> AnnData:
+        """
+        Convert MuData to AnnData
+
+        If mdata.axis == 0 (shared observations),
+        concatenate modalities along axis 1 (`anndata.concat(axis=1)`).
+        If mdata.axis == 1 (shared variables),
+        concatenate datasets along axis 0 (`anndata.concat(axis=0)`).
+
+        See `anndata.concat()` documentation for more details.
+
+        Parameters
+        ----------
+        data    : MuData
+            MuData object to convert  to AnnData
+        kwargs  : dict
+            Keyword arguments passed to `anndata.concat()`
+        """
+        from .to_ import to_anndata
+        return to_anndata(self, **kwargs)
 
     def _gen_repr(self, n_obs, n_vars, extensive: bool = False, nest_level: int = 0) -> str:
         indent = "    " * nest_level
@@ -1330,7 +1351,7 @@ class MuData:
         view_of = "View of " if self.is_view else ""
         maybe_axis = (
             (
-                f" (shared obs) "
+                ""
                 if self.axis == 0
                 else f" (shared var) "
                 if self.axis == 1
