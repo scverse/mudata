@@ -1323,7 +1323,7 @@ class MuData:
         from .io import write_zarr
 
         write_zarr(store, self, **kwargs)
-    
+
     def to_anndata(self, **kwargs) -> AnnData:
         """
         Convert MuData to AnnData
@@ -1343,6 +1343,7 @@ class MuData:
             Keyword arguments passed to `anndata.concat()`
         """
         from .to_ import to_anndata
+
         return to_anndata(self, **kwargs)
 
     def _gen_repr(self, n_obs, n_vars, extensive: bool = False, nest_level: int = 0) -> str:
