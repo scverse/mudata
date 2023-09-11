@@ -35,3 +35,24 @@ def _maybe_coerce_to_boolean(df: T) -> T:
             df = df.assign(**{col: df[col].astype("boolean")})
 
     return df
+
+
+def _maybe_coerce_to_bool(df: T) -> T:
+    if isinstance(df, pd.Series):
+        if isinstance(df.dtype, pd.BooleanDtype):
+            try:
+                return df.astype(bool)
+            except ValueError:
+                # cannot convert float NaN to bool
+                pass
+        return df
+
+    for col in df.columns:
+        if isinstance(df[col].dtype, pd.BooleanDtype):
+            try:
+                df = df.assign(**{col: df[col].astype(bool)})
+            except ValueError:
+                # cannot convert float NaN to bool
+                pass
+
+    return df

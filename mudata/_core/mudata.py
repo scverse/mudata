@@ -28,7 +28,12 @@ from anndata._core.aligned_mapping import (
 from anndata._core.views import DataFrameView
 
 from .file_backing import MuDataFileManager
-from .utils import _make_index_unique, _restore_index, _maybe_coerce_to_boolean
+from .utils import (
+    _make_index_unique,
+    _restore_index,
+    _maybe_coerce_to_boolean,
+    _maybe_coerce_to_bool,
+)
 
 from .repr import *
 from .config import OPTIONS
@@ -643,14 +648,16 @@ class MuData:
                         axis=0,
                         sort=False,
                     )
-                    data_common = pd.concat(
-                        [
-                            _maybe_coerce_to_boolean(getattr(a, attr)[columns_common])
-                            for m, a in self.mod.items()
-                        ],
-                        join="outer",
-                        axis=0,
-                        sort=False,
+                    data_common = _maybe_coerce_to_bool(
+                        pd.concat(
+                            [
+                                _maybe_coerce_to_boolean(getattr(a, attr)[columns_common])
+                                for m, a in self.mod.items()
+                            ],
+                            join="outer",
+                            axis=0,
+                            sort=False,
+                        )
                     )
                     data_mod = data_mod.join(data_common, how="left", sort=False)
 
@@ -725,23 +732,27 @@ class MuData:
                 ]
 
                 # Here, attr_names are guaranteed to be unique and are safe to be used for joins
-                data_mod = pd.concat(
-                    dfs,
-                    join="outer",
-                    axis=axis,
-                    sort=False,
+                data_mod = _maybe_coerce_to_bool(
+                    pd.concat(
+                        dfs,
+                        join="outer",
+                        axis=axis,
+                        sort=False,
+                    )
                 )
 
-                data_common = pd.concat(
-                    [
-                        _maybe_coerce_to_boolean(
-                            _make_index_unique(getattr(a, attr)[columns_common])
-                        )
-                        for m, a in self.mod.items()
-                    ],
-                    join="outer",
-                    axis=0,
-                    sort=False,
+                data_common = _maybe_coerce_to_bool(
+                    pd.concat(
+                        [
+                            _maybe_coerce_to_boolean(
+                                _make_index_unique(getattr(a, attr)[columns_common])
+                            )
+                            for m, a in self.mod.items()
+                        ],
+                        join="outer",
+                        axis=0,
+                        sort=False,
+                    )
                 )
                 data_mod = data_mod.join(data_common, how="left", sort=False)
             else:
