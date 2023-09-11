@@ -685,7 +685,27 @@ class MuData:
                 # TODO: if there were intersecting attrnames between modalities,
                 #       this will increase the size of the index
                 # Should we use attrmap to figure the index out?
-                data_mod = data_mod.join(data_global, how="left", sort=False)
+                #
+                if not attr_intersecting:
+                    data_mod = data_mod.join(data_global, how="left", sort=False)
+                else:
+                    # In order to preserve the order of the index, instead,
+                    # perform a join based on (index, cumcount) pairs.
+                    col_index, col_cumcount = self._find_unique_colnames(attr, 2)
+                    data_mod = data_mod.rename_axis(col_index, axis=0).reset_index()
+                    data_mod[col_cumcount] = data_mod.groupby(col_index).cumcount()
+                    data_global = data_global.rename_axis(col_index, axis=0).reset_index()
+                    data_global[col_cumcount] = (
+                        data_global.reset_index().groupby(col_index).cumcount()
+                    )
+                    data_mod = data_mod.merge(
+                        data_global, on=[col_index, col_cumcount], how="left", sort=False
+                    )
+                    # Restore the index and remove the helper column
+                    data_mod = data_mod.set_index(col_index).rename_axis(None, axis=0)
+                    del data_mod[col_cumcount]
+                    data_global = data_global.set_index(col_index).rename_axis(None, axis=0)
+                    del data_global[col_cumcount]
 
         #
         # General case: with duplicates and/or intersections
