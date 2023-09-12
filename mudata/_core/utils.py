@@ -44,7 +44,7 @@ def _maybe_coerce_to_bool(df: T) -> T:
                 return df.astype(bool)
             except ValueError:
                 # cannot convert float NaN to bool
-                pass
+                return df
         return df
 
     for col in df.columns:
