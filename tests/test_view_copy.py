@@ -32,6 +32,31 @@ class TestMuData:
         assert np.array_equal(mdata.obs.columns.values, mdata_copy.obs.columns.values)
         assert np.array_equal(mdata.var.columns.values, mdata_copy.var.columns.values)
 
+    def test_view_attributes(self, mdata):
+        mdata_copy = mdata.copy()
+        n, d = mdata.n_obs, mdata.n_var
+        # Populate attributes
+        mdata_copy.uns["uns_key"] = {"key": "value"}
+        mdata_copy.obs["obs_column"] = False
+        mdata_copy.var["var_column"] = False
+        mdata_copy.obsm["obsm_key"] = np.arange(n).reshape(-1, 1)
+        mdata_copy.varm["varm_key"] = np.arange(d).reshape(-1, 1)
+        mdata_copy.obsp["obsp_key"] = np.arange(n * n).reshape(n, n)
+        mdata_copy.varp["varp_key"] = np.arange(d * d).reshape(d, d)
+
+        view_n_obs = 7
+        mdata_view = mdata_copy[list(range(view_n_obs)), :]
+        assert mdata_view.shape == (view_n_obs, mdata.n_var)
+        assert len(mdata_view.mod) == len(mdata_copy.mod)
+        # AnnData/MuData interface
+        for attr in "obs", "var", "obsm", "varm", "obsp", "varp", "uns":
+            assert hasattr(mdata_view, attr)
+            assert list(getattr(mdata_view, attr).keys()) == list(getattr(mdata_copy, attr).keys())
+        # MuData-specific interface
+        for attr in "mod", "axis", "obsmap", "varmap":
+            assert hasattr(mdata_view, attr)
+        assert mdata_view.axis == mdata_copy.axis
+
     def test_view_copy(self, mdata):
         view_n_obs = 5
         mdata_view = mdata[list(range(view_n_obs)), :]
