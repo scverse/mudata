@@ -28,7 +28,12 @@ from anndata._core.aligned_mapping import (
 from anndata._core.views import DataFrameView
 
 from .file_backing import MuDataFileManager
-from .utils import _make_index_unique, _restore_index, _maybe_coerce_to_boolean
+from .utils import (
+    _make_index_unique,
+    _restore_index,
+    _maybe_coerce_to_boolean,
+    _maybe_coerce_to_bool,
+)
 
 from .repr import *
 from .config import OPTIONS
@@ -48,6 +53,74 @@ class MuAxisArraysView(AlignedViewMixin, AxisArraysBase):
 
 class MuAxisArrays(AxisArrays):
     _view_class = MuAxisArraysView
+
+
+class ModDict(dict):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def _repr_hierarchy(
+        self, nest_level: int = 0, is_last: bool = False, active_levels: Optional[List[int]] = None
+    ) -> str:
+        descr = ""
+        active_levels = active_levels or []
+        for i, kv in enumerate(self.items()):
+            k, v = kv
+            indent = ("   " * nest_level) + ("└─ " if i == len(self) - 1 else "├─ ")
+
+            if len(active_levels) > 0:
+                indent_list = list(indent)
+                for level in active_levels:
+                    indent_list[level * 3] = "│"
+                indent = "".join(indent_list)
+
+            is_view = " view" if v.is_view else ""
+            backed_at = f" backed at {str(v.filename)!r}" if v.isbacked else ""
+
+            if isinstance(v, MuData):
+                maybe_axis = (
+                    (
+                        f" [shared obs] "
+                        if v.axis == 0
+                        else f" [shared var] "
+                        if v.axis == 1
+                        else f" [shared obs and var] "
+                    )
+                    if hasattr(v, "axis")
+                    else ""
+                )
+                descr += (
+                    f"\n{indent}{k} MuData{maybe_axis}({v.n_obs} × {v.n_vars}){backed_at}{is_view}"
+                )
+
+                if i != len(self) - 1:
+                    levels = [nest_level] + [level for level in active_levels]
+                else:
+                    levels = [level for level in active_levels if level != nest_level]
+                descr += v.mod._repr_hierarchy(nest_level=nest_level + 1, active_levels=levels)
+            elif isinstance(v, AnnData):
+                descr += f"\n{indent}{k} AnnData ({v.n_obs} x {v.n_vars}){backed_at}{is_view}"
+            else:
+                continue
+
+        return descr
+
+    def __repr__(self) -> str:
+        """
+        Represent the hierarchy of the modalities in the object.
+
+        A MuData object with two modalities, protein and RNA,
+        with the latter being a MuData containing raw, QC'ed and hvg-filtered AnnData objects,
+        will be represented as:
+
+        root MuData (axis=0) (5000 x 20100)
+        ├── protein AnnData (5000 x 100)
+        └── rna MuData (axis=-1) (5000 x 20000)
+            ├── raw AnnData (5000 x 20000)
+            ├── quality-filtered AnnData (3000 x 20000)
+            └── hvg-filtered AnnData (3000 x 4000)
+        """
+        return "MuData" + self._repr_hierarchy()
 
 
 class MuData:
@@ -81,7 +154,7 @@ class MuData:
             return
 
         # Add all modalities to a MuData object
-        self.mod = dict()
+        self.mod = ModDict()
         if isinstance(data, abc.Mapping):
             for k, v in data.items():
                 self.mod[k] = v
@@ -185,7 +258,7 @@ class MuData:
         if isinstance(varidx, Integral):
             varidx = slice(varidx, varidx + 1)
 
-        self.mod = dict()
+        self.mod = ModDict()
         for m, a in mudata_ref.mod.items():
             cobsidx, cvaridx = mudata_ref.obsmap[m][obsidx], mudata_ref.varmap[m][varidx]
             cobsidx, cvaridx = cobsidx[cobsidx > 0] - 1, cvaridx[cvaridx > 0] - 1
@@ -236,6 +309,7 @@ class MuData:
         self.is_view = True
         self.file = mudata_ref.file
         self._axis = mudata_ref._axis
+        self.uns = mudata_ref.uns
 
         if mudata_ref.is_view:
             self._mudata_ref = mudata_ref._mudata_ref
@@ -548,26 +622,32 @@ class MuData:
             # Shared axis
             if axis == (1 - self._axis) or self._axis == -1:
                 # We assume attr_intersecting and can't join_common
-                data_mod = pd.concat(
-                    [
-                        getattr(a, attr)
-                        .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                        .add_prefix(m + ":")
-                        for m, a in self.mod.items()
-                    ],
-                    join="outer",
-                    axis=1,
-                    sort=False,
+                data_mod = _maybe_coerce_to_bool(
+                    pd.concat(
+                        [
+                            _maybe_coerce_to_boolean(
+                                getattr(a, attr)
+                                .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                                .add_prefix(m + ":")
+                            )
+                            for m, a in self.mod.items()
+                        ],
+                        join="outer",
+                        axis=1,
+                        sort=False,
+                    )
                 )
             else:
                 if join_common:
                     # We checked above that attr_names are guaranteed to be unique and thus are safe to be used for joins
                     data_mod = pd.concat(
                         [
-                            getattr(a, attr)
-                            .drop(columns_common, axis=1)
-                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                            .add_prefix(m + ":")
+                            _maybe_coerce_to_boolean(
+                                getattr(a, attr)
+                                .drop(columns_common, axis=1)
+                                .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                                .add_prefix(m + ":")
+                            )
                             for m, a in self.mod.items()
                         ],
                         join="outer",
@@ -583,7 +663,11 @@ class MuData:
                         axis=0,
                         sort=False,
                     )
-                    data_mod = data_mod.join(data_common, how="left", sort=False)
+
+                    data_mod = _maybe_coerce_to_bool(
+                        data_mod.join(data_common, how="left", sort=False)
+                    )
+                    data_common = _maybe_coerce_to_bool(data_common)
 
                     # this occurs when join_common=True and we already have a global data frame, e.g. after reading from H5MU
                     sharedcols = data_mod.columns.intersection(data_global.columns)
@@ -591,16 +675,20 @@ class MuData:
                         columns={col: f"global:{col}" for col in sharedcols}, inplace=True
                     )
                 else:
-                    data_mod = pd.concat(
-                        [
-                            getattr(a, attr)
-                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                            .add_prefix(m + ":")
-                            for m, a in self.mod.items()
-                        ],
-                        join="outer",
-                        axis=0,
-                        sort=False,
+                    data_mod = _maybe_coerce_to_bool(
+                        pd.concat(
+                            [
+                                _maybe_coerce_to_boolean(
+                                    getattr(a, attr)
+                                    .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                                    .add_prefix(m + ":")
+                                )
+                                for m, a in self.mod.items()
+                            ],
+                            join="outer",
+                            axis=0,
+                            sort=False,
+                        )
                     )
 
             for mod, amod in self.mod.items():
@@ -616,7 +704,27 @@ class MuData:
                 # TODO: if there were intersecting attrnames between modalities,
                 #       this will increase the size of the index
                 # Should we use attrmap to figure the index out?
-                data_mod = data_mod.join(data_global, how="left", sort=False)
+                #
+                if not attr_intersecting:
+                    data_mod = data_mod.join(data_global, how="left", sort=False)
+                else:
+                    # In order to preserve the order of the index, instead,
+                    # perform a join based on (index, cumcount) pairs.
+                    col_index, col_cumcount = self._find_unique_colnames(attr, 2)
+                    data_mod = data_mod.rename_axis(col_index, axis=0).reset_index()
+                    data_mod[col_cumcount] = data_mod.groupby(col_index).cumcount()
+                    data_global = data_global.rename_axis(col_index, axis=0).reset_index()
+                    data_global[col_cumcount] = (
+                        data_global.reset_index().groupby(col_index).cumcount()
+                    )
+                    data_mod = data_mod.merge(
+                        data_global, on=[col_index, col_cumcount], how="left", sort=False
+                    )
+                    # Restore the index and remove the helper column
+                    data_mod = data_mod.set_index(col_index).rename_axis(None, axis=0)
+                    del data_mod[col_cumcount]
+                    data_global = data_global.set_index(col_index).rename_axis(None, axis=0)
+                    del data_global[col_cumcount]
 
         #
         # General case: with duplicates and/or intersections
@@ -654,7 +762,9 @@ class MuData:
                     axis=0,
                     sort=False,
                 )
-                data_mod = data_mod.join(data_common, how="left", sort=False)
+
+                data_mod = _maybe_coerce_to_bool(data_mod.join(data_common, how="left", sort=False))
+                data_common = _maybe_coerce_to_bool(data_common)
             else:
                 dfs = [
                     _make_index_unique(
@@ -786,8 +896,8 @@ class MuData:
                     # index_order = [
                     #    prev_index.get_loc(i) if i in prev_index else -1 for i in now_index
                     # ]
-                    prev_values = prev_index.values
-                    now_values = now_index.values
+                    prev_values = prev_index.values.copy()
+                    now_values = now_index.values.copy()
                     for value in prev_index[np.where(prev_index.duplicated())[0]]:
                         v_now = np.where(now_index == value)[0]
                         v_prev = np.where(prev_index.get_loc(value))[0]
@@ -1248,7 +1358,18 @@ class MuData:
         indent = "    " * nest_level
         backed_at = f" backed at {str(self.filename)!r}" if self.isbacked else ""
         view_of = "View of " if self.is_view else ""
-        descr = f"{view_of}MuData object with n_obs × n_vars = {n_obs} × {n_vars}{backed_at}"
+        maybe_axis = (
+            (
+                f" (shared obs) "
+                if self.axis == 0
+                else f" (shared var) "
+                if self.axis == 1
+                else f" (shared obs and var) "
+            )
+            if hasattr(self, "axis")
+            else ""
+        )
+        descr = f"{view_of}MuData object with n_obs × n_vars = {n_obs} × {n_vars}{maybe_axis}{backed_at}"
         for attr in ["obs", "var", "uns", "obsm", "varm", "obsp", "varp"]:
             if hasattr(self, attr) and getattr(self, attr) is not None:
                 keys = list(getattr(self, attr).keys())
@@ -1277,7 +1398,7 @@ class MuData:
             mod_indent = "    " * (nest_level + 1)
             if isinstance(v, MuData):
                 descr += f"\n{mod_indent}{k}:\t" + v._gen_repr(
-                    n_obs, n_vars, extensive, nest_level + 1
+                    v.n_obs, v.n_vars, extensive, nest_level + 1
                 )
                 continue
             descr += f"\n{mod_indent}{k}:\t{v.n_obs} x {v.n_vars}"
