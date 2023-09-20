@@ -1206,6 +1206,15 @@ class MuData:
         """
         return self._axis
 
+    @property
+    def mod_names(self) -> List[str]:
+        """
+        Names of modalities (alias for `list(mdata.mod.keys())`)
+
+        This property is read-only.
+        """
+        return list(self.mod.keys())
+
     def write_h5mu(self, filename: Optional[str] = None, **kwargs):
         """
         Write MuData object to an HDF5 file
