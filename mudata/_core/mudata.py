@@ -1310,7 +1310,7 @@ class MuData:
         if mods is not None:
             if isinstance(mods, str):
                 mods = [mods]
-            mods = list(pd.unique(mods))
+            mods = list(dict.fromkeys(mods))
             if not all((m in self.mod for m in mods)):
                 raise ValueError("All mods should be present in mdata.mod")
             elif len(mods) == self.n_mod:
@@ -1384,15 +1384,6 @@ class MuData:
         if prefix_unique is None:
             prefix_unique = True
 
-        # Check if the are same obs_names/var_names in different modalities
-        # attr_intersecting = self._check_intersecting_attr_names(attr)
-        # if attr_intersecting and (join_common or join_nonunique):
-        #     warnings.warn(
-        #         f"Cannot join columns with the same name because {attr}_names are intersecting."
-        #     )
-        #     join_common = False
-        #     join_nonunique = False
-
         # Below we will rely on attrmap that has been calculated during .update()
         # and use it to create an index without duplicates
         # for faster concatenation and to reduce the amount of code
@@ -1455,37 +1446,6 @@ class MuData:
         # df = _maybe_coerce_to_int(df)
         df = df.set_index(getattr(self, f"{attr}_names"))
         setattr(self, attr, df)
-
-        # elif 1 - axis == self.axis or self.axis == -1:
-        #     # E.g. combine obs from multiple modalities (with shared obs)
-        #     dfs: List[pd.DataFrame] = []
-        #     for m, mod in self.mod.items():
-        #         if mods is not None and m not in mods:
-        #             continue
-        #         mod_map = attrmap[m]
-        #         mod_n_attr = mod.n_vars if attr == "var" else self.n_obs
-
-        #         mask = mod_map != 0
-        #         mod_df = (
-        #             getattr(mod, attr)
-        #             .set_index(np.arange(mod_n_attr))
-        #             .iloc[mod_map[mask] - 1]
-        #             .set_index(np.arange(n_attr)[mask])
-        #             .reindex(np.arange(n_attr))
-        #         )
-
-        #         mask = mod_map != 0
-        #         mod_df = getattr(mod, attr).iloc[mod_map[mask] - 1].set_index(mod_map[mask] - 1)
-        #         mod_df = mod_df.reindex(np.arange(n_attr))
-        #         mod_df.columns = [f"{m}:{col}" for col in mod_df.columns]
-
-        #         dfs.append(mod_df)
-
-        #     global_df = getattr(self, attr).loc[:, []].set_index(np.arange(n_attr))
-        #     df = pd.concat([global_df, *dfs], axis=1, verify_integrity=True).set_index(
-        #         getattr(self, f"{attr}_names")
-        #     )
-        #     setattr(self, attr, df)
 
     def pull_obs(
         self,
@@ -1675,7 +1635,7 @@ class MuData:
         if mods is not None:
             if isinstance(mods, str):
                 mods = [mods]
-            mods = list(pd.unique(mods))
+            mods = list(dict.fromkeys(mods))
             if not all((m in self.mod for m in mods)):
                 raise ValueError("All mods should be present in mdata.mod")
             elif len(mods) == self.n_mod:
