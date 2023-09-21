@@ -4,6 +4,7 @@ from ._core.mudata import MuData
 from ._core import utils
 from ._core.io import *
 from ._core.config import set_options
+from ._core.merge import concat
 
 __version__ = "0.3.0"
 __anndataversion__ = "0.1.0"
