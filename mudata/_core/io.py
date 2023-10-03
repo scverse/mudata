@@ -458,13 +458,6 @@ def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: boo
             d[k] = read_dataframe(g[k])
         elif k == "X":
             X = g["X"]
-            if isinstance(X, zarr.Group):
-                dtype = X["data"].dtype
-            elif hasattr(X, "dtype"):
-                dtype = X.dtype
-            else:
-                raise ValueError()
-            d["dtype"] = dtype
             if not backed:
                 d["X"] = read_elem(X)
         elif k != "raw":
@@ -499,13 +492,6 @@ def _read_h5mu_mod(
             d[k] = read_dataframe(g[k])
         elif k == "X":
             X = g["X"]
-            if isinstance(X, h5py.Group):
-                dtype = X["data"].dtype
-            elif hasattr(X, "dtype"):
-                dtype = X.dtype
-            else:
-                raise ValueError()
-            d["dtype"] = dtype
             if not backed:
                 d["X"] = read_elem(X)
         elif k != "raw":
