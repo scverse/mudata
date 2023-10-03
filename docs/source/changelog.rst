@@ -9,6 +9,10 @@ Release notes
 
    *
 
+v0.3.0
+
+This version adds support for `AnnData v0.10.0`.
+
 v0.2.2
 ------
 
