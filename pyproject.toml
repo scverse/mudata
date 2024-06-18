@@ -31,7 +31,8 @@ docs = [
     "pydata-sphinx-theme==0.8.1",
     "readthedocs-sphinx-search",
     "nbsphinx",
-    "sphinx_automodapi"
+    "sphinx_automodapi",
+    "recommonmark"
 ]
 test = [
     "zarr"
