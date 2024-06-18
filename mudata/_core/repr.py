@@ -147,9 +147,11 @@ def details_block_table(data, attr, name, expand=0, dims=True, square=False):
                             attr_key,
                             obj[attr_key].dtype if hasattr(obj[attr_key], "dtype") else "",
                             *maybe_module_class(obj[attr_key]),
-                            f"{obj[attr_key].shape[1]} columns"
-                            if len(obj[attr_key].shape) > 1 and dims
-                            else "",
+                            (
+                                f"{obj[attr_key].shape[1]} columns"
+                                if len(obj[attr_key].shape) > 1 and dims
+                                else ""
+                            ),
                         )
                         for attr_key in obj.keys()
                     ]
