@@ -21,7 +21,7 @@ requires = [
     "numpy",
     "pandas",
     "h5py",
-    "anndata >= 0.9",
+    "anndata >= 0.10.8",
 ]
 
 [tool.flit.metadata.requires-extra]
