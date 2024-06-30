@@ -1,6 +1,6 @@
-from typing import List, Tuple, Union, Optional, Mapping, Iterable, Sequence, Any, Literal
+from typing import Dict, List, Tuple, Union, Optional, Mapping, Iterable, Sequence, Any, Literal
 from numbers import Integral
-from collections import abc
+from collections import abc, Counter
 from collections.abc import MutableMapping
 from functools import reduce
 from itertools import chain, combinations
@@ -28,7 +28,14 @@ from anndata._core.aligned_mapping import (
 from anndata._core.views import DataFrameView
 
 from .file_backing import MuDataFileManager
-from .utils import _make_index_unique, _restore_index, _maybe_coerce_to_boolean
+from .utils import (
+    _classify_attr_columns,
+    _classify_prefixed_columns,
+    _make_index_unique,
+    _restore_index,
+    _maybe_coerce_to_boolean,
+    _update_and_concat,
+)
 
 from .repr import *
 from .config import OPTIONS
@@ -444,8 +451,8 @@ class MuData:
             if all([modindices[i].equals(modindices[i + 1]) for i in range(len(modindices) - 1)]):
                 attrindex = modindices[0].copy()
             attrindex = reduce(
-                np.union1d, [getattr(self.mod[m], attr).index.values for m in self.mod]
-            )
+                pd.Index.union, [getattr(self.mod[m], attr).index for m in self.mod]
+            ).values
         else:
             # Modality-specific indices
             attrindex = np.concatenate(
@@ -453,7 +460,14 @@ class MuData:
             )
         return attrindex
 
-    def _update_attr(self, attr: str, axis: int, join_common: bool = False):
+    def _update_attr(
+        self,
+        attr: str,
+        axis: int,
+        join_common: bool = False,
+        pull: Optional[bool] = None,
+        **kwargs,  # for _pull_attr()
+    ):
         """
         Update global observations/variables with observations/variables for each modality.
 
@@ -462,6 +476,16 @@ class MuData:
         - are there intersecting obs_names/var_names between modalities?
         - have obs_names/var_names of modalities changed?
         """
+
+        if pull is None:
+            warnings.warn(
+                "From 0.4 .update() will not pull obs/var columns from individual modalities by default anymore. "
+                "Use pull=False to use the new behaviour, which will become the default. "
+                "Use new pull_obs/pull_var and push_obs/push_var methods for more flexibility.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            pull = True
 
         prev_index = getattr(self, attr).index
 
@@ -1000,14 +1024,23 @@ class MuData:
         self._var = value
 
     @property
-    def n_var(self) -> int:
+    def n_vars(self) -> int:
         """
         Total number of variables
         """
         return self._var.shape[0]
 
-    # API legacy from AnnData
-    n_vars = n_var
+    @property
+    def n_var(self) -> int:
+        """
+        Total number of variables
+        """
+        # warnings.warn(
+        #     ".n_var will be removed in the next version, use .n_vars instead",
+        #     DeprecationWarning,
+        #     stacklevel=2,
+        # )
+        return self._var.shape[0]
 
     def var_vector(self, key: str, layer: Optional[str] = None) -> np.ndarray:
         """
@@ -1212,6 +1245,575 @@ class MuData:
         This property is read-only.
         """
         return list(self.mod.keys())
+
+    def _pull_attr(
+        self,
+        attr: Literal["obs", "var"],
+        columns: Optional[List[str]] = None,
+        mods: Optional[List[str]] = None,
+        common: Optional[bool] = None,
+        join_common: Optional[bool] = None,
+        nonunique: Optional[bool] = None,
+        join_nonunique: Optional[bool] = None,
+        unique: Optional[bool] = None,
+        prefix_unique: Optional[bool] = True,
+        drop: bool = False,
+        only_drop: bool = False,
+    ):
+        """
+        Copy the data from the modalities to the global .obs/.var,
+        existing columns to be overwritten
+
+        Parameters
+        ----------
+        attr
+            Attribute to use, should be 'obs' or 'var'
+        columns
+            List of columns to pull from the modalities
+        common
+            If True, pull common columns.
+            Common columns do not have modality prefixes.
+            Pull from all modalities.
+            Cannot be used with columns. True by default.
+        mods
+            List of modalities to pull from
+        join_common
+            If True, attempt to join common columns.
+            Common columns are present in all modalities.
+            True for attr='var' for MuData with axis=0 (shared obs),
+            and for attr='obs' for MuData wth axis=1 (shared var).
+            False for MuData with axis=-1.
+            Cannot be used with mods, or for shared attr.
+        nonunique
+            If True, pull columns that have a modality prefix
+            such that there are multiple columns with the same name
+            and different prefix.
+            Cannot be used with columns or mods. True by default.
+        join_nonunique
+            If True, attempt to join non-unique columns.
+            Intended usage is the same as for join_common.
+            Cannot be used with mods, or for shared attr. False by default.
+        unique
+            If True, pull columns that have a modality prefix
+            such that there is no other column with the same name
+            and a different modality prefix.
+            Cannot be used with columns or mods. True by default.
+        prefix_unique
+            If True, prefix unique column names with modname (default).
+            No prefix when False.
+        drop
+            If True, drop the columns from the modalities after pulling.
+            False by default.
+        only_drop
+            If True, drop the columns but do not actually pull them.
+            Forces drop=True. False by default.
+        """
+
+        # TODO: run update() before pulling?
+
+        if self.is_view:
+            raise ValueError(f"Cannot pull {attr} columns on a view.")
+
+        if mods is not None:
+            if isinstance(mods, str):
+                mods = [mods]
+            mods = list(dict.fromkeys(mods))
+            if not all((m in self.mod for m in mods)):
+                raise ValueError("All mods should be present in mdata.mod")
+            elif len(mods) == self.n_mod:
+                mods = None
+            assert (
+                common is None and nonunique is None and unique is None
+            ), "Cannot use mods with common, nonunique, or unique."
+
+        if only_drop:
+            drop = True
+
+        cols = _classify_attr_columns(
+            np.concatenate(
+                [
+                    [f"{m}:{val}" for val in getattr(mod, attr).columns.values]
+                    for m, mod in self.mod.items()
+                ]
+            ),
+            self.mod.keys(),
+        )
+
+        if columns is not None:
+            assert (
+                common is None and nonunique is None and unique is None
+            ), "Cannot use columns with common, nonunique, or unique."
+
+            # - modname1:column -> [modname1:column]
+            # - column -> [modname1:column, modname2:column, ...]
+            cols = [col for col in cols if col["name"] in columns or col["derived_name"] in columns]
+
+            if mods is not None:
+                cols = [col for col in cols if col["prefix"] in mods]
+
+            # TODO: Counter for columns in order to track their usage
+            # and error out if some columns were not used
+
+        else:
+            if common is None:
+                common = True
+            if nonunique is None:
+                nonunique = True
+            if unique is None:
+                unique = True
+
+            selector = {"common": common, "nonunique": nonunique, "unique": unique}
+
+            cols = [col for col in cols if selector[col["class"]]]
+
+        derived_name_count = Counter([col["derived_name"] for col in cols])
+
+        # - axis == self.axis
+        #   e.g. combine var from multiple modalities (with unique vars)
+        # - 1 - axis == self.axis
+        # . e.g. combine obs from multiple modalities (with shared obs)
+        axis = 0 if attr == "var" else 1
+
+        if 1 - axis == self.axis or self.axis == -1:
+            if join_common or join_nonunique:
+                raise ValueError(f"Cannot join columns with the same name for shared {attr}_names.")
+
+        if join_common is None:
+            join_common = False
+            if attr == "var":
+                join_common = self.axis == 0
+            elif attr == "obs":
+                join_common = self.axis == 1
+
+        if join_nonunique is None:
+            join_nonunique = False
+
+        if prefix_unique is None:
+            prefix_unique = True
+
+        # Below we will rely on attrmap that has been calculated during .update()
+        # and use it to create an index without duplicates
+        # for faster concatenation and to reduce the amount of code
+
+        attrmap = getattr(self, f"{attr}map")
+        n_attr = self.n_vars if attr == "var" else self.n_obs
+
+        dfs: List[pd.DataFrame] = []
+        for m, mod in self.mod.items():
+            if mods is not None and m not in mods:
+                continue
+            mod_map = attrmap[m]
+            mod_n_attr = mod.n_vars if attr == "var" else mod.n_obs
+            mask = mod_map != 0
+
+            mod_df = getattr(mod, attr)
+            mod_columns = [
+                col["derived_name"] for col in cols if col["prefix"] == "" or col["prefix"] == m
+            ]
+            mod_df = mod_df[mod_df.columns.intersection(mod_columns)]
+
+            if drop:
+                getattr(mod, attr).drop(columns=mod_df.columns, inplace=True)
+
+            # Don't use modname: prefix if columns need to be joined
+            if join_common or join_nonunique or (not prefix_unique):
+                cols_special = [
+                    col["derived_name"]
+                    for col in cols
+                    if (
+                        (col["class"] == "common") & join_common
+                        or (col["class"] == "nonunique") & join_nonunique
+                        or (col["class"] == "unique") & (not prefix_unique)
+                    )
+                    and col["prefix"] == m
+                    and derived_name_count[col["derived_name"]] == col["count"]
+                ]
+                mod_df.columns = [
+                    col if col in cols_special else f"{m}:{col}" for col in mod_df.columns
+                ]
+            else:
+                mod_df.columns = [f"{m}:{col}" for col in mod_df.columns]
+
+            mod_df = (
+                _maybe_coerce_to_boolean(mod_df)
+                .set_index(np.arange(mod_n_attr))
+                .iloc[mod_map[mask] - 1]
+                .set_index(np.arange(n_attr)[mask])
+                .reindex(np.arange(n_attr))
+            )
+            dfs.append(mod_df)
+
+        if only_drop:
+            return
+
+        global_df = _maybe_coerce_to_boolean(getattr(self, attr).set_index(np.arange(n_attr)))
+        df = reduce(_update_and_concat, [global_df, *dfs])
+        # TODO:
+        # df = _maybe_coerce_to_bool(df)
+        # df = _maybe_coerce_to_int(df)
+        df = df.set_index(getattr(self, f"{attr}_names"))
+        setattr(self, attr, df)
+
+    def pull_obs(
+        self,
+        columns: Optional[List[str]] = None,
+        mods: Optional[List[str]] = None,
+        common: Optional[bool] = None,
+        join_common: Optional[bool] = None,
+        nonunique: Optional[bool] = None,
+        join_nonunique: Optional[bool] = None,
+        unique: Optional[bool] = None,
+        prefix_unique: Optional[bool] = True,
+        drop: bool = False,
+        only_drop: bool = False,
+    ):
+        """
+        Copy the data from the modalities to the global .obs,
+        existing columns to be overwritten or updated
+
+        Parameters
+        ----------
+        columns
+            List of columns to pull from the modalities' .obs tables
+        common
+            If True, pull common columns.
+            Common columns do not have modality prefixes.
+            Pull from all modalities.
+            Cannot be used with columns. True by default.
+        mods
+            List of modalities to pull from.
+        join_common
+            If True, attempt to join common columns.
+            Common columns are present in all modalities.
+            True for MuData wth axis=1 (shared var).
+            False for MuData with axis=0 and axis=-1.
+            Cannot be used with mods, or for shared attr.
+        nonunique
+            If True, pull columns that have a modality prefix
+            such that there are multiple columns with the same name
+            and different prefix.
+            Cannot be used with columns or mods. True by default.
+        join_nonunique
+            If True, attempt to join non-unique columns.
+            Intended usage is the same as for join_common.
+            Cannot be used with mods, or for shared attr. False by default.
+        unique
+            If True, pull columns that have a modality prefix
+            such that there is no other column with the same name
+            and a different modality prefix.
+            Cannot be used with columns or mods. True by default.
+        prefix_unique
+            If True, prefix unique column names with modname (default).
+            No prefix when False.
+        drop
+            If True, drop the columns from the modalities after pulling.
+        only_drop
+            If True, drop the columns but do not actually pull them.
+            Forces drop=True.
+        """
+        return self._pull_attr(
+            "obs",
+            columns=columns,
+            mods=mods,
+            common=common,
+            join_common=join_common,
+            nonunique=nonunique,
+            join_nonunique=join_nonunique,
+            unique=unique,
+            prefix_unique=prefix_unique,
+            drop=drop,
+            only_drop=only_drop,
+        )
+
+    def pull_var(
+        self,
+        columns: Optional[List[str]] = None,
+        mods: Optional[List[str]] = None,
+        common: Optional[bool] = None,
+        join_common: Optional[bool] = None,
+        nonunique: Optional[bool] = None,
+        join_nonunique: Optional[bool] = None,
+        unique: Optional[bool] = None,
+        prefix_unique: Optional[bool] = True,
+        drop: bool = False,
+        only_drop: bool = False,
+    ):
+        """
+        Copy the data from the modalities to the global .var,
+        existing columns to be overwritten or updated
+
+        Parameters
+        ----------
+        columns
+            List of columns to pull from the modalities' .var tables
+        common
+            If True, pull common columns.
+            Common columns do not have modality prefixes.
+            Pull from all modalities.
+            Cannot be used with columns. True by default.
+        mods
+            List of modalities to pull from.
+        join_common
+            If True, attempt to join common columns.
+            Common columns are present in all modalities.
+            True for MuData with axis=0 (shared obs).
+            False for MuData with axis=1 and axis=-1.
+            Cannot be used with mods, or for shared attr.
+        nonunique
+            If True, pull columns that have a modality prefix
+            such that there are multiple columns with the same name
+            and different prefix.
+            Cannot be used with columns or mods. True by default.
+        join_nonunique
+            If True, attempt to join non-unique columns.
+            Intended usage is the same as for join_common.
+            Cannot be used with mods, or for shared attr. False by default.
+        unique
+            If True, pull columns that have a modality prefix
+            such that there is no other column with the same name
+            and a different modality prefix.
+            Cannot be used with columns or mods. True by default.
+        prefix_unique
+            If True, prefix unique column names with modname (default).
+            No prefix when False.
+        drop
+            If True, drop the columns from the modalities after pulling.
+        only_drop
+            If True, drop the columns but do not actually pull them.
+            Forces drop=True.
+        """
+        return self._pull_attr(
+            "var",
+            columns=columns,
+            mods=mods,
+            common=common,
+            join_common=join_common,
+            nonunique=nonunique,
+            join_nonunique=join_nonunique,
+            unique=unique,
+            prefix_unique=prefix_unique,
+            drop=drop,
+            only_drop=only_drop,
+        )
+
+    def _push_attr(
+        self,
+        attr: Literal["obs", "var"],
+        columns: Optional[List[str]] = None,
+        mods: Optional[List[str]] = None,
+        common: Optional[bool] = None,
+        prefixed: Optional[bool] = None,
+        drop: bool = False,
+        only_drop: bool = False,
+    ):
+        """
+        Copy the data from the global .obs/.var to the modalities,
+        existing columns to be overwritten
+
+        Parameters
+        ----------
+        attr
+            Attribute to use, should be 'obs' or 'var'
+        columns
+            List of columns to push
+        mods
+            List of modalities to push to
+        common
+            If True, push common columns.
+            Common columns do not have modality prefixes.
+            Push to each modality unless all values for a modality are null.
+            Cannot be used with columns. True by default.
+        prefixed
+            If True, push columns that have a modality prefix.
+            which are prefixed by modality names.
+            Only push to the respective modality names.
+            Cannot be used with columns. True by default.
+        drop
+            If True, drop the columns from the global .obs/.var after pushing.
+            False by default.
+        only_drop
+            If True, drop the columns but do not actually pull them.
+            Forces drop=True. False by default.
+        """
+
+        if self.is_view:
+            raise ValueError(f"Cannot push {attr} columns on a view.")
+
+        if mods is not None:
+            if isinstance(mods, str):
+                mods = [mods]
+            mods = list(dict.fromkeys(mods))
+            if not all((m in self.mod for m in mods)):
+                raise ValueError("All mods should be present in mdata.mod")
+            elif len(mods) == self.n_mod:
+                mods = None
+            assert (
+                common is None and prefixed is None
+            ), "Cannot use mods with common, nonunique, or unique."
+
+        if only_drop:
+            drop = True
+
+        cols = _classify_prefixed_columns(getattr(self, attr).columns.values, self.mod.keys())
+
+        if columns is not None:
+            assert (
+                common is None and prefixed is None
+            ), "Cannot use columns with common or prefixed."
+
+            # - modname1:column -> [modname1:column]
+            # - column -> [modname1:column, modname2:column, ...]
+            cols = [col for col in cols if col["name"] in columns or col["derived_name"] in columns]
+
+            # preemptively drop columns from other modalities
+            if mods is not None:
+                cols = [col for col in cols if col["prefix"] in mods or col["prefix"] == ""]
+        else:
+            if common is None:
+                common = True
+            if prefixed is None:
+                prefixed = True
+
+            selector = {"common": common, "prefixed": prefixed}
+
+            cols = [col for col in cols if selector[col["class"]]]
+
+        if len(cols) == 0:
+            return
+
+        derived_name_count = Counter([col["derived_name"] for col in cols])
+        for c, count in derived_name_count.items():
+            # if count > 1, there are both colname and modname:colname present
+            if count > 1 and c in getattr(self, attr).columns:
+                raise ValueError(
+                    f"Cannot push multiple columns with the same name {c} with and without modality prefix. "
+                    "You might have to explicitely specify columns to push."
+                )
+
+        attrmap = getattr(self, f"{attr}map")
+        n_attr = self.n_vars if attr == "var" else self.n_obs
+
+        for m, mod in self.mod.items():
+            if mods is not None and m not in mods:
+                continue
+
+            mod_map = attrmap[m]
+            mask = mod_map != 0
+            mod_n_attr = mod.n_vars if attr == "var" else mod.n_obs
+
+            mod_cols = [col for col in cols if col["prefix"] == m or col["class"] == "common"]
+            df = getattr(self, attr)[mask].loc[:, [col["name"] for col in mod_cols]]
+            df.columns = [col["derived_name"] for col in mod_cols]
+
+            df = (
+                df.set_index(np.arange(mod_n_attr))
+                .iloc[mod_map[mask] - 1]
+                .set_index(np.arange(mod_n_attr))
+            )
+
+            if not only_drop:
+                # TODO: _maybe_coerce_to_bool
+                # TODO: _maybe_coerce_to_int
+                mod_df = getattr(mod, attr).set_index(np.arange(mod_n_attr))
+                mod_df = _update_and_concat(mod_df, df)
+                mod_df = mod_df.set_index(getattr(mod, f"{attr}_names"))
+                setattr(mod, attr, mod_df)
+
+        if drop:
+            for col in cols:
+                getattr(self, attr).drop(col["name"], axis=1, inplace=True)
+
+    def push_obs(
+        self,
+        columns: Optional[List[str]] = None,
+        mods: Optional[List[str]] = None,
+        common: Optional[bool] = None,
+        prefixed: Optional[bool] = None,
+        drop: bool = False,
+        only_drop: bool = False,
+    ):
+        """
+        Copy the data from the mdata.obs to the modalities,
+        existing columns to be overwritten
+
+        Parameters
+        ----------
+        columns
+            List of columns to push
+        mods
+            List of modalities to push to
+        common
+            If True, push common columns.
+            Common columns do not have modality prefixes.
+            Push to each modality unless all values for a modality are null.
+            Cannot be used with columns. True by default.
+        prefixed
+            If True, push columns that have a modality prefix.
+            which are prefixed by modality names.
+            Only push to the respective modality names.
+            Cannot be used with columns. True by default.
+        drop
+            If True, drop the columns from the global .obs after pushing.
+            False by default.
+        only_drop
+            If True, drop the columns but do not actually pull them.
+            Forces drop=True. False by default.
+        """
+        return self._push_attr(
+            "obs",
+            columns=columns,
+            mods=mods,
+            common=common,
+            prefixed=prefixed,
+            drop=drop,
+            only_drop=only_drop,
+        )
+
+    def push_var(
+        self,
+        columns: Optional[List[str]] = None,
+        mods: Optional[List[str]] = None,
+        common: Optional[bool] = None,
+        prefixed: Optional[bool] = None,
+        drop: bool = False,
+        only_drop: bool = False,
+    ):
+        """
+        Copy the data from the mdata.var to the modalities,
+        existing columns to be overwritten
+
+        Parameters
+        ----------
+        columns
+            List of columns to push
+        mods
+            List of modalities to push to
+        common
+            If True, push common columns.
+            Common columns do not have modality prefixes.
+            Push to each modality unless all values for a modality are null.
+            Cannot be used with columns. True by default.
+        prefixed
+            If True, push columns that have a modality prefix.
+            which are prefixed by modality names.
+            Only push to the respective modality names.
+            Cannot be used with columns. True by default.
+        drop
+            If True, drop the columns from the global .var after pushing.
+            False by default.
+        only_drop
+            If True, drop the columns but do not actually pull them.
+            Forces drop=True. False by default.
+        """
+        return self._push_attr(
+            "var",
+            columns=columns,
+            mods=mods,
+            common=common,
+            prefixed=prefixed,
+            drop=drop,
+            only_drop=only_drop,
+        )
 
     def write_h5mu(self, filename: Optional[str] = None, **kwargs):
         """
