@@ -16,22 +16,23 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Intended Audience :: Science/Research"
 ]
-requires-python = ">= 3.8"
+requires-python = ">= 3.9"
 requires = [
     "numpy",
     "pandas",
     "h5py",
-    "anndata >= 0.8",
+    "anndata >= 0.10.8",
 ]
 
 [tool.flit.metadata.requires-extra]
 docs = [
-    "sphinx >= 4.0",
-    "sphinx-book-theme==0.3.3",
-    "pydata-sphinx-theme==0.8.1",
+    "sphinx",
+    "sphinx-book-theme",
+    "pydata-sphinx-theme",
     "readthedocs-sphinx-search",
     "nbsphinx",
-    "sphinx_automodapi"
+    "sphinx_automodapi",
+    "recommonmark"
 ]
 test = [
     "zarr"

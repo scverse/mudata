@@ -1,4 +1,4 @@
-<img src="./docs/img/mudata.svg" data-canonical-src="./docs/img/mudata.svg" width="700"/>
+![mudata header](./docs/img/mudata.svg)
 
 [![Documentation Status](https://readthedocs.org/projects/mudata/badge/?version=latest)](http://mudata.readthedocs.io/)
 [![PyPi version](https://img.shields.io/pypi/v/mudata)](https://pypi.org/project/mudata)

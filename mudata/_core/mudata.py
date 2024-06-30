@@ -276,9 +276,7 @@ class MuData:
                 k: (
                     v
                     if isinstance(v, AnnData) or isinstance(v, MuData)
-                    else MuData(**v)
-                    if "mod" in v
-                    else AnnData(**v)
+                    else MuData(**v) if "mod" in v else AnnData(**v)
                 )
                 for k, v in mod.items()
             },
@@ -315,7 +313,7 @@ class MuData:
                 for j, mod_j in enumerate(self.mod):
                     if j != i:
                         if any(
-                            np.in1d(
+                            np.isin(
                                 mod_i_dup_attrs, getattr(self.mod[mod_j], attr + "_names").values
                             )
                         ):
@@ -609,7 +607,7 @@ class MuData:
                 # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
                 # also, this is compatible to Muon.jl
                 col = data_mod[colname] + 1
-                col.replace(np.NaN, 0, inplace=True)
+                col.replace(np.nan, 0, inplace=True)
                 data_mod[colname] = col.astype(np.uint32)
 
             if len(data_global.columns) > 0:
@@ -705,7 +703,7 @@ class MuData:
                 # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
                 # also, this is compatible to Muon.jl
                 col = data_mod.loc[:, colname] + 1
-                col.replace(np.NaN, 0, inplace=True)
+                col.replace(np.nan, 0, inplace=True)
                 col = col.astype(np.uint32)
                 data_mod.loc[:, colname] = col
                 data_mod.set_index(colname, append=True, inplace=True)
