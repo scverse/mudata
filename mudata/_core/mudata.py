@@ -84,9 +84,7 @@ class ModDict(dict):
                     (
                         f" [shared obs] "
                         if v.axis == 0
-                        else f" [shared var] "
-                        if v.axis == 1
-                        else f" [shared obs and var] "
+                        else f" [shared var] " if v.axis == 1 else f" [shared obs and var] "
                     )
                     if hasattr(v, "axis")
                     else ""
@@ -1963,9 +1961,7 @@ class MuData:
             (
                 ""
                 if self.axis == 0
-                else f" (shared var) "
-                if self.axis == 1
-                else f" (shared obs and var) "
+                else f" (shared var) " if self.axis == 1 else f" (shared obs and var) "
             )
             if hasattr(self, "axis")
             else ""

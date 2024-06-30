@@ -93,9 +93,7 @@ def _classify_attr_columns(
         name_res["class"] = (
             "common"
             if name_res["count"] == n_mod
-            else "unique"
-            if name_res["count"] == 1
-            else "nonunique"
+            else "unique" if name_res["count"] == 1 else "nonunique"
         )
 
     return res
