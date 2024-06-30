@@ -158,3 +158,23 @@ def _update_and_concat(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
     new_cols = df2.columns.difference(df1.columns)
     res = pd.concat([df, df2[new_cols]], axis=1, sort=False, verify_integrity=True)
     return res
+
+def _maybe_coerce_to_bool(df: T) -> T:
+    if isinstance(df, pd.Series):
+        if isinstance(df.dtype, pd.BooleanDtype):
+            try:
+                return df.astype(bool)
+            except ValueError:
+                # cannot convert float NaN to bool
+                return df
+        return df
+
+    for col in df.columns:
+        if isinstance(df[col].dtype, pd.BooleanDtype):
+            try:
+                df = df.assign(**{col: df[col].astype(bool)})
+            except ValueError:
+                # cannot convert float NaN to bool
+                pass
+
+    return df

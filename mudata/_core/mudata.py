@@ -33,6 +33,7 @@ from .utils import (
     _classify_prefixed_columns,
     _make_index_unique,
     _restore_index,
+    _maybe_coerce_to_bool,
     _maybe_coerce_to_boolean,
     _update_and_concat,
 )
@@ -637,26 +638,32 @@ class MuData:
             # Shared axis
             if axis == (1 - self._axis) or self._axis == -1:
                 # We assume attr_intersecting and can't join_common
-                data_mod = pd.concat(
-                    [
-                        getattr(a, attr)
-                        .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                        .add_prefix(m + ":")
-                        for m, a in self.mod.items()
-                    ],
-                    join="outer",
-                    axis=1,
-                    sort=False,
+                data_mod = _maybe_coerce_to_bool(
+                    pd.concat(
+                        [
+                            _maybe_coerce_to_boolean(
+                                getattr(a, attr)
+                                .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                                .add_prefix(m + ":")
+                            )
+                            for m, a in self.mod.items()
+                        ],
+                        join="outer",
+                        axis=1,
+                        sort=False,
+                    )
                 )
             else:
                 if join_common:
                     # We checked above that attr_names are guaranteed to be unique and thus are safe to be used for joins
                     data_mod = pd.concat(
                         [
-                            getattr(a, attr)
-                            .drop(columns_common, axis=1)
-                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                            .add_prefix(m + ":")
+                            _maybe_coerce_to_boolean(
+                                getattr(a, attr)
+                                .drop(columns_common, axis=1)
+                                .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                                .add_prefix(m + ":")
+                            )
                             for m, a in self.mod.items()
                         ],
                         join="outer",
@@ -672,7 +679,11 @@ class MuData:
                         axis=0,
                         sort=False,
                     )
-                    data_mod = data_mod.join(data_common, how="left", sort=False)
+
+                    data_mod = _maybe_coerce_to_bool(
+                        data_mod.join(data_common, how="left", sort=False)
+                    )
+                    data_common = _maybe_coerce_to_bool(data_common)
 
                     # this occurs when join_common=True and we already have a global data frame, e.g. after reading from H5MU
                     sharedcols = data_mod.columns.intersection(data_global.columns)
@@ -680,16 +691,20 @@ class MuData:
                         columns={col: f"global:{col}" for col in sharedcols}, inplace=True
                     )
                 else:
-                    data_mod = pd.concat(
-                        [
-                            getattr(a, attr)
-                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                            .add_prefix(m + ":")
-                            for m, a in self.mod.items()
-                        ],
-                        join="outer",
-                        axis=0,
-                        sort=False,
+                    data_mod = _maybe_coerce_to_bool(
+                        pd.concat(
+                            [
+                                _maybe_coerce_to_boolean(
+                                    getattr(a, attr)
+                                    .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                                    .add_prefix(m + ":")
+                                )
+                                for m, a in self.mod.items()
+                            ],
+                            join="outer",
+                            axis=0,
+                            sort=False,
+                        )
                     )
 
             for mod, amod in self.mod.items():
@@ -763,7 +778,9 @@ class MuData:
                     axis=0,
                     sort=False,
                 )
-                data_mod = data_mod.join(data_common, how="left", sort=False)
+
+                data_mod = _maybe_coerce_to_bool(data_mod.join(data_common, how="left", sort=False))
+                data_common = _maybe_coerce_to_bool(data_common)
             else:
                 dfs = [
                     _make_index_unique(
