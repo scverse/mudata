@@ -159,6 +159,7 @@ def _update_and_concat(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
     res = pd.concat([df, df2[new_cols]], axis=1, sort=False, verify_integrity=True)
     return res
 
+
 def _maybe_coerce_to_bool(df: T) -> T:
     if isinstance(df, pd.Series):
         if isinstance(df.dtype, pd.BooleanDtype):
