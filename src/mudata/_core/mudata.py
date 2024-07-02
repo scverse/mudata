@@ -1,45 +1,42 @@
-from typing import Dict, List, Tuple, Union, Optional, Mapping, Iterable, Sequence, Any, Literal
-from numbers import Integral
-from collections import abc, Counter
-from collections.abc import MutableMapping
-from functools import reduce
-from itertools import chain, combinations
 import warnings
+from collections import Counter, abc
+from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from copy import deepcopy
-from pathlib import Path
+from functools import reduce
+from hashlib import sha1
+from itertools import chain, combinations
+from numbers import Integral
 from os import PathLike
+from pathlib import Path
 from random import choices
 from string import ascii_letters, digits
-from hashlib import sha1
+from typing import Any, Literal, Union
 
 import numpy as np
 import pandas as pd
-from pandas.api.types import is_string_dtype, is_categorical_dtype
-import anndata
 from anndata import AnnData
-from anndata.utils import convert_to_dict
 from anndata._core.aligned_mapping import (
-    AxisArrays,
     AlignedViewMixin,
+    AxisArrays,
     AxisArraysBase,
     PairwiseArrays,
     PairwiseArraysView,
 )
 from anndata._core.views import DataFrameView
+from anndata.utils import convert_to_dict
 
+from .config import OPTIONS
 from .file_backing import MuDataFileManager
+from .repr import *
 from .utils import (
     _classify_attr_columns,
     _classify_prefixed_columns,
     _make_index_unique,
-    _restore_index,
     _maybe_coerce_to_bool,
     _maybe_coerce_to_boolean,
+    _restore_index,
     _update_and_concat,
 )
-
-from .repr import *
-from .config import OPTIONS
 
 
 class MuAxisArraysView(AlignedViewMixin, AxisArraysBase):
@@ -63,7 +60,7 @@ class ModDict(dict):
         super().__init__(*args, **kwargs)
 
     def _repr_hierarchy(
-        self, nest_level: int = 0, is_last: bool = False, active_levels: Optional[List[int]] = None
+        self, nest_level: int = 0, is_last: bool = False, active_levels: list[int] | None = None
     ) -> str:
         descr = ""
         active_levels = active_levels or []
@@ -83,9 +80,9 @@ class ModDict(dict):
             if isinstance(v, MuData):
                 maybe_axis = (
                     (
-                        f" [shared obs] "
+                        " [shared obs] "
                         if v.axis == 0
-                        else f" [shared var] " if v.axis == 1 else f" [shared obs and var] "
+                        else " [shared var] " if v.axis == 1 else " [shared obs and var] "
                     )
                     if hasattr(v, "axis")
                     else ""
@@ -138,15 +135,13 @@ class MuData:
     def __init__(
         self,
         data: Union[AnnData, Mapping[str, AnnData], "MuData"] = None,
-        feature_types_names: Optional[dict] = {
+        feature_types_names: dict | None = {
             "Gene Expression": "rna",
             "Peaks": "atac",
             "Antibody Capture": "prot",
         },
         as_view: bool = False,
-        index: Optional[
-            Union[Tuple[Union[slice, Integral], Union[slice, Integral]], slice, Integral]
-        ] = None,
+        index: tuple[slice | Integral, slice | Integral] | slice | Integral | None = None,
         **kwargs,
     ):
         self._init_common()
@@ -334,16 +329,16 @@ class MuData:
     @classmethod
     def _init_from_dict_(
         cls,
-        mod: Optional[Mapping[str, Union[Mapping, AnnData]]] = None,
-        obs: Optional[Union[pd.DataFrame, Mapping[str, Iterable[Any]]]] = None,
-        var: Optional[Union[pd.DataFrame, Mapping[str, Iterable[Any]]]] = None,
-        uns: Optional[Mapping[str, Any]] = None,
-        obsm: Optional[Union[np.ndarray, Mapping[str, Sequence[Any]]]] = None,
-        varm: Optional[Union[np.ndarray, Mapping[str, Sequence[Any]]]] = None,
-        obsp: Optional[Union[np.ndarray, Mapping[str, Sequence[Any]]]] = None,
-        varp: Optional[Union[np.ndarray, Mapping[str, Sequence[Any]]]] = None,
-        obsmap: Optional[Mapping[str, Sequence[int]]] = None,
-        varmap: Optional[Mapping[str, Sequence[int]]] = None,
+        mod: Mapping[str, Mapping | AnnData] | None = None,
+        obs: pd.DataFrame | Mapping[str, Iterable[Any]] | None = None,
+        var: pd.DataFrame | Mapping[str, Iterable[Any]] | None = None,
+        uns: Mapping[str, Any] | None = None,
+        obsm: np.ndarray | Mapping[str, Sequence[Any]] | None = None,
+        varm: np.ndarray | Mapping[str, Sequence[Any]] | None = None,
+        obsp: np.ndarray | Mapping[str, Sequence[Any]] | None = None,
+        varp: np.ndarray | Mapping[str, Sequence[Any]] | None = None,
+        obsmap: Mapping[str, Sequence[int]] | None = None,
+        varmap: Mapping[str, Sequence[int]] | None = None,
         axis: Literal[0, 1] = 0,
     ):
         return cls(
@@ -441,7 +436,7 @@ class MuData:
                     break
         return (attr_names_changed, attr_columns_changed)
 
-    def copy(self, filename: Optional[PathLike] = None) -> "MuData":
+    def copy(self, filename: PathLike | None = None) -> "MuData":
         if not self.isbacked:
             mod = {}
             for k, v in self.mod.items():
@@ -464,12 +459,12 @@ class MuData:
                 raise ValueError(
                     "To copy a MuData object in backed mode, pass a filename: `copy(filename='myfilename.h5mu')`"
                 )
-            from .io import write_h5mu, read_h5mu
+            from .io import read_h5mu, write_h5mu
 
             write_h5mu(filename, self)
             return read_h5mu(filename, self.file._filemode)
 
-    def strings_to_categoricals(self, df: Optional[pd.DataFrame] = None):
+    def strings_to_categoricals(self, df: pd.DataFrame | None = None):
         """
         Transform string columns in .var and .obs slots of MuData to categorical
         as well as of .var and .obs slots in each AnnData object
@@ -495,7 +490,7 @@ class MuData:
             return MuData(self, as_view=True, index=index)
 
     @property
-    def shape(self) -> Tuple[int, int]:
+    def shape(self) -> tuple[int, int]:
         """Shape of data, all variables and observations combined (:attr:`n_obs`, :attr:`n_var`)."""
         return self.n_obs, self.n_vars
 
@@ -533,7 +528,7 @@ class MuData:
         attr: str,
         axis: int,
         join_common: bool = False,
-        pull: Optional[bool] = None,
+        pull: bool | None = None,
         **kwargs,  # for _pull_attr()
     ):
         """
@@ -1000,11 +995,11 @@ class MuData:
         return self.filename is not None
 
     @property
-    def filename(self) -> Optional[Path]:
+    def filename(self) -> Path | None:
         return self.file.filename
 
     @filename.setter
-    def filename(self, filename: Optional[PathLike]):
+    def filename(self, filename: PathLike | None):
         filename = None if filename is None else Path(filename)
         if self.isbacked:
             if filename is None:
@@ -1044,7 +1039,7 @@ class MuData:
         """
         return self._obs.shape[0]
 
-    def obs_vector(self, key: str, layer: Optional[str] = None) -> np.ndarray:
+    def obs_vector(self, key: str, layer: str | None = None) -> np.ndarray:
         """
         Return an array of values for the requested key of length n_obs
         """
@@ -1146,7 +1141,7 @@ class MuData:
         # )
         return self._var.shape[0]
 
-    def var_vector(self, key: str, layer: Optional[str] = None) -> np.ndarray:
+    def var_vector(self, key: str, layer: str | None = None) -> np.ndarray:
         """
         Return an array of values for the requested key of length n_var
         """
@@ -1215,7 +1210,7 @@ class MuData:
     # Multi-dimensional annotations (.obsm and .varm)
 
     @property
-    def obsm(self) -> Union[MuAxisArrays, MuAxisArraysView]:
+    def obsm(self) -> MuAxisArrays | MuAxisArraysView:
         """
         Multi-dimensional annotation of observation
         """
@@ -1233,7 +1228,7 @@ class MuData:
         self.obsm = dict()
 
     @property
-    def obsp(self) -> Union[PairwiseArrays, PairwiseArraysView]:
+    def obsp(self) -> PairwiseArrays | PairwiseArraysView:
         """
         Pairwise annotatation of observations
         """
@@ -1251,7 +1246,7 @@ class MuData:
         self.obsp = dict()
 
     @property
-    def obsmap(self) -> Union[PairwiseArrays, PairwiseArraysView]:
+    def obsmap(self) -> PairwiseArrays | PairwiseArraysView:
         """
         Mapping of observation index in the MuData to indices in individual modalities.
 
@@ -1260,7 +1255,7 @@ class MuData:
         return self._obsmap
 
     @property
-    def varm(self) -> Union[MuAxisArrays, MuAxisArraysView]:
+    def varm(self) -> MuAxisArrays | MuAxisArraysView:
         """
         Multi-dimensional annotation of variables
         """
@@ -1278,7 +1273,7 @@ class MuData:
         self.varm = dict()
 
     @property
-    def varp(self) -> Union[PairwiseArrays, PairwiseArraysView]:
+    def varp(self) -> PairwiseArrays | PairwiseArraysView:
         """
         Pairwise annotatation of variables
         """
@@ -1296,7 +1291,7 @@ class MuData:
         self.varp = dict()
 
     @property
-    def varmap(self) -> Union[PairwiseArrays, PairwiseArraysView]:
+    def varmap(self) -> PairwiseArrays | PairwiseArraysView:
         """
         Mapping of feature index in the MuData to indices in individual modalities.
 
@@ -1307,23 +1302,23 @@ class MuData:
     # _keys methods to increase compatibility
     # with calls requiring those AnnData methods
 
-    def obs_keys(self) -> List[str]:
+    def obs_keys(self) -> list[str]:
         """List keys of observation annotation :attr:`obs`."""
         return self._obs.keys().tolist()
 
-    def var_keys(self) -> List[str]:
+    def var_keys(self) -> list[str]:
         """List keys of variable annotation :attr:`var`."""
         return self._var.keys().tolist()
 
-    def obsm_keys(self) -> List[str]:
+    def obsm_keys(self) -> list[str]:
         """List keys of observation annotation :attr:`obsm`."""
         return list(self._obsm.keys())
 
-    def varm_keys(self) -> List[str]:
+    def varm_keys(self) -> list[str]:
         """List keys of variable annotation :attr:`varm`."""
         return list(self._varm.keys())
 
-    def uns_keys(self) -> List[str]:
+    def uns_keys(self) -> list[str]:
         """List keys of unstructured annotation."""
         return list(self._uns.keys())
 
@@ -1342,7 +1337,7 @@ class MuData:
         return self._axis
 
     @property
-    def mod_names(self) -> List[str]:
+    def mod_names(self) -> list[str]:
         """
         Names of modalities (alias for `list(mdata.mod.keys())`)
 
@@ -1353,14 +1348,14 @@ class MuData:
     def _pull_attr(
         self,
         attr: Literal["obs", "var"],
-        columns: Optional[List[str]] = None,
-        mods: Optional[List[str]] = None,
-        common: Optional[bool] = None,
-        join_common: Optional[bool] = None,
-        nonunique: Optional[bool] = None,
-        join_nonunique: Optional[bool] = None,
-        unique: Optional[bool] = None,
-        prefix_unique: Optional[bool] = True,
+        columns: list[str] | None = None,
+        mods: list[str] | None = None,
+        common: bool | None = None,
+        join_common: bool | None = None,
+        nonunique: bool | None = None,
+        join_nonunique: bool | None = None,
+        unique: bool | None = None,
+        prefix_unique: bool | None = True,
         drop: bool = False,
         only_drop: bool = False,
     ):
@@ -1422,7 +1417,7 @@ class MuData:
             if isinstance(mods, str):
                 mods = [mods]
             mods = list(dict.fromkeys(mods))
-            if not all((m in self.mod for m in mods)):
+            if not all(m in self.mod for m in mods):
                 raise ValueError("All mods should be present in mdata.mod")
             elif len(mods) == self.n_mod:
                 mods = None
@@ -1502,7 +1497,7 @@ class MuData:
         attrmap = getattr(self, f"{attr}map")
         n_attr = self.n_vars if attr == "var" else self.n_obs
 
-        dfs: List[pd.DataFrame] = []
+        dfs: list[pd.DataFrame] = []
         for m, mod in self.mod.items():
             if mods is not None and m not in mods:
                 continue
@@ -1560,14 +1555,14 @@ class MuData:
 
     def pull_obs(
         self,
-        columns: Optional[List[str]] = None,
-        mods: Optional[List[str]] = None,
-        common: Optional[bool] = None,
-        join_common: Optional[bool] = None,
-        nonunique: Optional[bool] = None,
-        join_nonunique: Optional[bool] = None,
-        unique: Optional[bool] = None,
-        prefix_unique: Optional[bool] = True,
+        columns: list[str] | None = None,
+        mods: list[str] | None = None,
+        common: bool | None = None,
+        join_common: bool | None = None,
+        nonunique: bool | None = None,
+        join_nonunique: bool | None = None,
+        unique: bool | None = None,
+        prefix_unique: bool | None = True,
         drop: bool = False,
         only_drop: bool = False,
     ):
@@ -1631,14 +1626,14 @@ class MuData:
 
     def pull_var(
         self,
-        columns: Optional[List[str]] = None,
-        mods: Optional[List[str]] = None,
-        common: Optional[bool] = None,
-        join_common: Optional[bool] = None,
-        nonunique: Optional[bool] = None,
-        join_nonunique: Optional[bool] = None,
-        unique: Optional[bool] = None,
-        prefix_unique: Optional[bool] = True,
+        columns: list[str] | None = None,
+        mods: list[str] | None = None,
+        common: bool | None = None,
+        join_common: bool | None = None,
+        nonunique: bool | None = None,
+        join_nonunique: bool | None = None,
+        unique: bool | None = None,
+        prefix_unique: bool | None = True,
         drop: bool = False,
         only_drop: bool = False,
     ):
@@ -1703,10 +1698,10 @@ class MuData:
     def _push_attr(
         self,
         attr: Literal["obs", "var"],
-        columns: Optional[List[str]] = None,
-        mods: Optional[List[str]] = None,
-        common: Optional[bool] = None,
-        prefixed: Optional[bool] = None,
+        columns: list[str] | None = None,
+        mods: list[str] | None = None,
+        common: bool | None = None,
+        prefixed: bool | None = None,
         drop: bool = False,
         only_drop: bool = False,
     ):
@@ -1747,7 +1742,7 @@ class MuData:
             if isinstance(mods, str):
                 mods = [mods]
             mods = list(dict.fromkeys(mods))
-            if not all((m in self.mod for m in mods)):
+            if not all(m in self.mod for m in mods):
                 raise ValueError("All mods should be present in mdata.mod")
             elif len(mods) == self.n_mod:
                 mods = None
@@ -1829,10 +1824,10 @@ class MuData:
 
     def push_obs(
         self,
-        columns: Optional[List[str]] = None,
-        mods: Optional[List[str]] = None,
-        common: Optional[bool] = None,
-        prefixed: Optional[bool] = None,
+        columns: list[str] | None = None,
+        mods: list[str] | None = None,
+        common: bool | None = None,
+        prefixed: bool | None = None,
         drop: bool = False,
         only_drop: bool = False,
     ):
@@ -1875,10 +1870,10 @@ class MuData:
 
     def push_var(
         self,
-        columns: Optional[List[str]] = None,
-        mods: Optional[List[str]] = None,
-        common: Optional[bool] = None,
-        prefixed: Optional[bool] = None,
+        columns: list[str] | None = None,
+        mods: list[str] | None = None,
+        common: bool | None = None,
+        prefixed: bool | None = None,
         drop: bool = False,
         only_drop: bool = False,
     ):
@@ -1919,11 +1914,11 @@ class MuData:
             only_drop=only_drop,
         )
 
-    def write_h5mu(self, filename: Optional[str] = None, **kwargs):
+    def write_h5mu(self, filename: str | None = None, **kwargs):
         """
         Write MuData object to an HDF5 file
         """
-        from .io import write_h5mu, _write_h5mu
+        from .io import _write_h5mu, write_h5mu
 
         if self.isbacked and (filename is None or filename == self.filename):
             import h5py
@@ -1940,7 +1935,7 @@ class MuData:
 
     write = write_h5mu
 
-    def write_zarr(self, store: Union[MutableMapping, str, Path], **kwargs):
+    def write_zarr(self, store: MutableMapping | str | Path, **kwargs):
         """
         Write MuData object to a Zarr store
         """
@@ -1978,7 +1973,7 @@ class MuData:
             (
                 ""
                 if self.axis == 0
-                else f" (shared var) " if self.axis == 1 else f" (shared obs and var) "
+                else " (shared var) " if self.axis == 1 else " (shared obs and var) "
             )
             if hasattr(self, "axis")
             else ""
@@ -2063,9 +2058,7 @@ class MuData:
             self.n_obs, self.n_vars, len(self.mod), "y" if len(self.mod) < 2 else "ies"
         )
         if self.isbacked:
-            header += "<br>&#8627; <span>backed at <span class='hl-file'>{}</span></span>".format(
-                self.file.filename
-            )
+            header += f"<br>&#8627; <span>backed at <span class='hl-file'>{self.file.filename}</span></span>"
 
         mods = "<br>"
 
@@ -2093,9 +2086,7 @@ class MuData:
                 )
             )
             if dat.isbacked:
-                mods += "<br>&#8627; <span>backed at <span class='hl-file'>{}</span></span>".format(
-                    self.file.filename
-                )
+                mods += f"<br>&#8627; <span>backed at <span class='hl-file'>{self.file.filename}</span></span>"
 
             mods += "<br>"
 

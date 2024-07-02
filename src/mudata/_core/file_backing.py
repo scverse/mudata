@@ -1,20 +1,18 @@
-from pathlib import Path
 from os import PathLike
-from os.path import abspath
-from typing import Optional, Iterator, Literal
-from collections import defaultdict
+from pathlib import Path
+from typing import Literal
 from weakref import WeakSet
 
 import anndata as ad
-from anndata._core.file_backing import AnnDataFileManager
 import h5py
+from anndata._core.file_backing import AnnDataFileManager
 
 
 class MuDataFileManager(AnnDataFileManager):
     def __init__(
         self,
-        filename: Optional[PathLike] = None,
-        filemode: Optional[Literal["r", "r+"]] = None,
+        filename: PathLike | None = None,
+        filemode: Literal["r", "r+"] | None = None,
     ):
         self._counter = 0
         self._children = WeakSet()
@@ -24,8 +22,8 @@ class MuDataFileManager(AnnDataFileManager):
 
     def open(
         self,
-        filename: Optional[PathLike] = None,
-        filemode: Optional[Literal["r", "r+"]] = None,
+        filename: PathLike | None = None,
+        filemode: Literal["r", "r+"] | None = None,
         add_ref=False,
     ) -> bool:
         if self.is_open and (
@@ -75,7 +73,7 @@ class MuDataFileManager(AnnDataFileManager):
         return (self._file is not None) and bool(self._file.id)
 
     @AnnDataFileManager.filename.setter
-    def filename(self, filename: Optional[PathLike]):
+    def filename(self, filename: PathLike | None):
         self._filename = None if filename is None else filename
 
 
@@ -98,8 +96,8 @@ class AnnDataFileManager(ad._core.file_backing.AnnDataFileManager):
 
     def open(
         self,
-        filename: Optional[PathLike] = None,
-        filemode: Optional[Literal["r", "r+"]] = None,
+        filename: PathLike | None = None,
+        filemode: Literal["r", "r+"] | None = None,
     ):
         if not self._parent.open(filename, filemode, add_ref=True):
             self._set_file()

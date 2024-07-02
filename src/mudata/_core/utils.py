@@ -1,7 +1,9 @@
 from collections import Counter
-from typing import Dict, List, Sequence, TypeVar
-import pandas as pd
+from collections.abc import Sequence
+from typing import TypeVar
+
 import numpy as np
+import pandas as pd
 
 T = TypeVar("T", pd.Series, pd.DataFrame)
 
@@ -38,7 +40,7 @@ def _maybe_coerce_to_boolean(df: T) -> T:
 
 def _classify_attr_columns(
     names: Sequence[str], prefixes: Sequence[str]
-) -> Sequence[Dict[str, str]]:
+) -> Sequence[dict[str, str]]:
     """
     Classify names into common, non-unique, and unique
     w.r.t. to the list of prefixes.
@@ -60,7 +62,7 @@ def _classify_attr_columns(
     ]
     """
     n_mod = len(prefixes)
-    res: List[Dict[str, str]] = []
+    res: list[dict[str, str]] = []
 
     for name in names:
         name_common = {
@@ -101,7 +103,7 @@ def _classify_attr_columns(
 
 def _classify_prefixed_columns(
     names: Sequence[str], prefixes: Sequence[str]
-) -> Sequence[Dict[str, str]]:
+) -> Sequence[dict[str, str]]:
     """
     Classify names into common and prefixed
     w.r.t. to the list of prefixes.
@@ -117,7 +119,7 @@ def _classify_prefixed_columns(
         {"name": "mod1:unique", "prefix": "mod1", "derived_name": "annotation", "class": "prefixed"},
     ]
     """
-    res: List[Dict[str, str]] = []
+    res: list[dict[str, str]] = []
 
     for name in names:
         name_common = {

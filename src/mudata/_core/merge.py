@@ -1,13 +1,13 @@
+from collections.abc import Callable, Collection, Mapping
+from functools import reduce
+from typing import Any, Literal
+
 import numpy as np
 import pandas as pd
-
-from collections.abc import Collection
-from functools import reduce
-from typing import Any, Callable, Dict, List, Literal, Mapping
-
 from anndata import AnnData
 from anndata import concat as ad_concat
 from anndata._core.merge import (
+    StrategiesLiteral,
     _resolve_dim,
     check_combinable_cols,
     concat_pairwise_mapping,
@@ -15,11 +15,10 @@ from anndata._core.merge import (
     gen_reindexer,
     inner_concat_aligned_mapping,
     intersect_keys,
-    merge_indices,
     merge_dataframes,
+    merge_indices,
     outer_concat_aligned_mapping,
     resolve_merge_strategy,
-    StrategiesLiteral,
     unify_dtypes,
     union_keys,
 )
@@ -141,7 +140,7 @@ def concat(
         [isinstance(m, MuData) for m in mdatas]
     ), "For concatenation to work, all objects should be of type MuData"
     assert len(mdatas) > 1, "mdatas collection should have more than one MuData object"
-    if len(set((m.axis for m in mdatas))) != 1:
+    if len(set(m.axis for m in mdatas)) != 1:
         "All MuData objects in mdatas should have the same axis."
 
     axis = mdatas[0].axis
@@ -151,7 +150,7 @@ def concat(
     assert len(common_mods) > 0, "There should be at least one common modality across all mdatas"
 
     # Concatenate all the modalities
-    modalities: Dict[str, AnnData] = dict()
+    modalities: dict[str, AnnData] = dict()
     for m in common_mods:
         modalities[m] = ad_concat(
             [mdata[m] for mdata in mdatas],
@@ -202,8 +201,8 @@ def concat(
     alt_annot = merge_dataframes([getattr(m, alt_dim) for m in mdatas], alt_indices, merge)
 
     # Patch multidimensional annotations to exclude modality masks
-    patch_dim: List[Dict[str, Any]] = []
-    patch_alt_dim: List[Dict[str, Any]] = []
+    patch_dim: list[dict[str, Any]] = []
+    patch_alt_dim: list[dict[str, Any]] = []
     for mdata in mdatas:
         mod_dim_m = getattr(mdata, f"{dim}m")
         mod_alt_dim_m = getattr(mdata, f"{alt_dim}m")

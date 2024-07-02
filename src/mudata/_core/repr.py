@@ -2,14 +2,15 @@
 # Utility functions for MuData._repr_html_()
 #
 
-from typing import Tuple, Iterable
-from numbers import Number, Integral, Real, Complex
+from collections.abc import Iterable
+from numbers import Complex, Integral, Number, Real
 from warnings import warn
+
 import numpy as np
 import pandas as pd
 
 
-def maybe_module_class(obj, sep=".", builtins=False) -> Tuple[str, str]:
+def maybe_module_class(obj, sep=".", builtins=False) -> tuple[str, str]:
     m, cl = "", obj.__class__.__name__
     try:
         m += obj.__class__.__module__
@@ -83,7 +84,7 @@ def format_values(x):
 def block_matrix(data, attr, name):
     obj = getattr(data, attr)
     s = ""
-    s += "<div class='title title-attr'>{}</div><span class='hl-dim'>.{}</span>".format(name, attr)
+    s += f"<div class='title title-attr'>{name}</div><span class='hl-dim'>.{attr}</span>"
     s += "<div>"
     s += """
             <span class='hl-types'>{}</span> <span>&nbsp;&nbsp;&nbsp;<span class='hl-import'>{}</span>{}</span>
@@ -107,11 +108,9 @@ def details_block_table(data, attr, name, expand=0, dims=True, square=False):
             s += "<div><table>"
             s += "\n".join(
                 [
-                    """<tr>
-                                <td class='col-index'>{}</td>  <td class='hl-types'>{}</td>  <td class='hl-values'>{}</td>
-                            </tr>""".format(
-                        attr_key, obj[attr_key].dtype, format_values(obj[attr_key])
-                    )
+                    f"""<tr>
+                                <td class='col-index'>{attr_key}</td>  <td class='hl-types'>{obj[attr_key].dtype}</td>  <td class='hl-values'>{format_values(obj[attr_key])}</td>
+                            </tr>"""
                     for attr_key in obj.columns
                 ]
             )
@@ -163,9 +162,7 @@ def details_block_table(data, attr, name, expand=0, dims=True, square=False):
         s += "</details>"
     elif hasattr(obj, "file"):  # HDF5 dataset
         s += "<details{}>".format(" open" if expand else "")
-        s += "<summary><div class='title title-attr'>{}</div><span class='hl-dim'>.{}</span><span class='hl-size'>{} elements</span></summary>".format(
-            name, attr, len(obj)
-        )
+        s += f"<summary><div class='title title-attr'>{name}</div><span class='hl-dim'>.{attr}</span><span class='hl-size'>{len(obj)} elements</span></summary>"
         s += "<div><table>"
         s += """<tr>
                 <td class='hl-types'>{}</td>  <td><span class='hl-import'>{}</span>{}</td>
@@ -176,9 +173,7 @@ def details_block_table(data, attr, name, expand=0, dims=True, square=False):
         s += "</details>"
     else:  # Unstructured
         s += "<details{}>".format(" open" if expand else "")
-        s += "<summary><div class='title title-attr'>{}</div><span class='hl-dim'>.{}</span><span class='hl-size'>{} elements</span></summary>".format(
-            name, attr, len(obj)
-        )
+        s += f"<summary><div class='title title-attr'>{name}</div><span class='hl-dim'>.{attr}</span><span class='hl-size'>{len(obj)} elements</span></summary>"
         if len(obj) > 0:
             s += "<div><table>"
             s += "\n".join(

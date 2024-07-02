@@ -1,6 +1,8 @@
 from typing import Literal
+
 import anndata
 from anndata import AnnData
+
 from mudata import MuData
 
 
