@@ -8,16 +8,45 @@ except (ImportError, LookupError):
     try:
         from ._version import __version__
     except ModuleNotFoundError:
-        raise RuntimeError(
-            "mudata is not correctly installed. Please install it, e.g. with pip."
-        )
+        raise RuntimeError("mudata is not correctly installed. Please install it, e.g. with pip.")
 
 from ._core import utils
 from ._core.config import set_options
-from ._core.io import *
+from ._core.io import (
+    read,
+    read_anndata,
+    read_h5ad,
+    read_h5mu,
+    read_zarr,
+    write,
+    write_anndata,
+    write_h5ad,
+    write_h5mu,
+    write_zarr,
+)
 from ._core.merge import concat
 from ._core.mudata import MuData
 from ._core.to_ import to_anndata, to_mudata
 
 __anndataversion__ = "0.1.0"
 __mudataversion__ = "0.1.0"
+
+__all__ = [
+    __version__,
+    utils,
+    set_options,
+    to_anndata,
+    to_mudata,
+    MuData,
+    concat,
+    read,
+    read_h5ad,
+    read_anndata,
+    read_h5mu,
+    read_zarr,
+    write,
+    write_h5ad,
+    write_anndata,
+    write_h5mu,
+    write_zarr,
+]

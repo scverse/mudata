@@ -27,7 +27,7 @@ from anndata.utils import convert_to_dict
 
 from .config import OPTIONS
 from .file_backing import MuDataFileManager
-from .repr import *
+from .repr import MUDATA_CSS, block_matrix, details_block_table
 from .utils import (
     _classify_attr_columns,
     _classify_prefixed_columns,
@@ -1421,9 +1421,8 @@ class MuData:
                 raise ValueError("All mods should be present in mdata.mod")
             elif len(mods) == self.n_mod:
                 mods = None
-            assert (
-                common is None and nonunique is None and unique is None
-            ), "Cannot use mods with common, nonunique, or unique."
+            for k, v in {"common": common, "nonunique": nonunique, "unique": unique}.items():
+                assert v is None, f"Cannot use mods with {k}."
 
         if only_drop:
             drop = True
@@ -1439,9 +1438,8 @@ class MuData:
         )
 
         if columns is not None:
-            assert (
-                common is None and nonunique is None and unique is None
-            ), "Cannot use columns with common, nonunique, or unique."
+            for k, v in {"common": common, "nonunique": nonunique, "unique": unique}.items():
+                assert v is None, f"Cannot use {k} with columns."
 
             # - modname1:column -> [modname1:column]
             # - column -> [modname1:column, modname2:column, ...]
@@ -1746,9 +1744,8 @@ class MuData:
                 raise ValueError("All mods should be present in mdata.mod")
             elif len(mods) == self.n_mod:
                 mods = None
-            assert (
-                common is None and prefixed is None
-            ), "Cannot use mods with common, nonunique, or unique."
+            for k, v in {"common": common, "prefixed": prefixed}.items():
+                assert v is None, f"Cannot use mods with {k}."
 
         if only_drop:
             drop = True
@@ -1756,9 +1753,8 @@ class MuData:
         cols = _classify_prefixed_columns(getattr(self, attr).columns.values, self.mod.keys())
 
         if columns is not None:
-            assert (
-                common is None and prefixed is None
-            ), "Cannot use columns with common or prefixed."
+            for k, v in {"common": common, "prefixed": prefixed}.items():
+                assert v is None, f"Cannot use columns with {k}."
 
             # - modname1:column -> [modname1:column]
             # - column -> [modname1:column, modname2:column, ...]
@@ -1790,7 +1786,7 @@ class MuData:
                 )
 
         attrmap = getattr(self, f"{attr}map")
-        n_attr = self.n_vars if attr == "var" else self.n_obs
+        _n_attr = self.n_vars if attr == "var" else self.n_obs
 
         for m, mod in self.mod.items():
             if mods is not None and m not in mods:

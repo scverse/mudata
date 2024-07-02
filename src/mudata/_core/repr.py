@@ -18,7 +18,7 @@ def maybe_module_class(obj, sep=".", builtins=False) -> tuple[str, str]:
             m = ""
         else:
             m += sep
-    except:
+    except Exception:
         m += ""
     return (m, cl)
 

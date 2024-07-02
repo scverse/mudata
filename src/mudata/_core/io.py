@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, MutableMapping
+    from os import PathLike
+
     import fsspec
     import zarr
 
-import os
-from collections.abc import MutableMapping
-from os import PathLike
 from pathlib import Path
 from warnings import warn
 
@@ -209,7 +208,7 @@ def write_h5mu(filename: PathLike, mdata: MuData, **kwargs):
 
     with h5py.File(filename, "w", userblock_size=512) as f:
         _write_h5mu(f, mdata, **kwargs)
-    with open(filename, "br+") as f:
+    with Path(filename).open("br+") as f:
         nbytes = f.write(
             f"MuData (format-version={__mudataversion__};creator=muon;creator-version={__version__})".encode()
         )
@@ -299,9 +298,8 @@ def write(filename: PathLike, data: MuData | AnnData):
     import re
 
     if filename.endswith(".h5mu") or isinstance(data, MuData):
-        assert filename.endswith(".h5mu") and isinstance(
-            data, MuData
-        ), "Can only save MuData object to .h5mu file"
+        assert filename.endswith(".h5mu"), "Can only save MuData object to .h5mu file"
+        assert isinstance(data, MuData), "Only MuData object can be saved as .h5mu file"
 
         write_h5mu(filename, data)
 
@@ -345,7 +343,7 @@ def _validate_h5mu(filename: PathLike) -> (str, Callable | None):
     callback = None
 
     try:
-        with open(filename, "rb") as f:
+        with Path(filename).open("rb") as f:
             ish5mu = f.read(6) == b"MuData"
     except TypeError as e:
         # Support for fsspec
@@ -514,7 +512,7 @@ def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: boo
             d[k] = read_elem(g[k])
     ad = AnnData(**d)
     if manager is not None:
-        ad.file = AnnDataFileManager(ad, os.path.basename(g.name), manager)
+        ad.file = AnnDataFileManager(ad, Path(g.name).name, manager)
 
     raw = _read_legacy_raw(
         g,
@@ -528,9 +526,7 @@ def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: boo
     return ad
 
 
-def _read_h5mu_mod(
-    g: h5py.Group, manager: MuDataFileManager = None, backed: bool = False
-) -> dict:
+def _read_h5mu_mod(g: h5py.Group, manager: MuDataFileManager = None, backed: bool = False) -> dict:
     from anndata import Raw
     from anndata._io.h5ad import _read_raw, read_dataframe
     from anndata._io.specs.registry import read_elem
@@ -548,7 +544,7 @@ def _read_h5mu_mod(
             d[k] = read_elem(g[k])
     ad = AnnData(**d)
     if manager is not None:
-        ad.file = AnnDataFileManager(ad, os.path.basename(g.name), manager)
+        ad.file = AnnDataFileManager(ad, Path(g.name).name, manager)
 
     raw = _read_raw(g, attrs=("var", "varm") if backed else ("var", "varm", "X"))
     if raw:
