@@ -1,10 +1,10 @@
+from copy import deepcopy
 from typing import TYPE_CHECKING
+
+from anndata._core.views import ElementRef, _SetItemMixin
 
 if TYPE_CHECKING:
     from .mudata import MuData
-
-from anndata._core.views import _SetItemMixin, ElementRef
-from copy import deepcopy
 
 
 class _ViewMixin(_SetItemMixin):

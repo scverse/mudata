@@ -10,6 +10,8 @@ except (ImportError, LookupError):
     except ModuleNotFoundError:
         raise RuntimeError("mudata is not correctly installed. Please install it, e.g. with pip.")
 
+from anndata import AnnData
+
 from ._core import utils
 from ._core.config import set_options
 from ._core.io import (
@@ -33,11 +35,12 @@ __mudataversion__ = "0.1.0"
 
 __all__ = [
     __version__,
+    MuData,
+    AnnData,
     utils,
     set_options,
     to_anndata,
     to_mudata,
-    MuData,
     concat,
     read,
     read_h5ad,
