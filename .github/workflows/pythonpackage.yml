@@ -24,7 +24,7 @@ jobs:
         source .venv/bin/activate
         uv pip install ruff pytest
         uv pip install .[dev,docs,test]
-    - name: Lint with flake8
+    - name: Ruff check
       run: |
         ruff check src/
     - name: Test with pytest

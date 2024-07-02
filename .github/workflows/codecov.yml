@@ -20,6 +20,7 @@ jobs:
           uv pip install .[dev,docs,test]
       - name: Run tests and collect coverage
         run: |
+          source .venv/bin/activate
           coverage run -m pytest --cache-clear
           coverage xml
       - name: Upload coverage to Codecov
