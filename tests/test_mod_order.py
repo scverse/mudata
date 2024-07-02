@@ -1,12 +1,10 @@
-import unittest
-import pytest
-
-import numpy as np
 import h5py
-import mudata
+import numpy as np
+import pytest
 from anndata import AnnData
-from mudata import MuData
 
+import mudata
+from mudata import MuData
 
 # Dimensions
 N = 100
@@ -33,7 +31,7 @@ def mdata():
     # order of modalities should be preserved, namely
     # c-first, then a-second, then b-third
     mdata = MuData({"c-first": mod1, "a-second": mod2, "b-third": mod3})
-    yield mdata
+    return mdata
 
 
 @pytest.mark.usefixtures("filepath_h5mu")
@@ -47,7 +45,7 @@ class TestMuData:
         mdata.write_h5mu(filepath_h5mu)
         mdata_read = mudata.read_h5mu(filepath_h5mu)
 
-        mods = list(mdata.mod.keys())
+        mods = list(mdata_read.mod.keys())
         assert len(mods) == 3
         assert mods == KEYS_ORDERED
 

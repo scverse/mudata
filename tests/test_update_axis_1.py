@@ -1,8 +1,9 @@
 import unittest
-import pytest
 
 import numpy as np
+import pytest
 from anndata import AnnData
+
 from mudata import MuData
 
 
@@ -44,7 +45,7 @@ def mdata(request, var_n, var_across, var_mod):
     genesets = np.random.choice(["a", "b", "c"], size=mdata.n_vars, replace=True)
     mdata.var["geneset"] = genesets
 
-    yield mdata
+    return mdata
 
 
 @pytest.fixture()

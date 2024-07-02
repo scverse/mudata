@@ -1,11 +1,9 @@
-import unittest
-import pytest
-
-import os
+from pathlib import Path
 
 import numpy as np
-from scipy.sparse import csr_matrix
+import pytest
 from anndata import AnnData
+
 import mudata
 from mudata import MuData
 
@@ -19,7 +17,7 @@ def mdata():
     for m in ["mod1", "mod2"]:
         mods[m].var_names = [f"{m}_var{i}" for i in range(mods[m].n_vars)]
     mdata = MuData(mods)
-    yield mdata
+    return mdata
 
 
 @pytest.mark.usefixtures("filepath_h5mu", "filepath2_h5mu")
@@ -60,21 +58,21 @@ class TestMuData:
     def test_view_copy(self, mdata):
         view_n_obs = 5
         mdata_view = mdata[list(range(view_n_obs)), :]
-        assert mdata_view.is_view == True
+        assert mdata_view.is_view
         assert mdata_view.n_obs == view_n_obs
         mdata_copy = mdata_view.copy()
-        assert mdata_copy.is_view == False
+        assert not mdata_copy.is_view
         assert mdata_copy.n_obs == view_n_obs
 
     def test_view_view(self, mdata):
         view_n_obs = 5
         mdata_view = mdata[list(range(view_n_obs)), :]
-        assert mdata_view.is_view == True
+        assert mdata_view.is_view
         assert mdata_view.n_obs == view_n_obs
 
         view_view_n_obs = 2
         mdata_view_view = mdata_view[list(range(view_view_n_obs)), :]
-        assert mdata_view_view.is_view == True
+        assert mdata_view_view.is_view
         assert mdata_view_view.n_obs == view_view_n_obs
 
     def test_backed_copy(self, mdata, filepath_h5mu, filepath2_h5mu):
@@ -82,4 +80,4 @@ class TestMuData:
         mdata_b = mudata.read_h5mu(filepath_h5mu, backed="r")
         assert mdata_b.n_obs == mdata.n_obs
         mdata_b_copy = mdata_b.copy(filepath2_h5mu)
-        assert mdata_b_copy.file._filename.name == os.path.basename(filepath2_h5mu)
+        assert mdata_b_copy.file._filename.name == Path(filepath2_h5mu).name

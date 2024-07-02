@@ -1,9 +1,10 @@
 import unittest
-import pytest
 
 import numpy as np
 import pandas as pd
+import pytest
 from anndata import AnnData
+
 from mudata import MuData
 
 
@@ -164,9 +165,12 @@ class TestMultiModal:
         for m in mdata.mod.keys():
             assert f"{m}:mod" in mdata.obs.columns
 
-        # join_nonunique and join_common shouldn't work
+        # join_common shouldn't work
         with pytest.raises(ValueError, match="shared obs_names"):
             mdata.pull_obs(join_common=True)
+
+        # join_nonunique shouldn't work
+        with pytest.raises(ValueError, match="shared obs_names"):
             mdata.pull_obs(join_nonunique=True)
 
     @pytest.mark.parametrize("var_unique", [True, False])
@@ -293,9 +297,12 @@ class TestMultiDataset:
         for m in mdata.mod.keys():
             assert f"{m}:dataset" in mdata.var.columns
 
-        # join_nonunique and join_common shouldn't work
+        # join_common shouldn't work
         with pytest.raises(ValueError, match="shared var_names"):
             mdata.pull_var(join_common=True)
+
+        # join_nonunique shouldn't work
+        with pytest.raises(ValueError, match="shared var_names"):
             mdata.pull_var(join_nonunique=True)
 
 

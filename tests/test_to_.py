@@ -1,13 +1,8 @@
-import unittest
-import pytest
-
 import numpy as np
-import h5py
-import mudata
+import pytest
 from anndata import AnnData
-from mudata import MuData
-from mudata import to_mudata
 
+from mudata import MuData, to_mudata
 
 # Dimensions
 N = 100
@@ -34,7 +29,7 @@ def mdata():
 
     mdata = MuData({"mod1": mod1, "mod2": mod2, "mod3": mod3})
     mdata.obs["arange"] = np.arange(mdata.n_obs)
-    yield mdata
+    return mdata
 
 
 class TestMuData:

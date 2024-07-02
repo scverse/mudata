@@ -1,11 +1,9 @@
-import unittest
-import pytest
-
 import numpy as np
 import pandas as pd
+import pytest
 from anndata import AnnData
-from mudata import MuData
 
+from mudata import MuData
 
 # Dimensions
 N = 100
@@ -32,7 +30,7 @@ def mdata():
     mod2.var["assert-boolean-2"] = False
 
     mdata = MuData({"mod1": mod1, "mod2": mod2})
-    yield mdata
+    return mdata
 
 
 class TestMuData:

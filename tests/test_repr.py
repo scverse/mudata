@@ -1,10 +1,8 @@
-import unittest
-import pytest
-
 import numpy as np
+import pytest
 from anndata import AnnData
-from mudata import MuData
 
+from mudata import MuData
 
 # Dimensions
 N = 100
@@ -28,7 +26,7 @@ def mdata():
     mod2 = MuData({"mod21": mod21, "mod22": mod22}, axis=-1)
 
     mdata = MuData({"mod1": mod1, "mod2": mod2})
-    yield mdata
+    return mdata
 
 
 class TestMuData:
