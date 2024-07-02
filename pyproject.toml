@@ -33,6 +33,9 @@ Source = "https://github.com/scverse/mudata"
 Home-page = "https://muon.scverse.org/"
 
 [project.optional-dependencies]
+dev = [
+    "setuptools_scm",
+]
 docs = [
     "sphinx",
     "sphinx-book-theme",
@@ -44,6 +47,12 @@ docs = [
 ]
 test = [
     "zarr"
+]
+
+[tool.pytest.ini_options]
+python_files = "test_*.py"
+testspaths = [
+    "./tests", # unit tests
 ]
 
 [tool.black]
