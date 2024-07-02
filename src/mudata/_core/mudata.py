@@ -37,6 +37,7 @@ from .utils import (
     _restore_index,
     _update_and_concat,
 )
+from .views import DictView
 
 
 class MuAxisArraysView(AlignedViewMixin, AxisArraysBase):
@@ -203,7 +204,7 @@ class MuData:
             # Restore proper .obs and .var
             self.update()
 
-            self.uns = kwargs.get("uns") or {}
+            self._uns = kwargs.get("uns") or {}
 
             return
 
@@ -233,7 +234,7 @@ class MuData:
         # Unstructured annotations
         # NOTE: this is dict in contract to OrderedDict in anndata
         #       due to favourable performance and lack of need to preserve the insertion order
-        self.uns = dict()
+        self._uns = dict()
 
         # For compatibility with calls requiring AnnData slots
         self.raw = None
@@ -305,7 +306,7 @@ class MuData:
         self.is_view = True
         self.file = mudata_ref.file
         self._axis = mudata_ref._axis
-        self.uns = mudata_ref.uns
+        self._uns = mudata_ref._uns
 
         if mudata_ref.is_view:
             self._mudata_ref = mudata_ref._mudata_ref
@@ -323,7 +324,7 @@ class MuData:
         self._varm = MuAxisArrays(self, 1, convert_to_dict(data.varm))
         self._varp = PairwiseArrays(self, 1, convert_to_dict(data.varp))
         self._varmap = MuAxisArrays(self, 1, convert_to_dict(data.varmap))
-        self.uns = data.uns
+        self._uns = data._uns
         self._axis = data._axis
 
     @classmethod
@@ -1298,6 +1299,31 @@ class MuData:
         1-based, 0 indicates that the corresponding observation is missing in the respective modality.
         """
         return self._varmap
+
+    # Unstructured annotations
+    # NOTE: annotations are stored as dict() and not as OrderedDict() as in AnnData
+
+    @property
+    def uns(self) -> MutableMapping:
+        """Unstructured annotation (ordered dictionary)."""
+        uns = self._uns
+        if self.is_view:
+            uns = DictView(uns, view_args=(self, "_uns"))
+        return uns
+
+    @uns.setter
+    def uns(self, value: MutableMapping):
+        if not isinstance(value, MutableMapping):
+            raise ValueError("Only mutable mapping types (e.g. dict) are allowed for `.uns`.")
+        if isinstance(value, DictView):
+            value = value.copy()
+        if self.is_view:
+            self._init_as_actual(self.copy())
+        self._uns = value
+
+    @uns.deleter
+    def uns(self):
+        self.uns = dict()
 
     # _keys methods to increase compatibility
     # with calls requiring those AnnData methods
