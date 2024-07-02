@@ -1,11 +1,9 @@
 import unittest
-import pytest
-
-import os
 
 import numpy as np
-from scipy.sparse import csr_matrix
+import pytest
 from anndata import AnnData
+
 import mudata
 from mudata import MuData
 
@@ -19,7 +17,7 @@ def mdata():
     for m in ["mod1", "mod2"]:
         mods[m].var_names = [f"{m}_var{i}" for i in range(mods[m].n_vars)]
     mdata = MuData(mods)
-    yield mdata
+    return mdata
 
 
 @pytest.mark.usefixtures("filepath_h5mu")

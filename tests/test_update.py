@@ -1,8 +1,9 @@
 import unittest
-import pytest
 
 import numpy as np
+import pytest
 from anndata import AnnData
+
 from mudata import MuData
 
 
@@ -44,7 +45,7 @@ def mdata(request, obs_n, obs_across, obs_mod):
     batches = np.random.choice(["a", "b", "c"], size=mdata.shape[0], replace=True)
     mdata.obs["batch"] = batches
 
-    yield mdata
+    return mdata
 
 
 @pytest.fixture()

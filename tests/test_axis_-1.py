@@ -1,8 +1,9 @@
 import unittest
-import pytest
 
 import numpy as np
+import pytest
 from anndata import AnnData
+
 from mudata import MuData
 
 

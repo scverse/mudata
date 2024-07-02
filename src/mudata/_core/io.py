@@ -1,26 +1,25 @@
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, MutableMapping
+    from os import PathLike
+
+    import fsspec
     import zarr
 
-from typing import Union
-from os import PathLike
-import os
-from warnings import warn
-from collections.abc import MutableMapping
-
-import numpy as np
-import h5py
-import anndata as ad
-from anndata import AnnData
-
-# from anndata.compat import _read_hdf5_attribute  # 0.8
 from pathlib import Path
+from warnings import warn
+
+import anndata as ad
+import h5py
+from anndata import AnnData
+from anndata.compat import _read_attr
 from scipy import sparse
 
-from mudata import MuData
-from .file_backing import MuDataFileManager, AnnDataFileManager
+from .file_backing import AnnDataFileManager, MuDataFileManager
+from .mudata import ModDict, MuData
 
 #
 # Saving multimodal data objects
@@ -29,18 +28,19 @@ from .file_backing import MuDataFileManager, AnnDataFileManager
 
 def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
     from anndata._io.specs.registry import write_elem
-    from .. import __version__, __mudataversion__, __anndataversion__
+
+    from .. import __anndataversion__, __mudataversion__, __version__
 
     write_elem(
         file,
         "obs",
-        mdata.strings_to_categoricals(mdata._shrink_attr("obs", inplace=False)),
+        mdata.strings_to_categoricals(mdata._shrink_attr("obs", inplace=False).copy()),
         dataset_kwargs=kwargs,
     )
     write_elem(
         file,
         "var",
-        mdata.strings_to_categoricals(mdata._shrink_attr("var", inplace=False)),
+        mdata.strings_to_categoricals(mdata._shrink_attr("var", inplace=False).copy()),
         dataset_kwargs=kwargs,
     )
     write_elem(file, "obsm", dict(mdata.obsm), dataset_kwargs=kwargs)
@@ -100,8 +100,8 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
 
 
 def write_zarr(
-    store: Union[MutableMapping, str, Path],
-    data: Union[MuData, AnnData],
+    store: MutableMapping | str | Path,
+    data: MuData | AnnData,
     chunks=None,
     write_data=True,
     **kwargs,
@@ -114,7 +114,8 @@ def write_zarr(
     import zarr
     from anndata._io.specs.registry import write_elem
     from anndata._io.zarr import write_zarr as anndata_write_zarr
-    from .. import __version__, __mudataversion__, __anndataversion__
+
+    from .. import __anndataversion__, __mudataversion__, __version__
 
     if isinstance(data, AnnData):
         adata = data
@@ -127,13 +128,13 @@ def write_zarr(
         write_elem(
             file,
             "obs",
-            mdata.strings_to_categoricals(mdata._shrink_attr("obs", inplace=False)),
+            mdata.strings_to_categoricals(mdata._shrink_attr("obs", inplace=False).copy()),
             dataset_kwargs=kwargs,
         )
         write_elem(
             file,
             "var",
-            mdata.strings_to_categoricals(mdata._shrink_attr("var", inplace=False)),
+            mdata.strings_to_categoricals(mdata._shrink_attr("var", inplace=False).copy()),
             dataset_kwargs=kwargs,
         )
         write_elem(file, "obsm", dict(mdata.obsm), dataset_kwargs=kwargs)
@@ -193,6 +194,8 @@ def write_zarr(
         # Restore top-level annotation
         if not mdata.is_view or not mdata.isbacked:
             mdata.update()
+    else:
+        raise TypeError("Expected MuData or AnnData object")
 
 
 def write_h5mu(filename: PathLike, mdata: MuData, **kwargs):
@@ -201,22 +204,20 @@ def write_h5mu(filename: PathLike, mdata: MuData, **kwargs):
 
     Matrices - sparse or dense - are currently stored as they are.
     """
-    from .. import __version__, __mudataversion__, __anndataversion__
+    from .. import __mudataversion__, __version__
 
     with h5py.File(filename, "w", userblock_size=512) as f:
         _write_h5mu(f, mdata, **kwargs)
-    with open(filename, "br+") as f:
+    with Path(filename).open("br+") as f:
         nbytes = f.write(
-            f"MuData (format-version={__mudataversion__};creator=muon;creator-version={__version__})".encode(
-                "utf-8"
-            )
+            f"MuData (format-version={__mudataversion__};creator=muon;creator-version={__version__})".encode()
         )
         f.write(
             b"\0" * (512 - nbytes)
         )  # this is only needed because the H5file was written in append mode
 
 
-def write_h5ad(filename: PathLike, mod: str, data: Union[MuData, AnnData]):
+def write_h5ad(filename: PathLike, mod: str, data: MuData | AnnData):
     """
     Write AnnData object to the HDF5 file with a MuData container
 
@@ -226,8 +227,8 @@ def write_h5ad(filename: PathLike, mod: str, data: Union[MuData, AnnData]):
     Ideally this is merged later to anndata._io.h5ad.write_h5ad.
     """
     from anndata._io.specs.registry import write_elem
-    from anndata._io.h5ad import write_h5ad
-    from .. import __version__, __anndataversion__
+
+    from .. import __anndataversion__, __version__
 
     if isinstance(data, AnnData):
         adata = data
@@ -238,7 +239,7 @@ def write_h5ad(filename: PathLike, mod: str, data: Union[MuData, AnnData]):
 
     with h5py.File(filename, "r+") as f:
         # Check that 'mod' is present
-        if not "mod" in f:
+        if "mod" not in f:
             raise ValueError("The .h5mu object has to contain .mod slot")
         fm = f["mod"]
 
@@ -255,7 +256,7 @@ def write_h5ad(filename: PathLike, mod: str, data: Union[MuData, AnnData]):
         filepath = Path(filename)
 
         if not (adata.isbacked and Path(adata.filename) == Path(filepath)):
-            write_elem(fmd, f"X", adata.X)
+            write_elem(fmd, "X", adata.X)
 
         # NOTE: Calling write_elem() does not allow writing .raw into .h5mu modalities
         if adata.raw is not None:
@@ -280,7 +281,7 @@ def write_h5ad(filename: PathLike, mod: str, data: Union[MuData, AnnData]):
 write_anndata = write_h5ad
 
 
-def write(filename: PathLike, data: Union[MuData, AnnData]):
+def write(filename: PathLike, data: MuData | AnnData):
     """
     Write MuData or AnnData to an HDF5 file
 
@@ -297,9 +298,8 @@ def write(filename: PathLike, data: Union[MuData, AnnData]):
     import re
 
     if filename.endswith(".h5mu") or isinstance(data, MuData):
-        assert filename.endswith(".h5mu") and isinstance(
-            data, MuData
-        ), "Can only save MuData object to .h5mu file"
+        assert filename.endswith(".h5mu"), "Can only save MuData object to .h5mu file"
+        assert isinstance(data, MuData), "Only MuData object can be saved as .h5mu file"
 
         write_h5mu(filename, data)
 
@@ -338,7 +338,55 @@ def write(filename: PathLike, data: Union[MuData, AnnData]):
 #
 
 
-def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
+def _validate_h5mu(filename: PathLike) -> (str, Callable | None):
+    fname: [str, Path, fsspec.core.io.BufferedReader, fsspec.core.OpenFile] = filename
+    callback = None
+
+    try:
+        with Path(filename).open("rb") as f:
+            ish5mu = f.read(6) == b"MuData"
+    except TypeError as e:
+        # Support for fsspec
+        #
+        # Namely, opening remote files should work via
+        # with fsspec.open("s3://bucket/file.h5mu") as f:
+        #     mdata = read_h5mu(f)
+        # or
+        # mdata = read_h5mu(fsspec.open("s3://bucket/file.h5mu")
+        if (
+            filename.__class__.__name__ == "BufferedReader"
+            or filename.__class__.__name__ == "OpenFile"
+        ):
+            try:
+                from fsspec.core import OpenFile
+
+                if isinstance(filename, OpenFile):
+                    fname = filename.__enter__()
+                    callback = lambda: fname.__exit__()
+                ish5mu = fname.read(6) == b"MuData"
+            except ImportError as e:
+                raise ImportError(
+                    "To read from remote storage or cache, install fsspec: pip install fsspec"
+                ) from e
+        else:
+            ish5mu = False
+            raise e
+
+    if not ish5mu:
+        if isinstance(filename, str) or isinstance(filename, Path):
+            if h5py.is_hdf5(filename):
+                warn(
+                    "The HDF5 file was not created by muon/mudata, we can't guarantee that everything will work correctly"
+                )
+            else:
+                raise ValueError("The file is not an HDF5 file")
+        else:
+            warn("Cannot verify that the (remote) file is a valid H5MU file")
+
+    return fname, callback
+
+
+def read_h5mu(filename: PathLike, backed: str | bool | None = None):
     """
     Read MuData object from HDF5 file
     """
@@ -350,31 +398,24 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
         "r+",
     ], "Argument `backed` should be boolean, or r/r+, or None"
 
-    from anndata._io.specs.registry import read_elem
     from anndata._io.h5ad import read_dataframe
+    from anndata._io.specs.registry import read_elem
 
     if backed is True or not backed:
         mode = "r"
     else:
         mode = backed
     manager = MuDataFileManager(filename, mode) if backed else MuDataFileManager()
-    with open(filename, "rb") as f:
-        ish5mu = f.read(6) == b"MuData"
-    if not ish5mu:
-        if h5py.is_hdf5(filename):
-            warn(
-                "The HDF5 file was not created by muon, we can't guarantee that everything will work correctly"
-            )
-        else:
-            raise ValueError("The file is not an HDF5 file")
 
-    with h5py.File(filename, mode) as f:
+    fname, callback = _validate_h5mu(filename)
+
+    with h5py.File(fname, mode) as f:
         d = {}
         for k in f.keys():
             if k in ["obs", "var"]:
                 d[k] = read_dataframe(f[k])
             if k == "mod":
-                mods = {}
+                mods = ModDict()
                 gmods = f[k]
                 for m in gmods.keys():
                     ad = _read_h5mu_mod(gmods[m], manager, backed not in (None, False))
@@ -382,9 +423,7 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
 
                 mod_order = None
                 if "mod-order" in gmods.attrs:
-                    mod_order = gmods.attrs["mod-order"]
-                # TODO: use in v0.8
-                # mod_order = _read_hdf5_attribute(k, "mod-order")
+                    mod_order = _read_attr(gmods.attrs, "mod-order")
                 if mod_order is not None and all([m in gmods for m in mod_order]):
                     mods = {k: mods[k] for k in mod_order}
 
@@ -395,12 +434,15 @@ def read_h5mu(filename: PathLike, backed: Union[str, bool, None] = None):
         if "axis" in f.attrs:
             d["axis"] = f.attrs["axis"]
 
+        if callback is not None:
+            callback()
+
     mu = MuData._init_from_dict_(**d)
     mu.file = manager
     return mu
 
 
-def read_zarr(store: Union[str, Path, MutableMapping, zarr.Group]):
+def read_zarr(store: str | Path | MutableMapping | zarr.Group):
     """\
     Read from a hierarchical Zarr array store.
     Parameters
@@ -411,10 +453,10 @@ def read_zarr(store: Union[str, Path, MutableMapping, zarr.Group]):
     import zarr
     from anndata._io.specs.registry import read_elem
     from anndata._io.zarr import (
-        read_zarr as anndata_read_zarr,
         read_dataframe,
-        _read_legacy_raw,
-        _clean_uns,
+    )
+    from anndata._io.zarr import (
+        read_zarr as anndata_read_zarr,
     )
 
     if isinstance(store, Path):
@@ -435,6 +477,13 @@ def read_zarr(store: Union[str, Path, MutableMapping, zarr.Group]):
             for m in gmods.keys():
                 ad = _read_zarr_mod(gmods[m], manager)
                 mods[m] = ad
+
+            mod_order = None
+            if "mod-order" in gmods.attrs:
+                mod_order = _read_attr(gmods.attrs, "mod-order")
+            if mod_order is not None and all([m in gmods for m in mod_order]):
+                mods = {k: mods[k] for k in mod_order}
+
             d[k] = mods
         else:  # Base case
             d[k] = read_elem(f[k])
@@ -446,10 +495,9 @@ def read_zarr(store: Union[str, Path, MutableMapping, zarr.Group]):
 
 
 def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: bool = False) -> dict:
-    import zarr
-    from anndata._io.specs.registry import read_elem
-    from anndata._io.zarr import read_dataframe, _read_legacy_raw
     from anndata import Raw
+    from anndata._io.specs.registry import read_elem
+    from anndata._io.zarr import _read_legacy_raw, read_dataframe
 
     d = {}
 
@@ -464,7 +512,7 @@ def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: boo
             d[k] = read_elem(g[k])
     ad = AnnData(**d)
     if manager is not None:
-        ad.file = AnnDataFileManager(ad, os.path.basename(g.name), manager)
+        ad.file = AnnDataFileManager(ad, Path(g.name).name, manager)
 
     raw = _read_legacy_raw(
         g,
@@ -478,12 +526,10 @@ def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: boo
     return ad
 
 
-def _read_h5mu_mod(
-    g: "h5py.Group", manager: MuDataFileManager = None, backed: bool = False
-) -> dict:
-    from anndata._io.specs.registry import read_elem
-    from anndata._io.h5ad import read_dataframe, _read_raw
+def _read_h5mu_mod(g: h5py.Group, manager: MuDataFileManager = None, backed: bool = False) -> dict:
     from anndata import Raw
+    from anndata._io.h5ad import _read_raw, read_dataframe
+    from anndata._io.specs.registry import read_elem
 
     d = {}
 
@@ -498,7 +544,7 @@ def _read_h5mu_mod(
             d[k] = read_elem(g[k])
     ad = AnnData(**d)
     if manager is not None:
-        ad.file = AnnDataFileManager(ad, os.path.basename(g.name), manager)
+        ad.file = AnnDataFileManager(ad, Path(g.name).name, manager)
 
     raw = _read_raw(g, attrs=("var", "varm") if backed else ("var", "varm", "X"))
     if raw:
@@ -508,12 +554,12 @@ def _read_h5mu_mod(
 
 def read_h5ad(
     filename: PathLike,
-    mod: str,
-    backed: Union[str, bool, None] = None,
+    mod: str | None,
+    backed: str | bool | None = None,
 ) -> AnnData:
     """
     Read AnnData object from inside a .h5mu file
-    or from a standalone .h5ad file
+    or from a standalone .h5ad file (mod=None)
 
     Currently replicates and modifies anndata._io.h5ad.read_h5ad.
     Matrices are loaded as they are in the file (sparse or dense).
@@ -528,10 +574,35 @@ def read_h5ad(
         "r+",
     ], "Argument `backed` should be boolean, or r/r+, or None"
 
-    from anndata._io.specs.registry import read_elem
-    from anndata._io.h5ad import read_dataframe, _read_raw
+    from anndata import read_h5ad
 
-    d = {}
+    if mod is None:
+        try:
+            return read_h5ad(filename, backed=backed)
+        except TypeError as e:
+            fname, callback = filename, None
+            # Support fsspec
+            if (
+                filename.__class__.__name__ == "BufferedReader"
+                or filename.__class__.__name__ == "OpenFile"
+            ):
+                try:
+                    from fsspec.core import OpenFile
+
+                    if isinstance(filename, OpenFile):
+                        fname = filename.__enter__()
+                        callback = lambda: fname.__exit__()
+                except ImportError as e:
+                    raise ImportError(
+                        "To read from remote storage or cache, install fsspec: pip install fsspec"
+                    ) from e
+
+                adata = read_h5ad(fname, backed=backed)
+                if callable is not None:
+                    callback()
+                return adata
+            else:
+                raise e
 
     hdf5_mode = "r"
     if backed not in {None, False}:
@@ -554,7 +625,7 @@ def read_h5ad(
 read_anndata = read_h5ad
 
 
-def read(filename: PathLike, **kwargs) -> Union[MuData, AnnData]:
+def read(filename: PathLike, **kwargs) -> MuData | AnnData:
     """
     Read MuData object from HDF5 file
     or AnnData object (a single modality) inside it
@@ -565,22 +636,44 @@ def read(filename: PathLike, **kwargs) -> Union[MuData, AnnData]:
       - FILE.h5mu/MODALITY
       - FILE.h5mu/mod/MODALITY
       - FILE.h5ad
+
+    OpenFile and BufferedReader from fsspec are supported for remote storage, e.g.:
+      - mdata = read(fsspec.open("s3://bucket/file.h5mu")))
+      - with fsspec.open("s3://bucket/file.h5mu") as f:
+            mdata = read(f)
+      - with fsspec.open("https://server/file.h5ad") as f:
+            adata = read(f)
     """
     import re
 
-    m = re.search("^(.+)\\.(h5mu)[/]?([^/]*)[/]?(.*)$", str(filename))
+    if filename.__class__.__name__ == "BufferedReader":
+        raise TypeError(
+            "Use format-specific functions (read_h5mu, read_zarr) to read from BufferedReader or provide an OpenFile instance."
+        )
+    elif filename.__class__.__name__ == "OpenFile":
+        fname = filename.path
+    else:
+        fname = str(filename)
+
+    m = re.search("^(.+)\\.(h5mu)[/]?([^/]*)[/]?(.*)$", fname)
+
     if m is not None:
         m = m.groups()
     else:
-        if filename.endswith(".h5ad"):
+        if fname.endswith(".h5ad"):
             m = [filename[:-5], "h5ad", "", ""]
         else:
             raise ValueError("Expected non-empty .h5ad or .h5mu file name")
 
-    filepath = ".".join([m[0], m[1]])
+    if isinstance(filename, str) or isinstance(filename, Path):
+        pathstrlike = True
+        filepath = ".".join([m[0], m[1]])
+    else:
+        pathstrlike = False
+        filepath = filename
 
     if m[1] == "h5mu":
-        if all(i == 0 for i in map(len, m[2:])):
+        if all(i == 0 for i in map(len, m[2:])) or not pathstrlike:
             # Ends with .h5mu
             return read_h5mu(filepath, **kwargs)
         elif m[3] == "":

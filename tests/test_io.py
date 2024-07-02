@@ -1,18 +1,16 @@
 import unittest
-import pytest
-
-import os
 
 import numpy as np
-from scipy.sparse import csr_matrix
+import pytest
 from anndata import AnnData
+
 import mudata
 from mudata import MuData
 
 
 @pytest.fixture()
 def mdata():
-    yield MuData(
+    return MuData(
         {
             "mod1": AnnData(np.arange(0, 100, 0.1).reshape(-1, 10)),
             "mod2": AnnData(np.arange(101, 2101, 1).reshape(-1, 20)),

@@ -1,37 +1,43 @@
-from typing import List, Tuple, Union, Optional, Mapping, Iterable, Sequence, Any, Literal
-from numbers import Integral
-from collections import abc
-from collections.abc import MutableMapping
-from functools import reduce
-from itertools import chain, combinations
 import warnings
+from collections import Counter, abc
+from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from copy import deepcopy
-from pathlib import Path
+from functools import reduce
+from hashlib import sha1
+from itertools import chain, combinations
+from numbers import Integral
 from os import PathLike
+from pathlib import Path
 from random import choices
 from string import ascii_letters, digits
-from hashlib import sha1
+from typing import Any, Literal, Union
 
 import numpy as np
 import pandas as pd
-from pandas.api.types import is_string_dtype, is_categorical_dtype
-import anndata
 from anndata import AnnData
-from anndata.utils import convert_to_dict
 from anndata._core.aligned_mapping import (
-    AxisArrays,
     AlignedViewMixin,
+    AxisArrays,
     AxisArraysBase,
     PairwiseArrays,
     PairwiseArraysView,
 )
 from anndata._core.views import DataFrameView
+from anndata.utils import convert_to_dict
 
-from .file_backing import MuDataFileManager
-from .utils import _make_index_unique, _restore_index, _maybe_coerce_to_boolean
-
-from .repr import *
 from .config import OPTIONS
+from .file_backing import MuDataFileManager
+from .repr import MUDATA_CSS, block_matrix, details_block_table
+from .utils import (
+    _classify_attr_columns,
+    _classify_prefixed_columns,
+    _make_index_unique,
+    _maybe_coerce_to_bool,
+    _maybe_coerce_to_boolean,
+    _restore_index,
+    _update_and_concat,
+)
+from .views import DictView
 
 
 class MuAxisArraysView(AlignedViewMixin, AxisArraysBase):
@@ -50,6 +56,72 @@ class MuAxisArrays(AxisArrays):
     _view_class = MuAxisArraysView
 
 
+class ModDict(dict):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def _repr_hierarchy(
+        self, nest_level: int = 0, is_last: bool = False, active_levels: list[int] | None = None
+    ) -> str:
+        descr = ""
+        active_levels = active_levels or []
+        for i, kv in enumerate(self.items()):
+            k, v = kv
+            indent = ("   " * nest_level) + ("└─ " if i == len(self) - 1 else "├─ ")
+
+            if len(active_levels) > 0:
+                indent_list = list(indent)
+                for level in active_levels:
+                    indent_list[level * 3] = "│"
+                indent = "".join(indent_list)
+
+            is_view = " view" if v.is_view else ""
+            backed_at = f" backed at {str(v.filename)!r}" if v.isbacked else ""
+
+            if isinstance(v, MuData):
+                maybe_axis = (
+                    (
+                        " [shared obs] "
+                        if v.axis == 0
+                        else " [shared var] " if v.axis == 1 else " [shared obs and var] "
+                    )
+                    if hasattr(v, "axis")
+                    else ""
+                )
+                descr += (
+                    f"\n{indent}{k} MuData{maybe_axis}({v.n_obs} × {v.n_vars}){backed_at}{is_view}"
+                )
+
+                if i != len(self) - 1:
+                    levels = [nest_level] + [level for level in active_levels]
+                else:
+                    levels = [level for level in active_levels if level != nest_level]
+                descr += v.mod._repr_hierarchy(nest_level=nest_level + 1, active_levels=levels)
+            elif isinstance(v, AnnData):
+                descr += f"\n{indent}{k} AnnData ({v.n_obs} x {v.n_vars}){backed_at}{is_view}"
+            else:
+                continue
+
+        return descr
+
+    def __repr__(self) -> str:
+        """
+        Represent the hierarchy of the modalities in the object.
+
+        A MuData object with two modalities, protein and RNA,
+        with the latter being a MuData containing raw, QC'ed and hvg-filtered AnnData objects,
+        will be represented as:
+
+        root MuData (axis=0) (5000 x 20100)
+        ├── protein AnnData (5000 x 100)
+        └── rna MuData (axis=-1) (5000 x 20000)
+            ├── raw AnnData (5000 x 20000)
+            ├── quality-filtered AnnData (3000 x 20000)
+            └── hvg-filtered AnnData (3000 x 4000)
+        """
+        return "MuData" + self._repr_hierarchy()
+
+
 class MuData:
     """
     Multimodal data object
@@ -64,15 +136,13 @@ class MuData:
     def __init__(
         self,
         data: Union[AnnData, Mapping[str, AnnData], "MuData"] = None,
-        feature_types_names: Optional[dict] = {
+        feature_types_names: dict | None = {
             "Gene Expression": "rna",
             "Peaks": "atac",
             "Antibody Capture": "prot",
         },
         as_view: bool = False,
-        index: Optional[
-            Union[Tuple[Union[slice, Integral], Union[slice, Integral]], slice, Integral]
-        ] = None,
+        index: tuple[slice | Integral, slice | Integral] | slice | Integral | None = None,
         **kwargs,
     ):
         self._init_common()
@@ -81,7 +151,7 @@ class MuData:
             return
 
         # Add all modalities to a MuData object
-        self.mod = dict()
+        self.mod = ModDict()
         if isinstance(data, abc.Mapping):
             for k, v in data.items():
                 self.mod[k] = v
@@ -134,7 +204,7 @@ class MuData:
             # Restore proper .obs and .var
             self.update()
 
-            self.uns = kwargs.get("uns") or {}
+            self._uns = kwargs.get("uns") or {}
 
             return
 
@@ -164,7 +234,7 @@ class MuData:
         # Unstructured annotations
         # NOTE: this is dict in contract to OrderedDict in anndata
         #       due to favourable performance and lack of need to preserve the insertion order
-        self.uns = dict()
+        self._uns = dict()
 
         # For compatibility with calls requiring AnnData slots
         self.raw = None
@@ -185,7 +255,7 @@ class MuData:
         if isinstance(varidx, Integral):
             varidx = slice(varidx, varidx + 1)
 
-        self.mod = dict()
+        self.mod = ModDict()
         for m, a in mudata_ref.mod.items():
             cobsidx, cvaridx = mudata_ref.obsmap[m][obsidx], mudata_ref.varmap[m][varidx]
             cobsidx, cvaridx = cobsidx[cobsidx > 0] - 1, cvaridx[cvaridx > 0] - 1
@@ -236,6 +306,7 @@ class MuData:
         self.is_view = True
         self.file = mudata_ref.file
         self._axis = mudata_ref._axis
+        self._uns = mudata_ref._uns
 
         if mudata_ref.is_view:
             self._mudata_ref = mudata_ref._mudata_ref
@@ -253,22 +324,22 @@ class MuData:
         self._varm = MuAxisArrays(self, 1, convert_to_dict(data.varm))
         self._varp = PairwiseArrays(self, 1, convert_to_dict(data.varp))
         self._varmap = MuAxisArrays(self, 1, convert_to_dict(data.varmap))
-        self.uns = data.uns
+        self._uns = data._uns
         self._axis = data._axis
 
     @classmethod
     def _init_from_dict_(
         cls,
-        mod: Optional[Mapping[str, Union[Mapping, AnnData]]] = None,
-        obs: Optional[Union[pd.DataFrame, Mapping[str, Iterable[Any]]]] = None,
-        var: Optional[Union[pd.DataFrame, Mapping[str, Iterable[Any]]]] = None,
-        uns: Optional[Mapping[str, Any]] = None,
-        obsm: Optional[Union[np.ndarray, Mapping[str, Sequence[Any]]]] = None,
-        varm: Optional[Union[np.ndarray, Mapping[str, Sequence[Any]]]] = None,
-        obsp: Optional[Union[np.ndarray, Mapping[str, Sequence[Any]]]] = None,
-        varp: Optional[Union[np.ndarray, Mapping[str, Sequence[Any]]]] = None,
-        obsmap: Optional[Mapping[str, Sequence[int]]] = None,
-        varmap: Optional[Mapping[str, Sequence[int]]] = None,
+        mod: Mapping[str, Mapping | AnnData] | None = None,
+        obs: pd.DataFrame | Mapping[str, Iterable[Any]] | None = None,
+        var: pd.DataFrame | Mapping[str, Iterable[Any]] | None = None,
+        uns: Mapping[str, Any] | None = None,
+        obsm: np.ndarray | Mapping[str, Sequence[Any]] | None = None,
+        varm: np.ndarray | Mapping[str, Sequence[Any]] | None = None,
+        obsp: np.ndarray | Mapping[str, Sequence[Any]] | None = None,
+        varp: np.ndarray | Mapping[str, Sequence[Any]] | None = None,
+        obsmap: Mapping[str, Sequence[int]] | None = None,
+        varmap: Mapping[str, Sequence[int]] | None = None,
         axis: Literal[0, 1] = 0,
     ):
         return cls(
@@ -366,7 +437,7 @@ class MuData:
                     break
         return (attr_names_changed, attr_columns_changed)
 
-    def copy(self, filename: Optional[PathLike] = None) -> "MuData":
+    def copy(self, filename: PathLike | None = None) -> "MuData":
         if not self.isbacked:
             mod = {}
             for k, v in self.mod.items():
@@ -389,12 +460,12 @@ class MuData:
                 raise ValueError(
                     "To copy a MuData object in backed mode, pass a filename: `copy(filename='myfilename.h5mu')`"
                 )
-            from .io import write_h5mu, read_h5mu
+            from .io import read_h5mu, write_h5mu
 
             write_h5mu(filename, self)
             return read_h5mu(filename, self.file._filemode)
 
-    def strings_to_categoricals(self, df: Optional[pd.DataFrame] = None):
+    def strings_to_categoricals(self, df: pd.DataFrame | None = None):
         """
         Transform string columns in .var and .obs slots of MuData to categorical
         as well as of .var and .obs slots in each AnnData object
@@ -420,7 +491,7 @@ class MuData:
             return MuData(self, as_view=True, index=index)
 
     @property
-    def shape(self) -> Tuple[int, int]:
+    def shape(self) -> tuple[int, int]:
         """Shape of data, all variables and observations combined (:attr:`n_obs`, :attr:`n_var`)."""
         return self.n_obs, self.n_vars
 
@@ -444,8 +515,8 @@ class MuData:
             if all([modindices[i].equals(modindices[i + 1]) for i in range(len(modindices) - 1)]):
                 attrindex = modindices[0].copy()
             attrindex = reduce(
-                np.union1d, [getattr(self.mod[m], attr).index.values for m in self.mod]
-            )
+                pd.Index.union, [getattr(self.mod[m], attr).index for m in self.mod]
+            ).values
         else:
             # Modality-specific indices
             attrindex = np.concatenate(
@@ -453,7 +524,14 @@ class MuData:
             )
         return attrindex
 
-    def _update_attr(self, attr: str, axis: int, join_common: bool = False):
+    def _update_attr(
+        self,
+        attr: str,
+        axis: int,
+        join_common: bool = False,
+        pull: bool | None = None,
+        **kwargs,  # for _pull_attr()
+    ):
         """
         Update global observations/variables with observations/variables for each modality.
 
@@ -462,6 +540,16 @@ class MuData:
         - are there intersecting obs_names/var_names between modalities?
         - have obs_names/var_names of modalities changed?
         """
+
+        if pull is None:
+            warnings.warn(
+                "From 0.4 .update() will not pull obs/var columns from individual modalities by default anymore. "
+                "Use pull=False to use the new behaviour, which will become the default. "
+                "Use new pull_obs/pull_var and push_obs/push_var methods for more flexibility.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            pull = True
 
         prev_index = getattr(self, attr).index
 
@@ -546,26 +634,32 @@ class MuData:
             # Shared axis
             if axis == (1 - self._axis) or self._axis == -1:
                 # We assume attr_intersecting and can't join_common
-                data_mod = pd.concat(
-                    [
-                        getattr(a, attr)
-                        .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                        .add_prefix(m + ":")
-                        for m, a in self.mod.items()
-                    ],
-                    join="outer",
-                    axis=1,
-                    sort=False,
+                data_mod = _maybe_coerce_to_bool(
+                    pd.concat(
+                        [
+                            _maybe_coerce_to_boolean(
+                                getattr(a, attr)
+                                .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                                .add_prefix(m + ":")
+                            )
+                            for m, a in self.mod.items()
+                        ],
+                        join="outer",
+                        axis=1,
+                        sort=False,
+                    )
                 )
             else:
                 if join_common:
                     # We checked above that attr_names are guaranteed to be unique and thus are safe to be used for joins
                     data_mod = pd.concat(
                         [
-                            getattr(a, attr)
-                            .drop(columns_common, axis=1)
-                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                            .add_prefix(m + ":")
+                            _maybe_coerce_to_boolean(
+                                getattr(a, attr)
+                                .drop(columns_common, axis=1)
+                                .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                                .add_prefix(m + ":")
+                            )
                             for m, a in self.mod.items()
                         ],
                         join="outer",
@@ -581,7 +675,11 @@ class MuData:
                         axis=0,
                         sort=False,
                     )
-                    data_mod = data_mod.join(data_common, how="left", sort=False)
+
+                    data_mod = _maybe_coerce_to_bool(
+                        data_mod.join(data_common, how="left", sort=False)
+                    )
+                    data_common = _maybe_coerce_to_bool(data_common)
 
                     # this occurs when join_common=True and we already have a global data frame, e.g. after reading from H5MU
                     sharedcols = data_mod.columns.intersection(data_global.columns)
@@ -589,16 +687,20 @@ class MuData:
                         columns={col: f"global:{col}" for col in sharedcols}, inplace=True
                     )
                 else:
-                    data_mod = pd.concat(
-                        [
-                            getattr(a, attr)
-                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                            .add_prefix(m + ":")
-                            for m, a in self.mod.items()
-                        ],
-                        join="outer",
-                        axis=0,
-                        sort=False,
+                    data_mod = _maybe_coerce_to_bool(
+                        pd.concat(
+                            [
+                                _maybe_coerce_to_boolean(
+                                    getattr(a, attr)
+                                    .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                                    .add_prefix(m + ":")
+                                )
+                                for m, a in self.mod.items()
+                            ],
+                            join="outer",
+                            axis=0,
+                            sort=False,
+                        )
                     )
 
             for mod, amod in self.mod.items():
@@ -614,7 +716,27 @@ class MuData:
                 # TODO: if there were intersecting attrnames between modalities,
                 #       this will increase the size of the index
                 # Should we use attrmap to figure the index out?
-                data_mod = data_mod.join(data_global, how="left", sort=False)
+                #
+                if not attr_intersecting:
+                    data_mod = data_mod.join(data_global, how="left", sort=False)
+                else:
+                    # In order to preserve the order of the index, instead,
+                    # perform a join based on (index, cumcount) pairs.
+                    col_index, col_cumcount = self._find_unique_colnames(attr, 2)
+                    data_mod = data_mod.rename_axis(col_index, axis=0).reset_index()
+                    data_mod[col_cumcount] = data_mod.groupby(col_index).cumcount()
+                    data_global = data_global.rename_axis(col_index, axis=0).reset_index()
+                    data_global[col_cumcount] = (
+                        data_global.reset_index().groupby(col_index).cumcount()
+                    )
+                    data_mod = data_mod.merge(
+                        data_global, on=[col_index, col_cumcount], how="left", sort=False
+                    )
+                    # Restore the index and remove the helper column
+                    data_mod = data_mod.set_index(col_index).rename_axis(None, axis=0)
+                    del data_mod[col_cumcount]
+                    data_global = data_global.set_index(col_index).rename_axis(None, axis=0)
+                    del data_global[col_cumcount]
 
         #
         # General case: with duplicates and/or intersections
@@ -652,7 +774,9 @@ class MuData:
                     axis=0,
                     sort=False,
                 )
-                data_mod = data_mod.join(data_common, how="left", sort=False)
+
+                data_mod = _maybe_coerce_to_bool(data_mod.join(data_common, how="left", sort=False))
+                data_common = _maybe_coerce_to_bool(data_common)
             else:
                 dfs = [
                     _make_index_unique(
@@ -784,8 +908,8 @@ class MuData:
                     # index_order = [
                     #    prev_index.get_loc(i) if i in prev_index else -1 for i in now_index
                     # ]
-                    prev_values = prev_index.values
-                    now_values = now_index.values
+                    prev_values = prev_index.values.copy()
+                    now_values = now_index.values.copy()
                     for value in prev_index[np.where(prev_index.duplicated())[0]]:
                         v_now = np.where(now_index == value)[0]
                         v_prev = np.where(prev_index.get_loc(value))[0]
@@ -872,11 +996,11 @@ class MuData:
         return self.filename is not None
 
     @property
-    def filename(self) -> Optional[Path]:
+    def filename(self) -> Path | None:
         return self.file.filename
 
     @filename.setter
-    def filename(self, filename: Optional[PathLike]):
+    def filename(self, filename: PathLike | None):
         filename = None if filename is None else Path(filename)
         if self.isbacked:
             if filename is None:
@@ -916,7 +1040,7 @@ class MuData:
         """
         return self._obs.shape[0]
 
-    def obs_vector(self, key: str, layer: Optional[str] = None) -> np.ndarray:
+    def obs_vector(self, key: str, layer: str | None = None) -> np.ndarray:
         """
         Return an array of values for the requested key of length n_obs
         """
@@ -1000,16 +1124,25 @@ class MuData:
         self._var = value
 
     @property
-    def n_var(self) -> int:
+    def n_vars(self) -> int:
         """
         Total number of variables
         """
         return self._var.shape[0]
 
-    # API legacy from AnnData
-    n_vars = n_var
+    @property
+    def n_var(self) -> int:
+        """
+        Total number of variables
+        """
+        # warnings.warn(
+        #     ".n_var will be removed in the next version, use .n_vars instead",
+        #     DeprecationWarning,
+        #     stacklevel=2,
+        # )
+        return self._var.shape[0]
 
-    def var_vector(self, key: str, layer: Optional[str] = None) -> np.ndarray:
+    def var_vector(self, key: str, layer: str | None = None) -> np.ndarray:
         """
         Return an array of values for the requested key of length n_var
         """
@@ -1078,7 +1211,7 @@ class MuData:
     # Multi-dimensional annotations (.obsm and .varm)
 
     @property
-    def obsm(self) -> Union[MuAxisArrays, MuAxisArraysView]:
+    def obsm(self) -> MuAxisArrays | MuAxisArraysView:
         """
         Multi-dimensional annotation of observation
         """
@@ -1096,7 +1229,7 @@ class MuData:
         self.obsm = dict()
 
     @property
-    def obsp(self) -> Union[PairwiseArrays, PairwiseArraysView]:
+    def obsp(self) -> PairwiseArrays | PairwiseArraysView:
         """
         Pairwise annotatation of observations
         """
@@ -1114,7 +1247,7 @@ class MuData:
         self.obsp = dict()
 
     @property
-    def obsmap(self) -> Union[PairwiseArrays, PairwiseArraysView]:
+    def obsmap(self) -> PairwiseArrays | PairwiseArraysView:
         """
         Mapping of observation index in the MuData to indices in individual modalities.
 
@@ -1123,7 +1256,7 @@ class MuData:
         return self._obsmap
 
     @property
-    def varm(self) -> Union[MuAxisArrays, MuAxisArraysView]:
+    def varm(self) -> MuAxisArrays | MuAxisArraysView:
         """
         Multi-dimensional annotation of variables
         """
@@ -1141,7 +1274,7 @@ class MuData:
         self.varm = dict()
 
     @property
-    def varp(self) -> Union[PairwiseArrays, PairwiseArraysView]:
+    def varp(self) -> PairwiseArrays | PairwiseArraysView:
         """
         Pairwise annotatation of variables
         """
@@ -1159,7 +1292,7 @@ class MuData:
         self.varp = dict()
 
     @property
-    def varmap(self) -> Union[PairwiseArrays, PairwiseArraysView]:
+    def varmap(self) -> PairwiseArrays | PairwiseArraysView:
         """
         Mapping of feature index in the MuData to indices in individual modalities.
 
@@ -1167,26 +1300,51 @@ class MuData:
         """
         return self._varmap
 
+    # Unstructured annotations
+    # NOTE: annotations are stored as dict() and not as OrderedDict() as in AnnData
+
+    @property
+    def uns(self) -> MutableMapping:
+        """Unstructured annotation (ordered dictionary)."""
+        uns = self._uns
+        if self.is_view:
+            uns = DictView(uns, view_args=(self, "_uns"))
+        return uns
+
+    @uns.setter
+    def uns(self, value: MutableMapping):
+        if not isinstance(value, MutableMapping):
+            raise ValueError("Only mutable mapping types (e.g. dict) are allowed for `.uns`.")
+        if isinstance(value, DictView):
+            value = value.copy()
+        if self.is_view:
+            self._init_as_actual(self.copy())
+        self._uns = value
+
+    @uns.deleter
+    def uns(self):
+        self.uns = dict()
+
     # _keys methods to increase compatibility
     # with calls requiring those AnnData methods
 
-    def obs_keys(self) -> List[str]:
+    def obs_keys(self) -> list[str]:
         """List keys of observation annotation :attr:`obs`."""
         return self._obs.keys().tolist()
 
-    def var_keys(self) -> List[str]:
+    def var_keys(self) -> list[str]:
         """List keys of variable annotation :attr:`var`."""
         return self._var.keys().tolist()
 
-    def obsm_keys(self) -> List[str]:
+    def obsm_keys(self) -> list[str]:
         """List keys of observation annotation :attr:`obsm`."""
         return list(self._obsm.keys())
 
-    def varm_keys(self) -> List[str]:
+    def varm_keys(self) -> list[str]:
         """List keys of variable annotation :attr:`varm`."""
         return list(self._varm.keys())
 
-    def uns_keys(self) -> List[str]:
+    def uns_keys(self) -> list[str]:
         """List keys of unstructured annotation."""
         return list(self._uns.keys())
 
@@ -1204,11 +1362,585 @@ class MuData:
         """
         return self._axis
 
-    def write_h5mu(self, filename: Optional[str] = None, **kwargs):
+    @property
+    def mod_names(self) -> list[str]:
+        """
+        Names of modalities (alias for `list(mdata.mod.keys())`)
+
+        This property is read-only.
+        """
+        return list(self.mod.keys())
+
+    def _pull_attr(
+        self,
+        attr: Literal["obs", "var"],
+        columns: list[str] | None = None,
+        mods: list[str] | None = None,
+        common: bool | None = None,
+        join_common: bool | None = None,
+        nonunique: bool | None = None,
+        join_nonunique: bool | None = None,
+        unique: bool | None = None,
+        prefix_unique: bool | None = True,
+        drop: bool = False,
+        only_drop: bool = False,
+    ):
+        """
+        Copy the data from the modalities to the global .obs/.var,
+        existing columns to be overwritten
+
+        Parameters
+        ----------
+        attr
+            Attribute to use, should be 'obs' or 'var'
+        columns
+            List of columns to pull from the modalities
+        common
+            If True, pull common columns.
+            Common columns do not have modality prefixes.
+            Pull from all modalities.
+            Cannot be used with columns. True by default.
+        mods
+            List of modalities to pull from
+        join_common
+            If True, attempt to join common columns.
+            Common columns are present in all modalities.
+            True for attr='var' for MuData with axis=0 (shared obs),
+            and for attr='obs' for MuData wth axis=1 (shared var).
+            False for MuData with axis=-1.
+            Cannot be used with mods, or for shared attr.
+        nonunique
+            If True, pull columns that have a modality prefix
+            such that there are multiple columns with the same name
+            and different prefix.
+            Cannot be used with columns or mods. True by default.
+        join_nonunique
+            If True, attempt to join non-unique columns.
+            Intended usage is the same as for join_common.
+            Cannot be used with mods, or for shared attr. False by default.
+        unique
+            If True, pull columns that have a modality prefix
+            such that there is no other column with the same name
+            and a different modality prefix.
+            Cannot be used with columns or mods. True by default.
+        prefix_unique
+            If True, prefix unique column names with modname (default).
+            No prefix when False.
+        drop
+            If True, drop the columns from the modalities after pulling.
+            False by default.
+        only_drop
+            If True, drop the columns but do not actually pull them.
+            Forces drop=True. False by default.
+        """
+
+        # TODO: run update() before pulling?
+
+        if self.is_view:
+            raise ValueError(f"Cannot pull {attr} columns on a view.")
+
+        if mods is not None:
+            if isinstance(mods, str):
+                mods = [mods]
+            mods = list(dict.fromkeys(mods))
+            if not all(m in self.mod for m in mods):
+                raise ValueError("All mods should be present in mdata.mod")
+            elif len(mods) == self.n_mod:
+                mods = None
+            for k, v in {"common": common, "nonunique": nonunique, "unique": unique}.items():
+                assert v is None, f"Cannot use mods with {k}."
+
+        if only_drop:
+            drop = True
+
+        cols = _classify_attr_columns(
+            np.concatenate(
+                [
+                    [f"{m}:{val}" for val in getattr(mod, attr).columns.values]
+                    for m, mod in self.mod.items()
+                ]
+            ),
+            self.mod.keys(),
+        )
+
+        if columns is not None:
+            for k, v in {"common": common, "nonunique": nonunique, "unique": unique}.items():
+                assert v is None, f"Cannot use {k} with columns."
+
+            # - modname1:column -> [modname1:column]
+            # - column -> [modname1:column, modname2:column, ...]
+            cols = [col for col in cols if col["name"] in columns or col["derived_name"] in columns]
+
+            if mods is not None:
+                cols = [col for col in cols if col["prefix"] in mods]
+
+            # TODO: Counter for columns in order to track their usage
+            # and error out if some columns were not used
+
+        else:
+            if common is None:
+                common = True
+            if nonunique is None:
+                nonunique = True
+            if unique is None:
+                unique = True
+
+            selector = {"common": common, "nonunique": nonunique, "unique": unique}
+
+            cols = [col for col in cols if selector[col["class"]]]
+
+        derived_name_count = Counter([col["derived_name"] for col in cols])
+
+        # - axis == self.axis
+        #   e.g. combine var from multiple modalities (with unique vars)
+        # - 1 - axis == self.axis
+        # . e.g. combine obs from multiple modalities (with shared obs)
+        axis = 0 if attr == "var" else 1
+
+        if 1 - axis == self.axis or self.axis == -1:
+            if join_common or join_nonunique:
+                raise ValueError(f"Cannot join columns with the same name for shared {attr}_names.")
+
+        if join_common is None:
+            join_common = False
+            if attr == "var":
+                join_common = self.axis == 0
+            elif attr == "obs":
+                join_common = self.axis == 1
+
+        if join_nonunique is None:
+            join_nonunique = False
+
+        if prefix_unique is None:
+            prefix_unique = True
+
+        # Below we will rely on attrmap that has been calculated during .update()
+        # and use it to create an index without duplicates
+        # for faster concatenation and to reduce the amount of code
+
+        attrmap = getattr(self, f"{attr}map")
+        n_attr = self.n_vars if attr == "var" else self.n_obs
+
+        dfs: list[pd.DataFrame] = []
+        for m, mod in self.mod.items():
+            if mods is not None and m not in mods:
+                continue
+            mod_map = attrmap[m]
+            mod_n_attr = mod.n_vars if attr == "var" else mod.n_obs
+            mask = mod_map != 0
+
+            mod_df = getattr(mod, attr)
+            mod_columns = [
+                col["derived_name"] for col in cols if col["prefix"] == "" or col["prefix"] == m
+            ]
+            mod_df = mod_df[mod_df.columns.intersection(mod_columns)]
+
+            if drop:
+                getattr(mod, attr).drop(columns=mod_df.columns, inplace=True)
+
+            # Don't use modname: prefix if columns need to be joined
+            if join_common or join_nonunique or (not prefix_unique):
+                cols_special = [
+                    col["derived_name"]
+                    for col in cols
+                    if (
+                        (col["class"] == "common") & join_common
+                        or (col["class"] == "nonunique") & join_nonunique
+                        or (col["class"] == "unique") & (not prefix_unique)
+                    )
+                    and col["prefix"] == m
+                    and derived_name_count[col["derived_name"]] == col["count"]
+                ]
+                mod_df.columns = [
+                    col if col in cols_special else f"{m}:{col}" for col in mod_df.columns
+                ]
+            else:
+                mod_df.columns = [f"{m}:{col}" for col in mod_df.columns]
+
+            mod_df = (
+                _maybe_coerce_to_boolean(mod_df)
+                .set_index(np.arange(mod_n_attr))
+                .iloc[mod_map[mask] - 1]
+                .set_index(np.arange(n_attr)[mask])
+                .reindex(np.arange(n_attr))
+            )
+            dfs.append(mod_df)
+
+        if only_drop:
+            return
+
+        global_df = _maybe_coerce_to_boolean(getattr(self, attr).set_index(np.arange(n_attr)))
+        df = reduce(_update_and_concat, [global_df, *dfs])
+        # TODO:
+        # df = _maybe_coerce_to_bool(df)
+        # df = _maybe_coerce_to_int(df)
+        df = df.set_index(getattr(self, f"{attr}_names"))
+        setattr(self, attr, df)
+
+    def pull_obs(
+        self,
+        columns: list[str] | None = None,
+        mods: list[str] | None = None,
+        common: bool | None = None,
+        join_common: bool | None = None,
+        nonunique: bool | None = None,
+        join_nonunique: bool | None = None,
+        unique: bool | None = None,
+        prefix_unique: bool | None = True,
+        drop: bool = False,
+        only_drop: bool = False,
+    ):
+        """
+        Copy the data from the modalities to the global .obs,
+        existing columns to be overwritten or updated
+
+        Parameters
+        ----------
+        columns
+            List of columns to pull from the modalities' .obs tables
+        common
+            If True, pull common columns.
+            Common columns do not have modality prefixes.
+            Pull from all modalities.
+            Cannot be used with columns. True by default.
+        mods
+            List of modalities to pull from.
+        join_common
+            If True, attempt to join common columns.
+            Common columns are present in all modalities.
+            True for MuData wth axis=1 (shared var).
+            False for MuData with axis=0 and axis=-1.
+            Cannot be used with mods, or for shared attr.
+        nonunique
+            If True, pull columns that have a modality prefix
+            such that there are multiple columns with the same name
+            and different prefix.
+            Cannot be used with columns or mods. True by default.
+        join_nonunique
+            If True, attempt to join non-unique columns.
+            Intended usage is the same as for join_common.
+            Cannot be used with mods, or for shared attr. False by default.
+        unique
+            If True, pull columns that have a modality prefix
+            such that there is no other column with the same name
+            and a different modality prefix.
+            Cannot be used with columns or mods. True by default.
+        prefix_unique
+            If True, prefix unique column names with modname (default).
+            No prefix when False.
+        drop
+            If True, drop the columns from the modalities after pulling.
+        only_drop
+            If True, drop the columns but do not actually pull them.
+            Forces drop=True.
+        """
+        return self._pull_attr(
+            "obs",
+            columns=columns,
+            mods=mods,
+            common=common,
+            join_common=join_common,
+            nonunique=nonunique,
+            join_nonunique=join_nonunique,
+            unique=unique,
+            prefix_unique=prefix_unique,
+            drop=drop,
+            only_drop=only_drop,
+        )
+
+    def pull_var(
+        self,
+        columns: list[str] | None = None,
+        mods: list[str] | None = None,
+        common: bool | None = None,
+        join_common: bool | None = None,
+        nonunique: bool | None = None,
+        join_nonunique: bool | None = None,
+        unique: bool | None = None,
+        prefix_unique: bool | None = True,
+        drop: bool = False,
+        only_drop: bool = False,
+    ):
+        """
+        Copy the data from the modalities to the global .var,
+        existing columns to be overwritten or updated
+
+        Parameters
+        ----------
+        columns
+            List of columns to pull from the modalities' .var tables
+        common
+            If True, pull common columns.
+            Common columns do not have modality prefixes.
+            Pull from all modalities.
+            Cannot be used with columns. True by default.
+        mods
+            List of modalities to pull from.
+        join_common
+            If True, attempt to join common columns.
+            Common columns are present in all modalities.
+            True for MuData with axis=0 (shared obs).
+            False for MuData with axis=1 and axis=-1.
+            Cannot be used with mods, or for shared attr.
+        nonunique
+            If True, pull columns that have a modality prefix
+            such that there are multiple columns with the same name
+            and different prefix.
+            Cannot be used with columns or mods. True by default.
+        join_nonunique
+            If True, attempt to join non-unique columns.
+            Intended usage is the same as for join_common.
+            Cannot be used with mods, or for shared attr. False by default.
+        unique
+            If True, pull columns that have a modality prefix
+            such that there is no other column with the same name
+            and a different modality prefix.
+            Cannot be used with columns or mods. True by default.
+        prefix_unique
+            If True, prefix unique column names with modname (default).
+            No prefix when False.
+        drop
+            If True, drop the columns from the modalities after pulling.
+        only_drop
+            If True, drop the columns but do not actually pull them.
+            Forces drop=True.
+        """
+        return self._pull_attr(
+            "var",
+            columns=columns,
+            mods=mods,
+            common=common,
+            join_common=join_common,
+            nonunique=nonunique,
+            join_nonunique=join_nonunique,
+            unique=unique,
+            prefix_unique=prefix_unique,
+            drop=drop,
+            only_drop=only_drop,
+        )
+
+    def _push_attr(
+        self,
+        attr: Literal["obs", "var"],
+        columns: list[str] | None = None,
+        mods: list[str] | None = None,
+        common: bool | None = None,
+        prefixed: bool | None = None,
+        drop: bool = False,
+        only_drop: bool = False,
+    ):
+        """
+        Copy the data from the global .obs/.var to the modalities,
+        existing columns to be overwritten
+
+        Parameters
+        ----------
+        attr
+            Attribute to use, should be 'obs' or 'var'
+        columns
+            List of columns to push
+        mods
+            List of modalities to push to
+        common
+            If True, push common columns.
+            Common columns do not have modality prefixes.
+            Push to each modality unless all values for a modality are null.
+            Cannot be used with columns. True by default.
+        prefixed
+            If True, push columns that have a modality prefix.
+            which are prefixed by modality names.
+            Only push to the respective modality names.
+            Cannot be used with columns. True by default.
+        drop
+            If True, drop the columns from the global .obs/.var after pushing.
+            False by default.
+        only_drop
+            If True, drop the columns but do not actually pull them.
+            Forces drop=True. False by default.
+        """
+
+        if self.is_view:
+            raise ValueError(f"Cannot push {attr} columns on a view.")
+
+        if mods is not None:
+            if isinstance(mods, str):
+                mods = [mods]
+            mods = list(dict.fromkeys(mods))
+            if not all(m in self.mod for m in mods):
+                raise ValueError("All mods should be present in mdata.mod")
+            elif len(mods) == self.n_mod:
+                mods = None
+            for k, v in {"common": common, "prefixed": prefixed}.items():
+                assert v is None, f"Cannot use mods with {k}."
+
+        if only_drop:
+            drop = True
+
+        cols = _classify_prefixed_columns(getattr(self, attr).columns.values, self.mod.keys())
+
+        if columns is not None:
+            for k, v in {"common": common, "prefixed": prefixed}.items():
+                assert v is None, f"Cannot use columns with {k}."
+
+            # - modname1:column -> [modname1:column]
+            # - column -> [modname1:column, modname2:column, ...]
+            cols = [col for col in cols if col["name"] in columns or col["derived_name"] in columns]
+
+            # preemptively drop columns from other modalities
+            if mods is not None:
+                cols = [col for col in cols if col["prefix"] in mods or col["prefix"] == ""]
+        else:
+            if common is None:
+                common = True
+            if prefixed is None:
+                prefixed = True
+
+            selector = {"common": common, "prefixed": prefixed}
+
+            cols = [col for col in cols if selector[col["class"]]]
+
+        if len(cols) == 0:
+            return
+
+        derived_name_count = Counter([col["derived_name"] for col in cols])
+        for c, count in derived_name_count.items():
+            # if count > 1, there are both colname and modname:colname present
+            if count > 1 and c in getattr(self, attr).columns:
+                raise ValueError(
+                    f"Cannot push multiple columns with the same name {c} with and without modality prefix. "
+                    "You might have to explicitely specify columns to push."
+                )
+
+        attrmap = getattr(self, f"{attr}map")
+        _n_attr = self.n_vars if attr == "var" else self.n_obs
+
+        for m, mod in self.mod.items():
+            if mods is not None and m not in mods:
+                continue
+
+            mod_map = attrmap[m]
+            mask = mod_map != 0
+            mod_n_attr = mod.n_vars if attr == "var" else mod.n_obs
+
+            mod_cols = [col for col in cols if col["prefix"] == m or col["class"] == "common"]
+            df = getattr(self, attr)[mask].loc[:, [col["name"] for col in mod_cols]]
+            df.columns = [col["derived_name"] for col in mod_cols]
+
+            df = (
+                df.set_index(np.arange(mod_n_attr))
+                .iloc[mod_map[mask] - 1]
+                .set_index(np.arange(mod_n_attr))
+            )
+
+            if not only_drop:
+                # TODO: _maybe_coerce_to_bool
+                # TODO: _maybe_coerce_to_int
+                mod_df = getattr(mod, attr).set_index(np.arange(mod_n_attr))
+                mod_df = _update_and_concat(mod_df, df)
+                mod_df = mod_df.set_index(getattr(mod, f"{attr}_names"))
+                setattr(mod, attr, mod_df)
+
+        if drop:
+            for col in cols:
+                getattr(self, attr).drop(col["name"], axis=1, inplace=True)
+
+    def push_obs(
+        self,
+        columns: list[str] | None = None,
+        mods: list[str] | None = None,
+        common: bool | None = None,
+        prefixed: bool | None = None,
+        drop: bool = False,
+        only_drop: bool = False,
+    ):
+        """
+        Copy the data from the mdata.obs to the modalities,
+        existing columns to be overwritten
+
+        Parameters
+        ----------
+        columns
+            List of columns to push
+        mods
+            List of modalities to push to
+        common
+            If True, push common columns.
+            Common columns do not have modality prefixes.
+            Push to each modality unless all values for a modality are null.
+            Cannot be used with columns. True by default.
+        prefixed
+            If True, push columns that have a modality prefix.
+            which are prefixed by modality names.
+            Only push to the respective modality names.
+            Cannot be used with columns. True by default.
+        drop
+            If True, drop the columns from the global .obs after pushing.
+            False by default.
+        only_drop
+            If True, drop the columns but do not actually pull them.
+            Forces drop=True. False by default.
+        """
+        return self._push_attr(
+            "obs",
+            columns=columns,
+            mods=mods,
+            common=common,
+            prefixed=prefixed,
+            drop=drop,
+            only_drop=only_drop,
+        )
+
+    def push_var(
+        self,
+        columns: list[str] | None = None,
+        mods: list[str] | None = None,
+        common: bool | None = None,
+        prefixed: bool | None = None,
+        drop: bool = False,
+        only_drop: bool = False,
+    ):
+        """
+        Copy the data from the mdata.var to the modalities,
+        existing columns to be overwritten
+
+        Parameters
+        ----------
+        columns
+            List of columns to push
+        mods
+            List of modalities to push to
+        common
+            If True, push common columns.
+            Common columns do not have modality prefixes.
+            Push to each modality unless all values for a modality are null.
+            Cannot be used with columns. True by default.
+        prefixed
+            If True, push columns that have a modality prefix.
+            which are prefixed by modality names.
+            Only push to the respective modality names.
+            Cannot be used with columns. True by default.
+        drop
+            If True, drop the columns from the global .var after pushing.
+            False by default.
+        only_drop
+            If True, drop the columns but do not actually pull them.
+            Forces drop=True. False by default.
+        """
+        return self._push_attr(
+            "var",
+            columns=columns,
+            mods=mods,
+            common=common,
+            prefixed=prefixed,
+            drop=drop,
+            only_drop=only_drop,
+        )
+
+    def write_h5mu(self, filename: str | None = None, **kwargs):
         """
         Write MuData object to an HDF5 file
         """
-        from .io import write_h5mu, _write_h5mu
+        from .io import _write_h5mu, write_h5mu
 
         if self.isbacked and (filename is None or filename == self.filename):
             import h5py
@@ -1225,7 +1957,7 @@ class MuData:
 
     write = write_h5mu
 
-    def write_zarr(self, store: Union[MutableMapping, str, Path], **kwargs):
+    def write_zarr(self, store: MutableMapping | str | Path, **kwargs):
         """
         Write MuData object to a Zarr store
         """
@@ -1233,11 +1965,42 @@ class MuData:
 
         write_zarr(store, self, **kwargs)
 
+    def to_anndata(self, **kwargs) -> AnnData:
+        """
+        Convert MuData to AnnData
+
+        If mdata.axis == 0 (shared observations),
+        concatenate modalities along axis 1 (`anndata.concat(axis=1)`).
+        If mdata.axis == 1 (shared variables),
+        concatenate datasets along axis 0 (`anndata.concat(axis=0)`).
+
+        See `anndata.concat()` documentation for more details.
+
+        Parameters
+        ----------
+        data    : MuData
+            MuData object to convert  to AnnData
+        kwargs  : dict
+            Keyword arguments passed to `anndata.concat()`
+        """
+        from .to_ import to_anndata
+
+        return to_anndata(self, **kwargs)
+
     def _gen_repr(self, n_obs, n_vars, extensive: bool = False, nest_level: int = 0) -> str:
         indent = "    " * nest_level
         backed_at = f" backed at {str(self.filename)!r}" if self.isbacked else ""
         view_of = "View of " if self.is_view else ""
-        descr = f"{view_of}MuData object with n_obs × n_vars = {n_obs} × {n_vars}{backed_at}"
+        maybe_axis = (
+            (
+                ""
+                if self.axis == 0
+                else " (shared var) " if self.axis == 1 else " (shared obs and var) "
+            )
+            if hasattr(self, "axis")
+            else ""
+        )
+        descr = f"{view_of}MuData object with n_obs × n_vars = {n_obs} × {n_vars}{maybe_axis}{backed_at}"
         for attr in ["obs", "var", "uns", "obsm", "varm", "obsp", "varp"]:
             if hasattr(self, attr) and getattr(self, attr) is not None:
                 keys = list(getattr(self, attr).keys())
@@ -1266,7 +2029,7 @@ class MuData:
             mod_indent = "    " * (nest_level + 1)
             if isinstance(v, MuData):
                 descr += f"\n{mod_indent}{k}:\t" + v._gen_repr(
-                    n_obs, n_vars, extensive, nest_level + 1
+                    v.n_obs, v.n_vars, extensive, nest_level + 1
                 )
                 continue
             descr += f"\n{mod_indent}{k}:\t{v.n_obs} x {v.n_vars}"
@@ -1317,9 +2080,7 @@ class MuData:
             self.n_obs, self.n_vars, len(self.mod), "y" if len(self.mod) < 2 else "ies"
         )
         if self.isbacked:
-            header += "<br>&#8627; <span>backed at <span class='hl-file'>{}</span></span>".format(
-                self.file.filename
-            )
+            header += f"<br>&#8627; <span>backed at <span class='hl-file'>{self.file.filename}</span></span>"
 
         mods = "<br>"
 
@@ -1347,9 +2108,7 @@ class MuData:
                 )
             )
             if dat.isbacked:
-                mods += "<br>&#8627; <span>backed at <span class='hl-file'>{}</span></span>".format(
-                    self.file.filename
-                )
+                mods += f"<br>&#8627; <span>backed at <span class='hl-file'>{self.file.filename}</span></span>"
 
             mods += "<br>"
 

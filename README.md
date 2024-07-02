@@ -101,7 +101,7 @@ You can cite the scverse publication as follows:
 
 [//]: # "numfocus-fiscal-sponsor-attribution"
 
-MuData is part of the scverse project ([website](https://scverse.org), [governance](https://scverse.org/about/roles)) and is fiscally sponsored by [NumFOCUS](https://numfocus.org/).
+`mudata` is part of the scverse project ([website](https://scverse.org), [governance](https://scverse.org/about/roles)) and is fiscally sponsored by [NumFOCUS](https://numfocus.org/).
 Please consider making a tax-deductible [donation](https://numfocus.org/donate-to-scverse) to help the project pay for developer time, professional services, travel, workshops, and a variety of other needs.
 
 <a href="https://numfocus.org/project/scverse">
