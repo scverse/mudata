@@ -27,7 +27,7 @@ jobs:
     - name: Ruff check
       run: |
         source .venv/bin/activate
-        ruff check src/
+        ruff check src/mudata
     - name: Test with pytest
       run: |
         source .venv/bin/activate
