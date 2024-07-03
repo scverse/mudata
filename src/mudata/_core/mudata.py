@@ -547,14 +547,14 @@ class MuData:
                 "Use pull=False to use the new behaviour, which will become the default. "
                 "Use new pull_obs/pull_var and push_obs/push_var methods for more flexibility.",
                 DeprecationWarning,
-                stacklevel=2,
+                stacklevel=4,
             )
             pull = True
 
         prev_index = getattr(self, attr).index
 
-        # # No _attrhash when upon read
-        # # No _attrhash in mudata < 0.2.0
+        # No _attrhash when upon read
+        # No _attrhash in mudata < 0.2.0
         _attrhash = f"_{attr}hash"
         attr_changed = self._check_changed_attr_names(attr)
 
@@ -1058,13 +1058,10 @@ class MuData:
         Update global .obs_names according to the .obs_names of all the modalities.
         If pull=True, update .obs slot of MuData with the newest .obs data from all the modalities.
 
-        NOTE: from v0.4, this method will use pull=False by default.
-
         Params
         ------
         pull
             If True, pull .obs columns from all modalities.
-            True by default (will change to False by default in the next versions).
         """
         join_common = self.axis == 1
         self._update_attr("obs", axis=1, join_common=join_common, pull=pull)
@@ -1164,18 +1161,15 @@ class MuData:
             raise KeyError(f"There is no key {key} in MuData .var or in .var of any modalities.")
         return self.var[key].values
 
-    def update_var(self, pull: bool = True):
+    def update_var(self, pull: bool | None = None):
         """
         Update global .var_names according to the .var_names of all the modalities.
         If pull=True, update .var slot of MuData with the newest .var data from all the modalities.
-
-        NOTE: from v0.4, this method will use pull=False by default.
 
         Params
         ------
         pull
             If True, pull .var columns from all modalities.
-            True by default (will change to False by default in the next versions).
         """
         join_common = self.axis == 0
         self._update_attr("var", axis=0, join_common=join_common, pull=pull)
@@ -1366,17 +1360,14 @@ class MuData:
         """List keys of unstructured annotation."""
         return list(self._uns.keys())
 
-    def update(self, pull: bool = True):
+    def update(self, pull: bool | None = None):
         """
         Update both .obs and .var of MuData with the data from all the modalities
-
-        NOTE: from v0.4, this method will use pull=False by default.
 
         Params
         ------
         pull
             If True, pull columns from all modalities.
-            True by default (will change to False by default in the next versions).
         """
         self.update_var(pull=pull)
         self.update_obs(pull=pull)
