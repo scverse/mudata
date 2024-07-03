@@ -152,11 +152,19 @@ def _classify_prefixed_columns(
 
 def _update_and_concat(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
     df = df1.copy()
-    # This converts boolean to object dtype, unfrtunately
+    # This converts boolean to object dtype, unfortunately
     # df.update(df2)
     common_cols = df1.columns.intersection(df2.columns)
     for col in common_cols:
-        df[col].update(df2[col])
+        if isinstance(df[col].values, pd.Categorical) and isinstance(
+            df2[col].values, pd.Categorical
+        ):
+            common_cats = pd.api.types.union_categoricals([df[col], df2[col]]).categories
+            df[col] = df[col].cat.set_categories(common_cats)
+            df2[col] = df2[col].cat.set_categories(common_cats)
+            df[col].update(df2[col])
+        else:
+            df[col].update(df2[col])
     new_cols = df2.columns.difference(df1.columns)
     res = pd.concat([df, df2[new_cols]], axis=1, sort=False, verify_integrity=True)
     return res

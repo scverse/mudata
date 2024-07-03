@@ -1053,12 +1053,21 @@ class MuData:
             raise KeyError(f"There is no key {key} in MuData .obs or in .obs of any modalities.")
         return self.obs[key].values
 
-    def update_obs(self):
+    def update_obs(self, pull: bool = True):
         """
-        Update .obs slot of MuData with the newest .obs data from all the modalities
+        Update global .obs_names according to the .obs_names of all the modalities.
+        If pull=True, update .obs slot of MuData with the newest .obs data from all the modalities.
+
+        NOTE: from v0.4, this method will use pull=False by default.
+
+        Params
+        ------
+        pull
+            If True, pull .obs columns from all modalities.
+            True by default (will change to False by default in the next versions).
         """
         join_common = self.axis == 1
-        self._update_attr("obs", axis=1, join_common=join_common)
+        self._update_attr("obs", axis=1, join_common=join_common, pull=pull)
 
     def obs_names_make_unique(self):
         """
@@ -1155,12 +1164,21 @@ class MuData:
             raise KeyError(f"There is no key {key} in MuData .var or in .var of any modalities.")
         return self.var[key].values
 
-    def update_var(self):
+    def update_var(self, pull: bool = True):
         """
-        Update .var slot of MuData with the newest .var data from all the modalities
+        Update global .var_names according to the .var_names of all the modalities.
+        If pull=True, update .var slot of MuData with the newest .var data from all the modalities.
+
+        NOTE: from v0.4, this method will use pull=False by default.
+
+        Params
+        ------
+        pull
+            If True, pull .var columns from all modalities.
+            True by default (will change to False by default in the next versions).
         """
         join_common = self.axis == 0
-        self._update_attr("var", axis=0, join_common=join_common)
+        self._update_attr("var", axis=0, join_common=join_common, pull=pull)
 
     def var_names_make_unique(self):
         """
@@ -1348,12 +1366,20 @@ class MuData:
         """List keys of unstructured annotation."""
         return list(self._uns.keys())
 
-    def update(self):
+    def update(self, pull: bool = True):
         """
         Update both .obs and .var of MuData with the data from all the modalities
+
+        NOTE: from v0.4, this method will use pull=False by default.
+
+        Params
+        ------
+        pull
+            If True, pull columns from all modalities.
+            True by default (will change to False by default in the next versions).
         """
-        self.update_var()
-        self.update_obs()
+        self.update_var(pull=pull)
+        self.update_obs(pull=pull)
 
     @property
     def axis(self) -> int:
@@ -1808,7 +1834,9 @@ class MuData:
             if count > 1 and c in getattr(self, attr).columns:
                 raise ValueError(
                     f"Cannot push multiple columns with the same name {c} with and without modality prefix. "
-                    "You might have to explicitely specify columns to push."
+                    "You might have to explicitely specify columns to push.\n"
+                    "In case there are columns with the same name with and without modality prefix, "
+                    "this has to be resolved first."
                 )
 
         attrmap = getattr(self, f"{attr}map")
@@ -1835,6 +1863,7 @@ class MuData:
             if not only_drop:
                 # TODO: _maybe_coerce_to_bool
                 # TODO: _maybe_coerce_to_int
+                # TODO: _prune_unused_categories
                 mod_df = getattr(mod, attr).set_index(np.arange(mod_n_attr))
                 mod_df = _update_and_concat(mod_df, df)
                 mod_df = mod_df.set_index(getattr(mod, f"{attr}_names"))
