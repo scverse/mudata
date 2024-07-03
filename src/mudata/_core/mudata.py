@@ -669,7 +669,7 @@ class MuData:
             dfs = [
                 _make_index_unique(
                     getattr(a, attr)
-                    .lc[:, []]
+                    .loc[:, []]
                     .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
                     .add_prefix(m + ":")
                 )
