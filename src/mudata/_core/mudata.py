@@ -408,7 +408,7 @@ class MuData:
                 return True
         return False
 
-    def _check_changed_attr_names(self, attr: str):
+    def _check_changed_attr_names(self, attr: str, columns: bool = False):
         attrhash = f"_{attr}hash"
         attr_names_changed, attr_columns_changed = False, False
         if not hasattr(self, attrhash):
@@ -430,6 +430,9 @@ class MuData:
                         if not attr_columns_changed:
                             attr_columns_changed = None
                         break
+                    if columns:
+                        if cached_hash[1] != new_hash[1]:
+                            attr_columns_changed = True
                 else:
                     attr_names_changed, attr_columns_changed = True, None
                     break
@@ -581,8 +584,6 @@ class MuData:
 
         # Generate unique colnames
         (rowcol,) = self._find_unique_colnames(attr, 1)
-
-        print(attr, rowcol)
 
         attrm = getattr(self, attr + "m")
         attrp = getattr(self, attr + "p")
@@ -824,7 +825,11 @@ class MuData:
             for m, mod in self.mod.items():
                 getattr(self, _attrhash)[m] = (
                     sha1(np.ascontiguousarray(getattr(mod, attr).index.values)).hexdigest(),
+                    sha1(np.ascontiguousarray(getattr(mod, attr).columns.values)).hexdigest(),
                 )
+
+        if OPTIONS["pull_on_update"]:
+            self._pull_attr(attr, **kwargs)
 
     def _update_attr_legacy(
         self,
@@ -865,10 +870,6 @@ class MuData:
                     f"Cannot join columns with the same name because {attr}_names are intersecting."
                 )
                 join_common = False
-
-        if not any(attr_changed):
-            # Nothing to update
-            return
 
         # Figure out which global columns exist
         columns_global = getattr(self, attr).columns[
