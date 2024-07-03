@@ -39,6 +39,7 @@ class TestMuData:
         mdata.obs["mod1:column"] = 1
         mdata["mod1"].obs["column"] = 2
         mdata.update()
+        mdata.pull_obs()
         mdata.write(filepath_h5mu)
         mdata_ = mudata.read(filepath_h5mu)
         assert "column" in mdata_.obs.columns
@@ -51,6 +52,7 @@ class TestMuData:
         mdata.obs["mod1:column"] = 1
         mdata["mod1"].obs["column"] = 2
         mdata.update()
+        mdata.pull_obs()
         mdata.write_zarr(filepath_zarr)
         mdata_ = mudata.read_zarr(filepath_zarr)
         assert "column" in mdata_.obs.columns

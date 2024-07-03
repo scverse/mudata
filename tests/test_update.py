@@ -97,6 +97,8 @@ class TestMuData:
             mod.var_names = [f"{m}_var{j}" for j in range(mod.n_vars)]
         mdata = MuData(modalities)
         mdata.update()
+        mdata.pull_obs()
+        mdata.pull_var()
 
         # Variables are different across modalities
         assert "mod" in mdata.var.columns
@@ -124,6 +126,8 @@ class TestMuData:
             mod.var_names = [f"{m}_var{j // 2}" for j in range(mod.n_vars)]
         mdata = MuData(modalities)
         mdata.update()
+        mdata.pull_obs()
+        mdata.pull_var()
 
         # Variables are different across modalities
         assert "mod" in mdata.var.columns
@@ -152,6 +156,12 @@ class TestMuData:
             mod.var_names = [f"{m}_var{j}" if j != 0 else f"var_{j}" for j in range(mod.n_vars)]
         mdata = MuData(modalities)
         mdata.update()
+        mdata.pull_obs()
+        # New behaviour since v0.4:
+        # - Will add a single column 'mod' with the correct labels even with intersecting var_names
+        mdata.pull_var()
+        # - Will add the columns with modality prefixes
+        mdata.pull_var(join_common=False)
 
         for m, mod in modalities.items():
             # Observations are the same across modalities
@@ -177,6 +187,7 @@ class TestMuData:
         # mu.pp.filter_obs(mdata['mod1'], 'min_count', lambda x: (x < -2))
         mdata.mod["mod1"] = mdata["mod1"][mdata["mod1"].obs["min_count"] < -2].copy()
         mdata.update()
+        mdata.pull_obs()
         assert mdata.obs["batch"].isna().sum() == 0
 
     @pytest.mark.parametrize("obs_mod", ["unique"])
