@@ -9,6 +9,34 @@ Release notes
 
    *
 
+v0.3.0
+------
+
+This version comes with a notable change to the way the annotations of individual modalities are treated.
+It implements pull/push interface for annotations with functions :func:`mudata.MuData.pull_obs`, :func:`mudata.MuData.pull_var`, :func:`mudata.MuData.push_obs`, and :func:`mudata.MuData.push_var`.
+
+:func:`mudata.MuData.update` performance and behaviour have been generally improved.
+For compatibility reasons, this release keeps the old behaviour of pulling annotations on read/update as default.
+This will be changed in the next release. In order to adopt the new behaviour, use :func:`mudata.set_options` with `pull_on_update=False`.
+
+This release also comes with new functionalities such as :func:`mudata.to_anndata` and :func:`mudata.to_mudata`. 
+
+:class:`mudata.MuData` objects now have a new ``.mod_names`` attribute. ``MuData.mod`` can be pretty-printed. Readers support ``fsspec``, and :func:`mudata.read_zarr` now supports ``mod-order``. The ``uns`` attribute now properly handled by the views. 
+
+v0.2.4
+------
+
+This version brings compatibility with the numpy 2.0.0 release and the future anndata 0.11 release with dtype argument deprecation.
+
+Requires anndata 0.10.8 or newer.
+
+v0.2.3
+------
+
+Fixes and improvements for backed objects, views, nested MuData objects, I/O and HTML representation.
+
+Pandas 2.0 compatibility.
+
 v0.2.2
 ------
 
