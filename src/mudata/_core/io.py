@@ -20,6 +20,7 @@ from scipy import sparse
 
 from .file_backing import AnnDataFileManager, MuDataFileManager
 from .mudata import ModDict, MuData
+from .config import OPTIONS
 
 #
 # Saving multimodal data objects
@@ -34,13 +35,21 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
     write_elem(
         file,
         "obs",
-        mdata.strings_to_categoricals(mdata._shrink_attr("obs", inplace=False).copy()),
+        mdata.strings_to_categoricals(
+            mdata._shrink_attr("obs", inplace=False).copy()
+            if OPTIONS["pull_on_update"] is None
+            else mdata.obs.copy()
+        ),
         dataset_kwargs=kwargs,
     )
     write_elem(
         file,
         "var",
-        mdata.strings_to_categoricals(mdata._shrink_attr("var", inplace=False).copy()),
+        mdata.strings_to_categoricals(
+            mdata._shrink_attr("var", inplace=False).copy()
+            if OPTIONS["pull_on_update"] is None
+            else mdata.var.copy()
+        ),
         dataset_kwargs=kwargs,
     )
     write_elem(file, "obsm", dict(mdata.obsm), dataset_kwargs=kwargs)
@@ -128,13 +137,21 @@ def write_zarr(
         write_elem(
             file,
             "obs",
-            mdata.strings_to_categoricals(mdata._shrink_attr("obs", inplace=False).copy()),
+            mdata.strings_to_categoricals(
+                mdata._shrink_attr("obs", inplace=False).copy()
+                if OPTIONS["pull_on_update"] is None
+                else mdata.obs.copy()
+            ),
             dataset_kwargs=kwargs,
         )
         write_elem(
             file,
             "var",
-            mdata.strings_to_categoricals(mdata._shrink_attr("var", inplace=False).copy()),
+            mdata.strings_to_categoricals(
+                mdata._shrink_attr("var", inplace=False).copy()
+                if OPTIONS["pull_on_update"] is None
+                else mdata.var.copy()
+            ),
             dataset_kwargs=kwargs,
         )
         write_elem(file, "obsm", dict(mdata.obsm), dataset_kwargs=kwargs)

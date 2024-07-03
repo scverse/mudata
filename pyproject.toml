@@ -51,7 +51,7 @@ test = [
 
 [tool.pytest.ini_options]
 python_files = "test_*.py"
-testspaths = [
+testpaths = [
     "./tests", # unit tests
 ]
 

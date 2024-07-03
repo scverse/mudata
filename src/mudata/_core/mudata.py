@@ -576,9 +576,7 @@ class MuData:
 
         if not any(attr_changed):
             # Nothing to update
-            # return
-            pass
-            # FIXME
+            return
 
         data_global = getattr(self, attr)
 
@@ -848,7 +846,7 @@ class MuData:
         # No _attrhash when upon read
         # No _attrhash in mudata < 0.2.0
         _attrhash = f"_{attr}hash"
-        attr_changed = self._check_changed_attr_names(attr)
+        attr_changed = self._check_changed_attr_names(attr, columns=True)
 
         attr_duplicated = self._check_duplicated_attr_names(attr)
         attr_intersecting = self._check_intersecting_attr_names(attr)
@@ -861,6 +859,10 @@ class MuData:
                 warnings.warn(
                     f"Behaviour is not defined with axis=-1, {attr}_names need to be made unique first."
                 )
+
+        if not any(attr_changed):
+            # Nothing to update
+            return
 
         # Check if the are same obs_names/var_names in different modalities
         # If there are, join_common=True request can not be satisfied
