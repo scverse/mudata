@@ -3,6 +3,7 @@ import logging as log
 OPTIONS = {
     "display_style": "text",
     "display_html_expand": 0b010,
+    "pull_on_update": None,
 }
 
 _VALID_OPTIONS = {
