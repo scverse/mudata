@@ -34,6 +34,7 @@ from .utils import (
     _make_index_unique,
     _maybe_coerce_to_bool,
     _maybe_coerce_to_boolean,
+    _maybe_coerce_to_int,
     _restore_index,
     _update_and_concat,
 )
@@ -1863,9 +1864,8 @@ class MuData:
 
         global_df = _maybe_coerce_to_boolean(getattr(self, attr).set_index(np.arange(n_attr)))
         df = reduce(_update_and_concat, [global_df, *dfs])
-        # TODO:
-        # df = _maybe_coerce_to_bool(df)
-        # df = _maybe_coerce_to_int(df)
+        df = _maybe_coerce_to_bool(df)
+        df = _maybe_coerce_to_int(df)
         df = df.set_index(getattr(self, f"{attr}_names"))
         setattr(self, attr, df)
 

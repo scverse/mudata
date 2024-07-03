@@ -189,3 +189,24 @@ def _maybe_coerce_to_bool(df: T) -> T:
                 pass
 
     return df
+
+
+def _maybe_coerce_to_int(df: T) -> T:
+    if isinstance(df, pd.Series):
+        if isinstance(df.dtype, pd.Int64Dtype):
+            try:
+                return df.astype(int)
+            except ValueError:
+                # cannot convert float NaN to int
+                return df
+        return df
+
+    for col in df.columns:
+        if isinstance(df[col].dtype, pd.Int64Dtype):
+            try:
+                df = df.assign(**{col: df[col].astype(int)})
+            except ValueError:
+                # cannot convert float NaN to int
+                pass
+
+    return df
