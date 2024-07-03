@@ -18,9 +18,9 @@ from anndata import AnnData
 from anndata.compat import _read_attr
 from scipy import sparse
 
+from .config import OPTIONS
 from .file_backing import AnnDataFileManager, MuDataFileManager
 from .mudata import ModDict, MuData
-from .config import OPTIONS
 
 #
 # Saving multimodal data objects
