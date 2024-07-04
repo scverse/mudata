@@ -23,6 +23,14 @@ This release also comes with new functionalities such as :func:`mudata.to_anndat
 
 :class:`mudata.MuData` objects now have a new ``.mod_names`` attribute. ``MuData.mod`` can be pretty-printed. Readers support ``fsspec``, and :func:`mudata.read_zarr` now supports ``mod-order``. The ``uns`` attribute now properly handled by the views. 
 
+Upgrade guide
+^^^^^^^^^^^^^
+
+If you want to adopt the new update behaviour, set ``mudata.set_options(pull_on_update=False)``. This will be the default behaviour in the next release.
+With it, the annotations will not be copied from the modalities on :func:`mudata.MuData.update` implicitly. 
+
+To copy the annotations explicitly, you will need to use :func:`mudata.MuData.pull_obs` and/or :func:`mudata.MuData.pull_var`.
+
 v0.2.4
 ------
 
