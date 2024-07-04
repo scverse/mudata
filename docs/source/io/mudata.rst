@@ -43,9 +43,10 @@ Individual modalities can be accessed with their names via the ``.mod`` attribut
 
 .. warning::
     Version 0.3 introduces pull/push interface for annotations. For compatibility reasons, the old behaviour of pulling annotations on read/update is kept as default. 
+    
     This will be changed in the next release, and the annotations will not be copied implicitly. 
-    To adopt the new behaviour, use :func:`mudata.set_options` with `pull_on_update=False`.
-    The new behaviour is described below.
+    To adopt the new behaviour, use :func:`mudata.set_options` with ``pull_on_update=False``.
+    The new approach to ``.update()`` and annotations is described below.
 
 Samples (cells) annotations are stored in the data frame accessible via the ``.obs`` attribute. Same goes for ``.var``, which contains annotation of variables (features).
 
@@ -100,9 +101,10 @@ Keeping containers up to date
 
 .. warning::
     Version 0.3 introduces pull/push interface for annotations. For compatibility reasons, the old behaviour of pulling annotations on read/update is kept as default. 
+    
     This will be changed in the next release, and the annotations will not be copied implicitly. 
-    To adopt the new behaviour, use :func:`mudata.set_options` with `pull_on_update=False`.
-    The new behaviour is described below.
+    To adopt the new behaviour, use :func:`mudata.set_options` with ``pull_on_update=False``.
+    The new approach to ``.update()`` and annotations is described below.
 
 Modalities inside the ``MuData`` container are full-fledged ``AnnData`` objects, which can be operated independently with any tool that works on ``AnnData`` objects. 
 When modalities are changed externally, the shape of the ``MuData`` object as well as metadata fetched from individual modalities will then reflect the previous state of the data. 
