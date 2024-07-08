@@ -198,78 +198,80 @@ def details_block_table(data, attr, name, expand=0, dims=True, square=False):
 
 
 MUDATA_CSS = """<style>
-.hl-dim, .hl-size, .hl-values, .hl-types, .hl-dims {
-  color: #777777;
-}
-.hl-dim::before, .hl-size::before {
-  content: "\\00a0\\00a0\\00a0";
-}
-.hl-values {
-  font-family: monospace;
-}
-.hl-file {
-  background-color: #EEEEEE;
-  border-radius: .5rem;
-  padding: .2rem .4rem;
-  color: #555555;
-}
-.hl-empty {
-  color: #999999;
-}
-.hl-import {
-  color: #777777;
-}
-.block-mod {
-  display: block;
-  margin: 0 2rem;
-}
-.title {
-  display: inline-block;
-  font-weight: 600;
-  color: #555555;
-}
-.title-mod {
-  font-size: 1.2rem;
-  color: #04b374;
-  padding: 0 .5rem;
-}
-.title-attr {
-  font-size: 1.0rem;
-  padding-top: .2rem;
-}
-summary {
-  cursor: pointer;
-  list-style: none;
-}
-summary::-webkit-details-marker {
-  display: none;
-}
-details > summary::before {
-  content: '\u2295';
-}
-details[open] > summary::before {
-  content: '\u2296';
-}
-table tr {
-  background-color: transparent !important;
-}
-table tr:hover {
-  background-color: #04b37433 !important;
-}
-.col-index {
-  text-align: left !important;
-}
-.summary-mod {
-  margin-left: -2rem;
-}
-.summary-mod:hover {
-  background-color: #04b37411;
-}
-.summary-mod::before {
-  color: #04b374;
-  content: '\u25cf';
-}
-details[open] > .summary-mod::before {
-  content: '\u25cb';
+.scv-mudata-repr-html {
+    .hl-dim, .hl-size, .hl-values, .hl-types, .hl-dims {
+    color: #777777;
+    }
+    .hl-dim::before, .hl-size::before {
+    content: "\\00a0\\00a0\\00a0";
+    }
+    .hl-values {
+    font-family: monospace;
+    }
+    .hl-file {
+    background-color: #EEEEEE;
+    border-radius: .5rem;
+    padding: .2rem .4rem;
+    color: #555555;
+    }
+    .hl-empty {
+    color: #999999;
+    }
+    .hl-import {
+    color: #777777;
+    }
+    .block-mod {
+    display: block;
+    margin: 0 2rem;
+    }
+    .title {
+    display: inline-block;
+    font-weight: 600;
+    color: #555555;
+    }
+    .title-mod {
+    font-size: 1.2rem;
+    color: #04b374;
+    padding: 0 .5rem;
+    }
+    .title-attr {
+    font-size: 1.0rem;
+    padding-top: .2rem;
+    }
+    summary {
+    cursor: pointer;
+    list-style: none;
+    }
+    summary::-webkit-details-marker {
+    display: none;
+    }
+    details > summary::before {
+    content: '\u2295';
+    }
+    details[open] > summary::before {
+    content: '\u2296';
+    }
+    table tr {
+    background-color: transparent !important;
+    }
+    table tr:hover {
+    background-color: #04b37433 !important;
+    }
+    .col-index {
+    text-align: left !important;
+    }
+    .summary-mod {
+    margin-left: -2rem;
+    }
+    .summary-mod:hover {
+    background-color: #04b37411;
+    }
+    .summary-mod::before {
+    color: #04b374;
+    content: '\u25cf';
+    }
+    details[open] > .summary-mod::before {
+    content: '\u25cb';
+    }
 }
 </style>"""

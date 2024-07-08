@@ -2423,7 +2423,7 @@ class MuData:
             mods += "</details>"
             mods += "</div></div>"
         mods += "<br/>"
-        full = "".join((MUDATA_CSS, header, mods))
+        full = "".join((MUDATA_CSS, "<div class='scv-mudata-repr-html'>", header, mods, "</div>"))
         return full
 
     def _find_unique_colnames(self, attr: str, ncols: int):
