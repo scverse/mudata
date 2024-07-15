@@ -544,7 +544,7 @@ class MuData:
         if OPTIONS["pull_on_update"] is None:
             warnings.warn(
                 "From 0.4 .update() will not pull obs/var columns from individual modalities by default anymore. "
-                "Set mudate.set_options(pull_on_update=False) to adopt the new behaviour, which will become the default. "
+                "Set mudata.set_options(pull_on_update=False) to adopt the new behaviour, which will become the default. "
                 "Use new pull_obs/pull_var and push_obs/push_var methods for more flexibility.",
                 FutureWarning,
                 stacklevel=2,
