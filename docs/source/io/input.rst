@@ -61,8 +61,32 @@ MuData objects can be read and cached from remote locations including via HTTP(S
 A caching layer can be added in the following way:
 ::
    fname_cached = "filecache::" + fname
-   with fsspec.open(fname_cached, filecache={'cache_storage': '/tmp/'}):
+   with fsspec.open(fname_cached, filecache={'cache_storage': '/tmp/'}) as f:
       mdata = mudata.read_h5mu(f)
 
 
 For more `fsspec` usage examples see [its documentation](https://filesystem-spec.readthedocs.io/).
+
+S3
+^^
+
+MuData objects in the ``.h5mu`` format stored in an S3 bucket can be read with ``fsspec`` as well:
+::
+   storage_options = {
+      'endpoint_url': 'localhost:9000',
+      'key': 'AWS_ACCESS_KEY_ID',
+      'secret': 'AWS_SECRET_ACCESS_KEY',
+   }
+
+   with fsspec.open('s3://scdatasets/pbmc5k_citeseq_processed.h5mu', **storage_options) as f:
+      mudata.read_h5mu(f)
+
+
+MuData objects stored in the ``.zarr`` format in an S3 bucket can be read from a __mapping__:
+::
+   import s3fs
+
+   s3 = s3fs.S3FileSystem(**storage_options)
+   store = s3.get_mapper('s3://bucket/dataset.zarr')
+   with fsspec.open(fname) as f:
+      mdata = mudata.read_zarr(f)
