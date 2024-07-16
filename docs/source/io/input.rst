@@ -78,11 +78,11 @@ MuData objects in the ``.h5mu`` format stored in an S3 bucket can be read with `
       'secret': 'AWS_SECRET_ACCESS_KEY',
    }
 
-   with fsspec.open('s3://scdatasets/pbmc5k_citeseq_processed.h5mu', **storage_options) as f:
+   with fsspec.open('s3://bucket/dataset.h5mu', **storage_options) as f:
       mudata.read_h5mu(f)
 
 
-MuData objects stored in the ``.zarr`` format in an S3 bucket can be read from a __mapping__:
+MuData objects stored in the ``.zarr`` format in an S3 bucket can be read from a *mapping*:
 ::
    import s3fs
 
