@@ -88,5 +88,4 @@ MuData objects stored in the ``.zarr`` format in an S3 bucket can be read from a
 
    s3 = s3fs.S3FileSystem(**storage_options)
    store = s3.get_mapper('s3://bucket/dataset.zarr')
-   with fsspec.open(fname) as f:
-      mdata = mudata.read_zarr(f)
+   mdata = mudata.read_zarr(store)
