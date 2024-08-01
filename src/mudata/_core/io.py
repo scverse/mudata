@@ -369,10 +369,13 @@ def _validate_h5mu(filename: PathLike) -> (str, Callable | None):
         # with fsspec.open("s3://bucket/file.h5mu") as f:
         #     mdata = read_h5mu(f)
         # or
-        # mdata = read_h5mu(fsspec.open("s3://bucket/file.h5mu")
+        # mdata = read_h5mu(fsspec.open("s3://bucket/file.h5mu"))
         if (
             filename.__class__.__name__ == "BufferedReader"
             or filename.__class__.__name__ == "OpenFile"
+            or filename.__class__.__name__ == "HTTPFile"
+            or filename.__class__.__name__ == "HTTPStreamFile"
+            or filename.__class__.__name__ == "S3File"
         ):
             try:
                 from fsspec.core import OpenFile
