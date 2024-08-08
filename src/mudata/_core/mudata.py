@@ -731,7 +731,7 @@ class MuData:
             data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
             data_mod.index.set_names(None, inplace=True)
 
-        # get adata positions and remove columns from the data frame
+        # Get adata positions and remove columns from the data frame
         mdict = dict()
         for m in self.mod.keys():
             colname = m + ":" + rowcol
@@ -743,7 +743,7 @@ class MuData:
             # Original index is present in data_global
             self,
             "_" + attr,
-            getattr(self, attr).reindex(data_mod.index, copy=False),
+            getattr(self, attr).reset_index(drop=True).reindex(data_mod.index, copy=False),
         )
 
         # Update .obsm/.varm
