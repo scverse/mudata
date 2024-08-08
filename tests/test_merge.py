@@ -7,8 +7,6 @@ from anndata import AnnData
 import mudata
 from mudata import MuData
 
-mudata.set_options(pull_on_update=False)
-
 
 N, D1, D2 = 100, 20, 30
 N1 = 15
