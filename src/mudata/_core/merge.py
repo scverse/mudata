@@ -146,7 +146,9 @@ def concat(
     axis = mdatas[0].axis
 
     # Modalities intersection
-    common_mods = reduce(np.intersect1d, [np.array(list(m.mod.keys())) for m in mdatas])
+    common_mods = reduce(
+        np.intersect1d, [np.array(list(m.mod.keys())).astype("object") for m in mdatas]
+    )
     assert len(common_mods) > 0, "There should be at least one common modality across all mdatas"
 
     # Concatenate all the modalities
