@@ -22,7 +22,7 @@ sys.path.insert(0, Path("../").resolve())
 # -- Project information -----------------------------------------------------
 
 project = "mudata"
-copyright = "2020 - 2022, Danila Bredikhin"
+copyright = "2020 - 2024, Danila Bredikhin"
 author = "Danila Bredikhin"
 
 

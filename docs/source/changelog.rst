@@ -17,11 +17,17 @@ It implements pull/push interface for annotations with functions :func:`mudata.M
 
 :func:`mudata.MuData.update` performance and behaviour have been generally improved.
 For compatibility reasons, this release keeps the old behaviour of pulling annotations on read/update as default.
-This will be changed in the next release. In order to adopt the new behaviour, use :func:`mudata.set_options` with `pull_on_update=False`.
+
+.. note::
+    If you want to adopt the new update behaviour, set ``mudata.set_options(pull_on_update=False)``. This will be the default behaviour in the next release.
+    With it, the annotations will not be copied from the modalities on :func:`mudata.MuData.update` implicitly. 
+
+    To copy the annotations explicitly, you will need to use :func:`mudata.MuData.pull_obs` and/or :func:`mudata.MuData.pull_var`.
 
 This release also comes with new functionalities such as :func:`mudata.to_anndata`, :func:`mudata.to_mudata`, and :func:`mudata.concat`.
 
 :class:`mudata.MuData` objects now have a new ``.mod_names`` attribute. ``MuData.mod`` can be pretty-printed. Readers support ``fsspec``, and :func:`mudata.read_zarr` now supports ``mod-order``. The ``uns`` attribute now properly handled by the views. 
+
 
 v0.2.4
 ------

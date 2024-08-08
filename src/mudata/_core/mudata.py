@@ -544,7 +544,7 @@ class MuData:
         if OPTIONS["pull_on_update"] is None:
             warnings.warn(
                 "From 0.4 .update() will not pull obs/var columns from individual modalities by default anymore. "
-                "Set mudate.set_options(pull_on_update=False) to adopt the new behaviour, which will become the default. "
+                "Set mudata.set_options(pull_on_update=False) to adopt the new behaviour, which will become the default. "
                 "Use new pull_obs/pull_var and push_obs/push_var methods for more flexibility.",
                 FutureWarning,
                 stacklevel=2,
@@ -731,7 +731,7 @@ class MuData:
             data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
             data_mod.index.set_names(None, inplace=True)
 
-        # get adata positions and remove columns from the data frame
+        # Get adata positions and remove columns from the data frame
         mdict = dict()
         for m in self.mod.keys():
             colname = m + ":" + rowcol
@@ -743,7 +743,7 @@ class MuData:
             # Original index is present in data_global
             self,
             "_" + attr,
-            getattr(self, attr).reindex(data_mod.index, copy=False),
+            getattr(self, attr).reset_index(drop=True).reindex(data_mod.index, copy=False),
         )
 
         # Update .obsm/.varm
@@ -2423,7 +2423,7 @@ class MuData:
             mods += "</details>"
             mods += "</div></div>"
         mods += "<br/>"
-        full = "".join((MUDATA_CSS, header, mods))
+        full = "".join((MUDATA_CSS, "<div class='scv-mudata-repr-html'>", header, mods, "</div>"))
         return full
 
     def _find_unique_colnames(self, attr: str, ncols: int):
