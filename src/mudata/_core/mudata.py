@@ -645,23 +645,22 @@ class MuData:
                     data_mod = data_mod.join(data_global, how="left", sort=False)
                 else:
                     # In order to preserve the order of the index, instead,
-                    # perform a join based on (index, cumcount) pairs.
-                    col_index, col_cumcount = self._find_unique_colnames(attr, 2)
+                    # perform a join based on (index, attrmap value) pairs.
+                    (col_index,) = self._find_unique_colnames(attr, 1)
                     data_mod = data_mod.rename_axis(col_index, axis=0).reset_index()
-                    data_mod[col_cumcount] = data_mod.groupby(col_index).cumcount()
+
                     data_global = data_global.rename_axis(col_index, axis=0).reset_index()
-                    data_global[col_cumcount] = (
-                        data_global.reset_index().groupby(col_index).cumcount()
-                    )
+                    for mod in self.mod.keys():
+                        data_global[mod + ":" + rowcol] = getattr(self, attr + "map")[mod]
+                    attrmap_columns = (mod + ":" + rowcol for mod in self.mod.keys())
+
                     data_mod = data_mod.merge(
-                        data_global, on=[col_index, col_cumcount], how="left", sort=False
+                        data_global, on=[col_index, *attrmap_columns], how="left", sort=False
                     )
+
                     # Restore the index and remove the helper column
                     data_mod = data_mod.set_index(col_index).rename_axis(None, axis=0)
-                    del data_mod[col_cumcount]
                     data_global = data_global.set_index(col_index).rename_axis(None, axis=0)
-                    del data_global[col_cumcount]
-
         #
         # General case: with duplicates and/or intersections
         #
@@ -731,19 +730,56 @@ class MuData:
             data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
             data_mod.index.set_names(None, inplace=True)
 
-        # Get adata positions and remove columns from the data frame
+        # get adata positions and remove columns from the data frame
         mdict = dict()
         for m in self.mod.keys():
             colname = m + ":" + rowcol
             mdict[m] = data_mod[colname].to_numpy()
-            data_mod.drop(colname, axis=1, inplace=True)
+            # data_mod.drop(colname, axis=1, inplace=True)
 
         # Add data from global .obs/.var columns # This might reduce the size of .obs/.var if observations/variables were removed
-        setattr(
+        if getattr(self, attr).index.is_unique:
+            # There are no new values in the index
             # Original index is present in data_global
+            attr_reindexed = getattr(self, attr).reindex(index=data_mod.index, copy=False)
+        else:
+            # Reindexing won't work with duplicated labels:
+            #   cannot reindex on an axis with duplicate labels.
+            # Use attrmap to resolve it.
+
+            # TODO: might be possible to refactor to memoize it
+            # if it has already been done in the same ._update_attr()
+            col_index, col_range = self._find_unique_colnames(attr, 2)
+
+            # copy is made here
+            data_mod = data_mod.rename_axis(col_index, axis=0).reset_index()
+
+            data_global[col_range] = np.arange(len(data_global))
+
+            for mod in self.mod.keys():
+                data_global[mod + ":" + rowcol] = getattr(self, attr + "map")[mod]
+            attrmap_columns = [mod + ":" + rowcol for mod in self.mod.keys()]
+
+            data_mod = data_mod.merge(data_global, on=attrmap_columns, how="left", sort=False)
+
+            index_selection = data_mod[col_range].values
+
+            data_mod.drop(col_range, axis=1, inplace=True)
+            data_global.drop(col_range, axis=1, inplace=True)
+
+            # Restore the index and remove the helper column
+            data_mod = data_mod.set_index(col_index).rename_axis(None, axis=0)
+            attr_reindexed = getattr(self, attr).iloc[index_selection]
+            attr_reindexed.index = data_mod.index
+
+        # Clean up
+        for colname in (mod + "+" + rowcol for mod in self.mod.keys()):
+            data_mod.drop(colname, axis=1, inplace=True, errors="ignore")
+
+        setattr(
             self,
             "_" + attr,
-            getattr(self, attr).reset_index(drop=True).reindex(data_mod.index, copy=False),
+            attr_reindexed,
         )
 
         # Update .obsm/.varm
