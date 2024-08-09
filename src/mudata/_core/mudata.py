@@ -457,6 +457,14 @@ class MuData:
         return (attr_names_changed, attr_columns_changed)
 
     def copy(self, filename: PathLike | None = None) -> "MuData":
+        """
+        Make a copy.
+
+        Parameters
+        ----------
+        filename
+            If the object is backed, copy the object to a new file.
+        """
         if not self.isbacked:
             mod = {}
             for k, v in self.mod.items():
@@ -1333,14 +1341,23 @@ class MuData:
 
     @property
     def n_mod(self) -> int:
+        """
+        Number of modalities in the MuData object
+        """
         return len(self.mod)
 
     @property
     def isbacked(self) -> bool:
+        """
+        Whether the MuData object is backed
+        """
         return self.filename is not None
 
     @property
     def filename(self) -> Path | None:
+        """
+        Filename of the MuData object
+        """
         return self.file.filename
 
     @filename.setter
