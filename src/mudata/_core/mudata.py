@@ -146,6 +146,23 @@ class MuData:
         index: tuple[slice | Integral, slice | Integral] | slice | Integral | None = None,
         **kwargs,
     ):
+        """
+        Parameters
+        ----------
+        data
+            AnnData object or dictionary with AnnData objects as values.
+            If a dictionary is passed, the keys will be used as modality names.
+        feature_types_names
+            Dictionary to map feature types encoded in data.var["feature_types"] to modality names.
+            Only relevant when data is an AnnData object.
+            Default: {"Gene Expression": "rna", "Peaks": "atac", "Antibody Capture": "prot"}
+        as_view
+            Create a view of the MuData object.
+        index
+            Index to slice the MuData object when creating the view.
+        **kwargs
+            Additional arguments to create a MuData object.
+        """
         self._init_common()
         if as_view:
             self._init_as_view(data, index)

@@ -52,6 +52,13 @@ source_suffix = {
 # autodoc/autosummary config
 autosummary_generate = True
 autosummary_imported_members = False
+autodoc_default_options = {
+    "members": True,
+    "private-members": False,  # Do not document private methods
+    "special-members": False,  # Do not document special methods like __init__
+    "inherited-members": False,
+    "show-inheritance": True,
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]

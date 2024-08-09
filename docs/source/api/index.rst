@@ -14,21 +14,16 @@ API reference
 .. toctree::
    :maxdepth: 10
 
-   *
-
-
 
 Multimodal omics
 ----------------
 
-.. module: mudata
+.. module:: mudata
+
 .. autosummary::
    :toctree: generated
-   :recursive:
 
-   mudata.MuData
-   mudata.utils
-
+   MuData
 
 Input/Output
 ------------
