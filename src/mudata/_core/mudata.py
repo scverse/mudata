@@ -1342,21 +1342,30 @@ class MuData:
     @property
     def n_mod(self) -> int:
         """
-        Number of modalities in the MuData object
+        Number of modalities in the MuData object.
+
+        Returns:
+            int: The number of modalities.
         """
         return len(self.mod)
 
     @property
     def isbacked(self) -> bool:
         """
-        Whether the MuData object is backed
+        Whether the MuData object is backed.
+
+        Returns:
+            bool: True if the object is backed, False otherwise.
         """
-        return self.filename is not None
+        return self.file.filename is not None
 
     @property
     def filename(self) -> Path | None:
         """
-        Filename of the MuData object
+        Filename of the MuData object.
+
+        Returns:
+            Path | None: The path to the file if backed, None otherwise.
         """
         return self.file.filename
 
