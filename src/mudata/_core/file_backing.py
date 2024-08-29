@@ -18,7 +18,7 @@ class MuDataFileManager(AnnDataFileManager):
         self._children = WeakSet()
         if filename is not None:
             filename = Path(filename)
-        super().__init__(None, filename, filemode)
+        super().__init__(ad.AnnData(), filename, filemode)
 
     def open(
         self,

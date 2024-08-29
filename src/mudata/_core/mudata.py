@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 from anndata import AnnData
 from anndata._core.aligned_mapping import (
-    AlignedViewMixin,
+    AlignedView,
     AxisArrays,
     AxisArraysBase,
     PairwiseArrays,
@@ -41,7 +41,7 @@ from .utils import (
 from .views import DictView
 
 
-class MuAxisArraysView(AlignedViewMixin, AxisArraysBase):
+class MuAxisArraysView(AlignedView, AxisArraysBase):
     def __init__(self, parent_mapping: AxisArraysBase, parent_view: "MuData", subset_idx: Any):
         self.parent_mapping = parent_mapping
         self._parent = parent_view
@@ -207,15 +207,15 @@ class MuData:
                 self._var = pd.DataFrame(self._var)
 
             # Get global obsm
-            self._obsm = MuAxisArrays(self, 0, kwargs.get("obsm", {}))
+            self._obsm = MuAxisArrays(self, axis=0, store=kwargs.get("obsm", {}))
             # Get global varm
-            self._varm = MuAxisArrays(self, 1, kwargs.get("varm", {}))
+            self._varm = MuAxisArrays(self, axis=1, store=kwargs.get("varm", {}))
 
-            self._obsp = PairwiseArrays(self, 0, kwargs.get("obsp", {}))
-            self._varp = PairwiseArrays(self, 1, kwargs.get("varp", {}))
+            self._obsp = PairwiseArrays(self, axis=0, store=kwargs.get("obsp", {}))
+            self._varp = PairwiseArrays(self, axis=1, store=kwargs.get("varp", {}))
 
-            self._obsmap = MuAxisArrays(self, 0, kwargs.get("obsmap", {}))
-            self._varmap = MuAxisArrays(self, 1, kwargs.get("varmap", {}))
+            self._obsmap = MuAxisArrays(self, axis=0, store=kwargs.get("obsmap", {}))
+            self._varmap = MuAxisArrays(self, axis=1, store=kwargs.get("varmap", {}))
 
             self._axis = kwargs.get("axis") or 0
 
@@ -233,14 +233,14 @@ class MuData:
         self._var = pd.DataFrame()
 
         # Make obs map for each modality
-        self._obsm = MuAxisArrays(self, 0, dict())
-        self._obsp = PairwiseArrays(self, 0, dict())
-        self._obsmap = MuAxisArrays(self, 0, dict())
+        self._obsm = MuAxisArrays(self, axis=0, store=dict())
+        self._obsp = PairwiseArrays(self, axis=0, store=dict())
+        self._obsmap = MuAxisArrays(self, axis=0, store=dict())
 
         # Make var map for each modality
-        self._varm = MuAxisArrays(self, 1, dict())
-        self._varp = PairwiseArrays(self, 1, dict())
-        self._varmap = MuAxisArrays(self, 1, dict())
+        self._varm = MuAxisArrays(self, axis=1, store=dict())
+        self._varp = PairwiseArrays(self, axis=1, store=dict())
+        self._varmap = MuAxisArrays(self, axis=1, store=dict())
 
         self._axis = 0
 
@@ -336,12 +336,12 @@ class MuData:
         self.mod = data.mod
         self._obs = data.obs
         self._var = data.var
-        self._obsm = MuAxisArrays(self, 0, convert_to_dict(data.obsm))
-        self._obsp = PairwiseArrays(self, 0, convert_to_dict(data.obsp))
-        self._obsmap = MuAxisArrays(self, 0, convert_to_dict(data.obsmap))
-        self._varm = MuAxisArrays(self, 1, convert_to_dict(data.varm))
-        self._varp = PairwiseArrays(self, 1, convert_to_dict(data.varp))
-        self._varmap = MuAxisArrays(self, 1, convert_to_dict(data.varmap))
+        self._obsm = MuAxisArrays(self, axis=0, store=convert_to_dict(data.obsm))
+        self._obsp = PairwiseArrays(self, axis=0, store=convert_to_dict(data.obsp))
+        self._obsmap = MuAxisArrays(self, axis=0, store=convert_to_dict(data.obsmap))
+        self._varm = MuAxisArrays(self, axis=1, store=convert_to_dict(data.varm))
+        self._varp = PairwiseArrays(self, axis=1, store=convert_to_dict(data.varp))
+        self._varmap = MuAxisArrays(self, axis=1, store=convert_to_dict(data.varmap))
         self._uns = data._uns
         self._axis = data._axis
 
@@ -1580,7 +1580,7 @@ class MuData:
 
     @obsm.setter
     def obsm(self, value):
-        obsm = MuAxisArrays(self, 0, vals=convert_to_dict(value))
+        obsm = MuAxisArrays(self, axis=0, store=convert_to_dict(value))
         if self.is_view:
             self._init_as_actual(self.copy())
         self._obsm = obsm
@@ -1598,7 +1598,7 @@ class MuData:
 
     @obsp.setter
     def obsp(self, value):
-        obsp = PairwiseArrays(self, 0, vals=convert_to_dict(value))
+        obsp = PairwiseArrays(self, axis=0, vals=convert_to_dict(value))
         if self.is_view:
             self._init_as_actual(self.copy())
         self._obsp = obsp
@@ -1625,7 +1625,7 @@ class MuData:
 
     @varm.setter
     def varm(self, value):
-        varm = MuAxisArrays(self, 1, vals=convert_to_dict(value))
+        varm = MuAxisArrays(self, axis=1, store=convert_to_dict(value))
         if self.is_view:
             self._init_as_actual(self.copy())
         self._varm = varm
@@ -1643,7 +1643,7 @@ class MuData:
 
     @varp.setter
     def varp(self, value):
-        varp = PairwiseArrays(self, 0, vals=convert_to_dict(value))
+        varp = PairwiseArrays(self, axis=0, vals=convert_to_dict(value))
         if self.is_view:
             self._init_as_actual(self.copy())
         self._varp = varp
