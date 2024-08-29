@@ -8,7 +8,7 @@ from anndata import AnnData
 from anndata import concat as ad_concat
 from anndata._core.merge import (
     StrategiesLiteral,
-    _resolve_dim,
+    _resolve_axis,
     check_combinable_cols,
     concat_pairwise_mapping,
     dim_indices,
@@ -168,8 +168,8 @@ def concat(
         )
 
     # Then concatenate multimodal annotations
-    axis, dim = _resolve_dim(axis=axis)
-    alt_axis, alt_dim = _resolve_dim(axis=1 - axis)
+    axis, dim = _resolve_axis(axis=axis)
+    alt_axis, alt_dim = _resolve_axis(axis=1 - axis)
 
     # Label column
     label_col = pd.Categorical.from_codes(
