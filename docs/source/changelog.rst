@@ -8,6 +8,10 @@ Release notes
    :maxdepth: 10
 
    *
+v0.3.1
+------
+
+This release brings compatibility with the anndata 0.10.9 release.
 
 v0.3.0
 ------
