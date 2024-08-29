@@ -27,8 +27,8 @@ jobs:
     - name: Install dev versions
       run: |
         source .venv/bin/activate
-        uv pip install -U git+https://github.com/scverse/anndata
         uv pip install -U git+https://github.com/scverse/scanpy
+        uv pip install -U git+https://github.com/scverse/anndata
     - name: Test with pytest
       run: |
         source .venv/bin/activate
