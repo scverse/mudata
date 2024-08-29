@@ -16,15 +16,13 @@ import numpy as np
 import pandas as pd
 from anndata import AnnData
 from anndata._core.aligned_mapping import (
-    AlignedView,
-    AxisArrays,
     AxisArraysBase,
-    PairwiseArrays,
     PairwiseArraysView,
 )
 from anndata._core.views import DataFrameView
 from anndata.utils import convert_to_dict
 
+from .compat import AlignedView, AxisArrays, PairwiseArrays
 from .config import OPTIONS
 from .file_backing import MuDataFileManager
 from .repr import MUDATA_CSS, block_matrix, details_block_table
