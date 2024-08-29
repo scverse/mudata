@@ -1598,7 +1598,7 @@ class MuData:
 
     @obsp.setter
     def obsp(self, value):
-        obsp = PairwiseArrays(self, axis=0, vals=convert_to_dict(value))
+        obsp = PairwiseArrays(self, axis=0, store=convert_to_dict(value))
         if self.is_view:
             self._init_as_actual(self.copy())
         self._obsp = obsp
@@ -1643,7 +1643,7 @@ class MuData:
 
     @varp.setter
     def varp(self, value):
-        varp = PairwiseArrays(self, axis=0, vals=convert_to_dict(value))
+        varp = PairwiseArrays(self, axis=0, store=convert_to_dict(value))
         if self.is_view:
             self._init_as_actual(self.copy())
         self._varp = varp
