@@ -8,10 +8,8 @@ from anndata import AnnData
 from anndata import concat as ad_concat
 from anndata._core.merge import (
     StrategiesLiteral,
-    _resolve_axis,
     check_combinable_cols,
     concat_pairwise_mapping,
-    dim_indices,
     gen_reindexer,
     inner_concat_aligned_mapping,
     intersect_keys,
@@ -22,6 +20,13 @@ from anndata._core.merge import (
     unify_dtypes,
     union_keys,
 )
+
+try:
+    from anndata._core.merge import _resolve_axis, axis_indices
+except ImportError:
+    # anndata < 0.10.9
+    from anndata._core.merge import _resolve_dim as _resolve_axis
+    from anndata._core.merge import dim_indices as axis_indices
 
 from .mudata import MuData
 
@@ -179,14 +184,14 @@ def concat(
 
     # Combining indexes
     concat_indices = pd.concat(
-        [pd.Series(dim_indices(m, axis=axis)) for m in mdatas], ignore_index=True
+        [pd.Series(axis_indices(m, axis=axis)) for m in mdatas], ignore_index=True
     )
     if index_unique is not None:
         concat_indices = concat_indices.str.cat(label_col.map(str), sep=index_unique)
     concat_indices = pd.Index(concat_indices)
 
-    alt_indices = merge_indices([dim_indices(m, axis=alt_axis) for m in mdatas], join=join)
-    reindexers = [gen_reindexer(alt_indices, dim_indices(m, axis=alt_axis)) for m in mdatas]
+    alt_indices = merge_indices([axis_indices(m, axis=alt_axis) for m in mdatas], join=join)
+    reindexers = [gen_reindexer(alt_indices, axis_indices(m, axis=alt_axis)) for m in mdatas]
 
     # Annotation for concatenation axis
     check_combinable_cols([getattr(m, dim).columns for m in mdatas], join=join)
