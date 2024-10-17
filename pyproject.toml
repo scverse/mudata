@@ -46,7 +46,8 @@ docs = [
     "recommonmark"
 ]
 test = [
-    "zarr"
+    "zarr",
+    "pytest"
 ]
 
 [tool.pytest.ini_options]
