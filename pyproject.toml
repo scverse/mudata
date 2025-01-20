@@ -46,7 +46,7 @@ docs = [
     "recommonmark"
 ]
 test = [
-    "zarr",
+    "zarr<3",
     "pytest"
 ]
 
