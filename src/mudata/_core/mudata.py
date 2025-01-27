@@ -204,16 +204,20 @@ class MuData:
             if isinstance(self._var, abc.Mapping) or self._var is None:
                 self._var = pd.DataFrame(self._var)
 
+            # Replace missing/None with empty dictionaries
+            for attr in ("obsm", "varm", "obsp", "varp", "obsmap", "varmap"):
+                if kwargs.get(attr, None) is None:
+                    kwargs[attr] = {}
             # Get global obsm
-            self._obsm = MuAxisArrays(self, axis=0, store=kwargs.get("obsm", {}))
+            self._obsm = MuAxisArrays(self, axis=0, store=kwargs.get("obsm"))
             # Get global varm
-            self._varm = MuAxisArrays(self, axis=1, store=kwargs.get("varm", {}))
+            self._varm = MuAxisArrays(self, axis=1, store=kwargs.get("varm"))
 
-            self._obsp = PairwiseArrays(self, axis=0, store=kwargs.get("obsp", {}))
-            self._varp = PairwiseArrays(self, axis=1, store=kwargs.get("varp", {}))
+            self._obsp = PairwiseArrays(self, axis=0, store=kwargs.get("obsp"))
+            self._varp = PairwiseArrays(self, axis=1, store=kwargs.get("varp"))
 
-            self._obsmap = MuAxisArrays(self, axis=0, store=kwargs.get("obsmap", {}))
-            self._varmap = MuAxisArrays(self, axis=1, store=kwargs.get("varmap", {}))
+            self._obsmap = MuAxisArrays(self, axis=0, store=kwargs.get("obsmap"))
+            self._varmap = MuAxisArrays(self, axis=1, store=kwargs.get("varmap"))
 
             self._axis = kwargs.get("axis") or 0
 
