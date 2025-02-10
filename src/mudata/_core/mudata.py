@@ -207,7 +207,7 @@ class MuData:
             # Ensure no keys are missing
             for key in ("obsm", "varm", "obsp", "varp", "obsmap", "varmap"):
                 kwargs[key] = kwargs.get(key) or {}
-            
+
             # Map each attribute to its class and axis value
             attr_to_axis_arrays = {
                 "obsm": (MuAxisArrays, 0),
