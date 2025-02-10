@@ -322,8 +322,12 @@ class MuData:
 
         for attr, idx in (("obs", obsidx), ("var", varidx)):
             posmap = {}
+            size = getattr(self, attr).shape[0]
             for mod, mapping in getattr(mudata_ref, attr + "map").items():
-                posmap[mod] = mapping[idx].copy()
+                cposmap = np.zeros((size,), dtype=mapping.dtype)
+                cidx = mapping[idx] > 0
+                cposmap[cidx > 0] = np.arange(cidx.sum()) + 1
+                posmap[mod] = cposmap
             setattr(self, "_" + attr + "map", posmap)
 
         self.is_view = True

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 from anndata import AnnData
 
@@ -10,8 +11,15 @@ from mudata import MuData
 
 @pytest.fixture()
 def mdata():
-    mod1 = AnnData(np.arange(0, 100, 0.1).reshape(-1, 10))
-    mod2 = AnnData(np.arange(101, 2101, 1).reshape(-1, 20))
+    rng = np.random.default_rng(42)
+    mod1 = AnnData(
+        np.arange(0, 100, 0.1).reshape(-1, 10),
+        obs=pd.DataFrame(index=rng.choice(150, size=100, replace=False)),
+    )
+    mod2 = AnnData(
+        np.arange(101, 2101, 1).reshape(-1, 20),
+        obs=pd.DataFrame(index=rng.choice(150, size=100, replace=False)),
+    )
     mods = {"mod1": mod1, "mod2": mod2}
     # Make var_names different in different modalities
     for m in ["mod1", "mod2"]:
@@ -69,6 +77,11 @@ class TestMuData:
         mdata_view = mdata[list(range(view_n_obs)), :]
         assert mdata_view.is_view
         assert mdata_view.n_obs == view_n_obs
+
+        for modname, mod in mdata_view.mod.items():
+            assert mdata_view.obsmap[modname].max() == mod.n_obs
+            idx = mdata_view.obsmap[modname]
+            assert np.all(mdata_view.obs_names[idx > 0] == mod.obs_names[idx[idx > 0] - 1])
 
         view_view_n_obs = 2
         mdata_view_view = mdata_view[list(range(view_view_n_obs)), :]
