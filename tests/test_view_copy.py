@@ -88,6 +88,18 @@ class TestMuData:
         assert mdata_view_view.is_view
         assert mdata_view_view.n_obs == view_view_n_obs
 
+        for modname, mod in mdata_view_view.mod.items():
+            ref_obsmap = mdata_view.obsmap[modname][:view_view_n_obs]
+            ref_obsmap = ref_obsmap[ref_obsmap > 0] - 1
+            assert (mod.obs_names == mdata_view[modname].obs_names[ref_obsmap]).all()
+            assert (mod.var_names == mdata_view[modname].var_names).all()
+
+        # test reordering
+        mdata_view_view = mdata_view[:, :]
+        for modname, mod in mdata_view_view.mod.items():
+            assert (mod.obs_names == mdata_view[modname].obs_names).all()
+            assert (mod.var_names == mdata_view[modname].var_names).all()
+
     def test_backed_copy(self, mdata, filepath_h5mu, filepath2_h5mu):
         mdata.write(filepath_h5mu)
         mdata_b = mudata.read_h5mu(filepath_h5mu, backed="r")
