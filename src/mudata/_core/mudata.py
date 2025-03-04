@@ -268,6 +268,7 @@ class MuData:
 
     def _init_as_view(self, mudata_ref: "MuData", index):
         from anndata._core.index import _normalize_indices
+        from anndata._core.views import _resolve_idxs
 
         obsidx, varidx = _normalize_indices(index, mudata_ref.obs.index, mudata_ref.var.index)
 
@@ -307,9 +308,13 @@ class MuData:
                         cvaridx = slice(None)
             if a.is_view:
                 if isinstance(a, MuData):
-                    self.mod[m] = a._mudata_ref[cobsidx, cvaridx]
+                    self.mod[m] = a._mudata_ref[
+                        _resolve_idxs((a._oidx, a._vidx), (cobsidx, cvaridx), a._mudata_ref)
+                    ]
                 else:
-                    self.mod[m] = a._adata_ref[cobsidx, cvaridx]
+                    self.mod[m] = a._adata_ref[
+                        _resolve_idxs((a._oidx, a._vidx), (cobsidx, cvaridx), a._adata_ref)
+                    ]
             else:
                 self.mod[m] = a[cobsidx, cvaridx]
 
@@ -334,6 +339,8 @@ class MuData:
         self.file = mudata_ref.file
         self._axis = mudata_ref._axis
         self._uns = mudata_ref._uns
+        self._oidx = obsidx
+        self._vidx = varidx
 
         if mudata_ref.is_view:
             self._mudata_ref = mudata_ref._mudata_ref
