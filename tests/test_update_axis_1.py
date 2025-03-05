@@ -97,11 +97,13 @@ class TestMuData:
             datasets[d].obs_names = [f"{d}_obs{j}" for j in range(dset.n_obs)]
         mdata = MuData(datasets, axis=1)
         mdata.update()
+        mdata.pull_obs()
+        mdata.pull_var()
 
         # Variables are different across datasets
         assert "dataset" in mdata.obs.columns
         for d, dset in datasets.items():
-            # Veriables are the same across datasets
+            # Variables are the same across datasets
             # hence /mod/mod1/var/dataset -> /var/mod1:dataset
             assert f"{d}:dataset" in mdata.var.columns
             # Columns are intact in individual datasets
@@ -124,6 +126,8 @@ class TestMuData:
             dset.obs_names = [f"{d}_obs{j // 2}" for j in range(dset.n_obs)]
         mdata = MuData(datasets, axis=1)
         mdata.update()
+        mdata.pull_obs()
+        mdata.pull_var()
 
         # Observations are different across datasets
         assert "dataset" in mdata.obs.columns
@@ -151,6 +155,12 @@ class TestMuData:
             dset.obs_names = [f"{d}_obs{j}" if j != 0 else f"obs_{j}" for j in range(dset.n_obs)]
         mdata = MuData(datasets, axis=1)
         mdata.update()
+        # New behaviour since v0.4:
+        # - Will add a single column 'mod' with the correct labels even with intersecting obs_names
+        mdata.pull_obs()
+        # - Will add the columns with modality prefixes
+        mdata.pull_obs(join_common=False)
+        mdata.pull_var()
 
         for d, dset in datasets.items():
             # Veriables are the same across datasets

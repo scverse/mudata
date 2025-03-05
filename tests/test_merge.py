@@ -29,7 +29,7 @@ def mdata():
 
 @pytest.mark.usefixtures("filepath_h5mu", "filepath_zarr")
 class TestMuData:
-    def test_merge(self, mdata, filepath_h5mu):
+    def test_merge(self, mdata):
         mdata1, mdata2 = mdata[:N1, :].copy(), mdata[N1:, :].copy()
         mdata_ = mudata.concat([mdata1, mdata2])
         assert list(mdata_.mod.keys()) == ["mod1", "mod2"]
