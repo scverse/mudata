@@ -1297,7 +1297,7 @@ class MuData:
 
                 # Update .obsp/.varp (size might have changed)
                 for mx_key, mx in attrp.items():
-                    attrp[mx_key] = attrp[mx_key][index_order, :][:,index_order]
+                    attrp[mx_key] = attrp[mx_key][index_order, :][:, index_order]
                     attrp[mx_key][index_order == -1, :] = -1
                     attrp[mx_key][:, index_order == -1] = -1
 
