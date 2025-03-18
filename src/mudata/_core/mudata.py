@@ -134,7 +134,7 @@ class MuData:
 
     def __init__(
         self,
-        data: Union[AnnData, Mapping[str, AnnData], "MuData"] = None,
+        data: Union[AnnData, Mapping[str, AnnData], "MuData"] | None = None,
         feature_types_names: dict | None = {
             "Gene Expression": "rna",
             "Peaks": "atac",
@@ -150,6 +150,7 @@ class MuData:
         data
             AnnData object or dictionary with AnnData objects as values.
             If a dictionary is passed, the keys will be used as modality names.
+            If None, creates an empty MuData object.
         feature_types_names
             Dictionary to map feature types encoded in data.var["feature_types"] to modality names.
             Only relevant when data is an AnnData object.
@@ -168,7 +169,10 @@ class MuData:
 
         # Add all modalities to a MuData object
         self.mod = ModDict()
-        if isinstance(data, abc.Mapping):
+        if data is None:
+            # Initialize an empty MuData object
+            pass
+        elif isinstance(data, abc.Mapping):
             for k, v in data.items():
                 self.mod[k] = v
         elif isinstance(data, AnnData):
@@ -231,10 +235,10 @@ class MuData:
 
             return
 
-        # Initialise global observations
+        # Initialize global observations
         self._obs = pd.DataFrame()
 
-        # Initialise global variables
+        # Initialize global variables
         self._var = pd.DataFrame()
 
         # Make obs map for each modality
@@ -249,6 +253,7 @@ class MuData:
 
         self._axis = 0
 
+        # Only call update() if there are modalities
         self.update()
 
     def _init_common(self):
@@ -1740,8 +1745,9 @@ class MuData:
 
         NOTE: From v0.4, it will not pull columns from modalities by default.
         """
-        self.update_var()
-        self.update_obs()
+        if len(self.mod) > 0:
+            self.update_var()
+            self.update_obs()
 
     @property
     def axis(self) -> int:
