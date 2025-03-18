@@ -1,4 +1,3 @@
-import unittest
 
 import numpy as np
 import pytest
@@ -6,7 +5,6 @@ from anndata import AnnData
 
 import mudata
 from mudata import MuData
-
 
 N, D1, D2 = 100, 20, 30
 N1 = 15
