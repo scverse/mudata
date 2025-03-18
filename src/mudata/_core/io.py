@@ -126,6 +126,7 @@ def write_zarr(
     from anndata._io.zarr import write_zarr as anndata_write_zarr
 
     from .. import __anndataversion__, __mudataversion__, __version__
+
     zarr_format = 2
     if hasattr(settings, "zarr_write_format"):
         zarr_format = settings.zarr_write_format
@@ -136,7 +137,12 @@ def write_zarr(
     elif isinstance(data, MuData):
         if isinstance(store, Path):
             store = str(store)
-        file = zarr.open(store, mode="w", zarr_format=zarr_format)
+        zarr_format = kwargs.pop("zarr_format", zarr_format)
+        try:
+            file = zarr.open(store, mode="w", zarr_format=zarr_format)
+        except TypeError:
+            # zarr_format is not supported in this version of zarr
+            file = zarr.open(store, mode="w")
         mdata = data
         write_elem(
             file,
