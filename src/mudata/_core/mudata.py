@@ -320,10 +320,10 @@ class MuData:
 
         self._obs = DataFrameView(mudata_ref.obs.iloc[obsidx, :], view_args=(self, "obs"))
         self._obsm = mudata_ref.obsm._view(self, (obsidx,))
-        self._obsp = mudata_ref.obsp._view(self, obsidx)
+        self._obsp = mudata_ref.obsp._view(self, (obsidx, obsidx))
         self._var = DataFrameView(mudata_ref.var.iloc[varidx, :], view_args=(self, "var"))
         self._varm = mudata_ref.varm._view(self, (varidx,))
-        self._varp = mudata_ref.varp._view(self, varidx)
+        self._varp = mudata_ref.varp._view(self, (varidx, varidx))
 
         for attr, idx in (("obs", obsidx), ("var", varidx)):
             posmap = {}
@@ -1297,7 +1297,7 @@ class MuData:
 
                 # Update .obsp/.varp (size might have changed)
                 for mx_key, mx in attrp.items():
-                    attrp[mx_key] = attrp[mx_key][index_order, index_order]
+                    attrp[mx_key] = attrp[mx_key][index_order, :][:,index_order]
                     attrp[mx_key][index_order == -1, :] = -1
                     attrp[mx_key][:, index_order == -1] = -1
 

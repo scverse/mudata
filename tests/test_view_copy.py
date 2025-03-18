@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from anndata import AnnData
+from scipy import sparse
 
 import mudata
 from mudata import MuData
@@ -25,6 +26,52 @@ def mdata():
     for m in ["mod1", "mod2"]:
         mods[m].var_names = [f"{m}_var{i}" for i in range(mods[m].n_vars)]
     mdata = MuData(mods)
+    return mdata
+
+
+@pytest.fixture()
+def mdata_with_obsp():
+    """Create a MuData object with populated obsp and varp fields."""
+    rng = np.random.default_rng(42)
+    mod1 = AnnData(
+        np.arange(0, 100, 0.1).reshape(-1, 10),
+        obs=pd.DataFrame(index=rng.choice(150, size=100, replace=False)),
+    )
+    mod2 = AnnData(
+        np.arange(101, 2101, 1).reshape(-1, 20),
+        obs=pd.DataFrame(index=rng.choice(150, size=100, replace=False)),
+    )
+    mods = {"mod1": mod1, "mod2": mod2}
+    # Make var_names different in different modalities
+    for m in ["mod1", "mod2"]:
+        mods[m].var_names = [f"{m}_var{i}" for i in range(mods[m].n_vars)]
+    mdata = MuData(mods)
+
+    # Create and add sparse matrices to obsp
+    n_obs = mdata.n_obs
+    n_var = mdata.n_var
+
+    # Create sparse distances matrix (symmetric)
+    distances = sparse.random(n_obs, n_obs, density=0.2, random_state=42)
+    distances = sparse.triu(distances)
+    distances = distances + distances.T
+
+    # Create sparse connectivities matrix (symmetric)
+    connectivities = sparse.random(n_obs, n_obs, density=0.1, random_state=42)
+    connectivities = sparse.triu(connectivities)
+    connectivities = connectivities + connectivities.T
+
+    # Add to obsp
+    mdata.obsp["distances"] = distances
+    mdata.obsp["connectivities"] = connectivities
+
+    # Create and add a sparse matrix to varp
+    varp_matrix = sparse.random(n_var, n_var, density=0.05, random_state=42)
+    varp_matrix = sparse.triu(varp_matrix)
+    varp_matrix = varp_matrix + varp_matrix.T
+
+    mdata.varp["correlations"] = varp_matrix
+
     return mdata
 
 
@@ -106,3 +153,57 @@ class TestMuData:
         assert mdata_b.n_obs == mdata.n_obs
         mdata_b_copy = mdata_b.copy(filepath2_h5mu)
         assert mdata_b_copy.file._filename.name == Path(filepath2_h5mu).name
+
+    def test_obsp_slicing(self, mdata_with_obsp):
+        """Test that obsp matrices are correctly sliced when subsetting a MuData object."""
+        orig_n_obs = mdata_with_obsp.n_obs
+
+        # Check initial shapes
+        assert mdata_with_obsp.obsp["distances"].shape == (orig_n_obs, orig_n_obs)
+        assert mdata_with_obsp.obsp["connectivities"].shape == (orig_n_obs, orig_n_obs)
+
+        # Slice a subset of cells
+        n_obs_subset = 50
+        random_indices = np.random.choice(mdata_with_obsp.obs_names, size=n_obs_subset, replace=False)
+
+        # Create a slice view
+        mdata_slice = mdata_with_obsp[random_indices]
+
+        # Check that the sliced obsp matrices have correct shape in the view
+        assert mdata_slice.obsp["distances"].shape == (n_obs_subset, n_obs_subset), \
+            f"Expected shape in view: {(n_obs_subset, orig_n_obs)}, got: {mdata_slice.obsp['distances'].shape}"
+        assert mdata_slice.obsp["connectivities"].shape == (n_obs_subset, n_obs_subset), \
+            f"Expected shape in view: {(n_obs_subset, orig_n_obs)}, got: {mdata_slice.obsp['connectivities'].shape}"
+
+        # Make a copy of the sliced MuData object
+        mdata_copy = mdata_slice.copy()
+        # Check shapes after copy - these should be (n_obs_subset, n_obs_subset) if correctly copied
+        assert mdata_copy.obsp["distances"].shape == (n_obs_subset, n_obs_subset), \
+            f"Expected shape after copy: {(n_obs_subset, n_obs_subset)}, got: {mdata_copy.obsp['distances'].shape}"
+        assert mdata_copy.obsp["connectivities"].shape == (n_obs_subset, n_obs_subset), \
+            f"Expected shape after copy: {(n_obs_subset, n_obs_subset)}, got: {mdata_copy.obsp['connectivities'].shape}"
+
+    def test_varp_slicing(self, mdata_with_obsp):
+        """Test that varp matrices are correctly sliced when subsetting a MuData object."""
+        orig_n_var = mdata_with_obsp.n_var
+
+        # Check initial shape
+        assert mdata_with_obsp.varp["correlations"].shape == (orig_n_var, orig_n_var)
+
+        # Slice a subset of variables
+        n_var_subset = 15
+        all_var_names = mdata_with_obsp.var_names
+        random_var_indices = np.random.choice(all_var_names, size=n_var_subset, replace=False)
+
+        # Create a slice view
+        mdata_slice = mdata_with_obsp[:, random_var_indices]
+
+        # Check that the sliced varp matrix has correct shape in the view
+        assert mdata_slice.varp["correlations"].shape == (n_var_subset, n_var_subset), \
+            f"Expected shape in view: {(n_var_subset, orig_n_var)}, got: {mdata_slice.varp['correlations'].shape}"
+
+        # Copy the sliced MuData object
+        mdata_copy = mdata_slice.copy()
+        # Check shapes after copy
+        assert mdata_copy.varp["correlations"].shape == (n_var_subset, n_var_subset), \
+            f"Expected shape after copy: {(n_var_subset, n_var_subset)}, got: {mdata_copy.varp['correlations'].shape}"
