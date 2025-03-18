@@ -121,10 +121,14 @@ def write_zarr(
     Matrices - sparse or dense - are currently stored as they are.
     """
     import zarr
+    from anndata import settings
     from anndata._io.specs.registry import write_elem
     from anndata._io.zarr import write_zarr as anndata_write_zarr
 
     from .. import __anndataversion__, __mudataversion__, __version__
+    zarr_format = 2
+    if hasattr(settings, "zarr_write_format"):
+        zarr_format = settings.zarr_write_format
 
     if isinstance(data, AnnData):
         adata = data
@@ -132,7 +136,7 @@ def write_zarr(
     elif isinstance(data, MuData):
         if isinstance(store, Path):
             store = str(store)
-        file = zarr.open(store, mode="w")
+        file = zarr.open(store, mode="w", zarr_format=zarr_format)
         mdata = data
         write_elem(
             file,
