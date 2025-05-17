@@ -1463,7 +1463,11 @@ class MuData:
             self.update_obs()
 
         for k in self.mod:
-            self.mod[k].obs_names_make_unique()
+            if isinstance(self.mod[k], AnnData):
+                self.mod[k].obs_names_make_unique()
+            # Only propagate to individual modalities with shared vars
+            elif isinstance(self.mod[k], MuData) and getattr(self.mod[k], 'axis', 1) == 1:
+                self.mod[k].obs_names_make_unique()
 
         # Check if there are observations with the same name in different modalities
         common_obs = []
@@ -1490,12 +1494,43 @@ class MuData:
     def obs_names(self) -> pd.Index:
         """
         Names of variables (alias for `.obs.index`)
-
-        This property is read-only.
-        To be modified, obs_names of individual modalities
-        should be changed, and .update_obs() should be called then.
         """
         return self.obs.index
+
+    @obs_names.setter
+    def obs_names(self, names: Sequence[str]):
+        """
+        Set the observation names for all the nested AnnData/MuData objects.
+        """
+        if isinstance(names, pd.Index):
+            if not isinstance(names.name, str | type(None)):
+                raise ValueError(
+                    f"MuData expects .obs.index.name to be a string or None, "
+                    f"but you passed a name of type {type(names.name).__name__!r}"
+                )
+        else:
+            names = pd.Index(names)
+            if not isinstance(names.name, str | type(None)):
+                names.name = None
+
+        mod_obs_sum = np.sum([a.n_obs for a in self.mod.values()])
+        if mod_obs_sum != self.n_obs:
+            self.update_obs()
+
+        if len(names) != self.n_obs:
+            raise ValueError(
+                f"The length of provided observation names {len(names)} does not match the length {self.shape[0]} of MuData.obs."
+            )
+
+        if self.is_view:
+            self._init_as_actual(self.copy())
+
+        self._obs.index = names
+        for mod, a in self.mod.items():
+            indices = self.obsmap[mod]
+            self.mod[mod].obs_names = names[indices[indices != 0] - 1]
+
+        self.update_obs()
 
     @property
     def var(self) -> pd.DataFrame:
@@ -1565,7 +1600,11 @@ class MuData:
             self.update_var()
 
         for k in self.mod:
-            self.mod[k].var_names_make_unique()
+            if isinstance(self.mod[k], AnnData):
+                self.mod[k].var_names_make_unique()
+            # Only propagate to individual modalities with shared obs
+            elif isinstance(self.mod[k], MuData) and getattr(self.mod[k], 'axis', 0) == 0:
+                self.mod[k].var_names_make_unique()
 
         # Check if there are variables with the same name in different modalities
         common_vars = []
@@ -1592,12 +1631,43 @@ class MuData:
     def var_names(self) -> pd.Index:
         """
         Names of variables (alias for `.var.index`)
-
-        This property is read-only.
-        To be modified, var_names of individual modalities
-        should be changed, and .update_var() should be called then.
         """
         return self.var.index
+
+    @var_names.setter
+    def var_names(self, names: Sequence[str]):
+        """
+        Set the variable names for all the nested AnnData/MuData objects.
+        """
+        if isinstance(names, pd.Index):
+            if not isinstance(names.name, str | type(None)):
+                raise ValueError(
+                    f"MuData expects .var.index.name to be a string or None, "
+                    f"but you passed a name of type {type(names.name).__name__!r}"
+                )
+        else:
+            names = pd.Index(names)
+            if not isinstance(names.name, str | type(None)):
+                names.name = None
+
+        mod_var_sum = np.sum([a.n_vars for a in self.mod.values()])
+        if mod_var_sum != self.n_vars:
+            self.update_var()
+
+        if len(names) != self.n_vars:
+            raise ValueError(
+                f"The length of provided variable names {len(names)} does not match the length {self.shape[0]} of MuData.var."
+            )
+
+        if self.is_view:
+            self._init_as_actual(self.copy())
+
+        self._var.index = names
+        for mod, a in self.mod.items():
+            indices = self.varmap[mod]
+            self.mod[mod].var_names = names[indices[indices != 0] - 1]
+
+        self.update_var()
 
     # Multi-dimensional annotations (.obsm and .varm)
 
