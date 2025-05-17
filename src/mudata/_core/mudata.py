@@ -697,8 +697,14 @@ class MuData:
 
                     data_global = data_global.rename_axis(col_index, axis=0).reset_index()
                     for mod in self.mod.keys():
-                        data_global[mod + ":" + rowcol] = getattr(self, attr + "map")[mod]
-                    attrmap_columns = (mod + ":" + rowcol for mod in self.mod.keys())
+                        # Only add mapping for modalities that exist in attrmap
+                        if mod in getattr(self, attr + "map"):
+                            data_global[mod + ":" + rowcol] = getattr(self, attr + "map")[mod]
+                    attrmap_columns = [
+                        mod + ":" + rowcol
+                        for mod in self.mod.keys()
+                        if mod in getattr(self, attr + "map")
+                    ]
 
                     data_mod = data_mod.merge(
                         data_global, on=[col_index, *attrmap_columns], how="left", sort=False
@@ -803,8 +809,11 @@ class MuData:
             data_global[col_range] = np.arange(len(data_global))
 
             for mod in self.mod.keys():
-                data_global[mod + ":" + rowcol] = getattr(self, attr + "map")[mod]
-            attrmap_columns = [mod + ":" + rowcol for mod in self.mod.keys()]
+                if mod in getattr(self, attr + "map"):
+                    data_global[mod + ":" + rowcol] = getattr(self, attr + "map")[mod]
+            attrmap_columns = [
+                mod + ":" + rowcol for mod in self.mod.keys() if mod in getattr(self, attr + "map")
+            ]
 
             data_mod = data_mod.merge(data_global, on=attrmap_columns, how="left", sort=False)
 
