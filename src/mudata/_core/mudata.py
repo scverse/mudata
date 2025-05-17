@@ -1466,7 +1466,7 @@ class MuData:
             if isinstance(self.mod[k], AnnData):
                 self.mod[k].obs_names_make_unique()
             # Only propagate to individual modalities with shared vars
-            elif isinstance(self.mod[k], MuData) and getattr(self.mod[k], 'axis', 1) == 1:
+            elif isinstance(self.mod[k], MuData) and getattr(self.mod[k], "axis", 1) == 1:
                 self.mod[k].obs_names_make_unique()
 
         # Check if there are observations with the same name in different modalities
@@ -1603,7 +1603,7 @@ class MuData:
             if isinstance(self.mod[k], AnnData):
                 self.mod[k].var_names_make_unique()
             # Only propagate to individual modalities with shared obs
-            elif isinstance(self.mod[k], MuData) and getattr(self.mod[k], 'axis', 0) == 0:
+            elif isinstance(self.mod[k], MuData) and getattr(self.mod[k], "axis", 0) == 0:
                 self.mod[k].var_names_make_unique()
 
         # Check if there are variables with the same name in different modalities
