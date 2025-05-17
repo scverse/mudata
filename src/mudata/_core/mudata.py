@@ -335,7 +335,7 @@ class MuData:
             size = getattr(self, attr).shape[0]
             for mod, mapping in getattr(mudata_ref, attr + "map").items():
                 cposmap = np.zeros((size,), dtype=mapping.dtype)
-                cidx = mapping[idx] > 0
+                cidx = (mapping[idx] > 0).ravel()
                 cposmap[cidx > 0] = np.arange(cidx.sum()) + 1
                 posmap[mod] = cposmap
             setattr(self, "_" + attr + "map", posmap)
@@ -1989,7 +1989,7 @@ class MuData:
         for m, mod in self.mod.items():
             if mods is not None and m not in mods:
                 continue
-            mod_map = attrmap[m]
+            mod_map = attrmap[m].ravel()
             mod_n_attr = mod.n_vars if attr == "var" else mod.n_obs
             mask = mod_map != 0
 
