@@ -1,57 +1,11 @@
 import unittest
+from functools import reduce
 
 import numpy as np
 import pytest
 from anndata import AnnData
 
-from mudata import MuData
-
-
-@pytest.fixture()
-def mdata(request, obs_n, obs_across, obs_mod):
-    # Generate unique, intersecting, and joint observations by default
-    np.random.seed(100)
-    mod1 = AnnData(X=np.random.normal(size=3000).reshape(-1, 10))
-    mod2 = AnnData(X=np.random.normal(size=1000).reshape(-1, 10))
-
-    mods = {"mod1": mod1, "mod2": mod2}
-    # Make var_names different in different modalities
-    for m in ["mod1", "mod2"]:
-        mods[m].obs_names = [f"obs{i}" for i in range(mods[m].n_obs)]
-        mods[m].var_names = [f"{m}_var{i}" for i in range(mods[m].n_vars)]
-        mods[m].obs["min_count"] = mods[m].X.min(axis=1)
-
-    if obs_n:
-        if obs_n == "disjoint":
-            mod2_which_obs = np.random.choice(
-                mods["mod2"].obs_names, size=mods["mod2"].n_obs // 2, replace=False
-            )
-            mods["mod2"] = mods["mod2"][mod2_which_obs].copy()
-
-    if obs_across:
-        if obs_across != "intersecting":
-            raise NotImplementedError("Tests for non-intersecting obs_names are not implemented")
-
-    if obs_mod:
-        if obs_mod == "duplicated":
-            for m in ["mod1", "mod2"]:
-                # Index does not support mutable operations
-                obs_names = mods[m].obs_names.to_numpy()
-                obs_names[1] = obs_names[0]
-                mods[m].obs_names = obs_names
-        elif (
-            obs_mod == "extreme_duplicated"
-        ):  # integer overflow: https://github.com/scverse/mudata/issues/107
-            obs_names = mods["mod1"].obs_names.to_numpy()
-            obs_names[:-1] = obs_names[0]
-            mods["mod1"].obs_names = obs_names
-
-    mdata = MuData(mods)
-
-    batches = np.random.choice(["a", "b", "c"], size=mdata.shape[0], replace=True)
-    mdata.obs["batch"] = batches
-
-    return mdata
+from mudata import MuData, set_options
 
 
 @pytest.fixture()
@@ -65,6 +19,7 @@ def modalities(request, obs_n, obs_across, obs_mod):
         mods[m] = AnnData(X=np.random.normal(size=3000 * i1).reshape(-1, 10 * i1))
         mods[m].obs["mod"] = m
         mods[m].var["mod"] = m
+        mods[m].obs["min_count"] = mods[m].X.min(axis=1)
 
     if obs_n:
         if obs_n == "disjoint":
@@ -84,7 +39,7 @@ def modalities(request, obs_n, obs_across, obs_mod):
                 obs_names = mods[m].obs_names.values.copy()
                 obs_names[1] = obs_names[0]
                 mods[m].obs_names = obs_names
-        elif obs_mod == "extreme_duplicated":
+        elif obs_mod == "extreme_duplicated": # integer overflow: https://github.com/scverse/mudata/issues/107
             obs_names = mods["mod1"].obs_names.to_numpy()
             obs_names[:-1] = obs_names[0]
             mods["mod1"].obs_names = obs_names
@@ -92,9 +47,219 @@ def modalities(request, obs_n, obs_across, obs_mod):
     return mods
 
 
+@pytest.fixture()
+def mdata(modalities):
+    mdata = MuData(modalities)
+
+    batches = np.random.choice(["a", "b", "c"], size=mdata.shape[0], replace=True)
+    mdata.obs["batch"] = batches
+
+    return mdata
+
+
 @pytest.mark.usefixtures("filepath_h5mu")
+@pytest.mark.parametrize("axis", [0, 1])
 class TestMuData:
-    @pytest.mark.parametrize("obs_mod", ["unique", "extreme_duplicated"])
+    @pytest.fixture(autouse=True)
+    def new_update(self):
+        set_options(pull_on_update=False)
+        yield
+        set_options(pull_on_update=None)
+
+    @pytest.mark.parametrize("obs_mod", ["unique"])
+    @pytest.mark.parametrize("obs_across", ["intersecting"])
+    @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
+    def test_update_simple(self, modalities, axis):
+        """
+        Update should work when
+        - obs_names are the same across modalities,
+        - var_names are unique to each modality
+        """
+        attr = "obs" if axis == 0 else "var"
+        oattr = "var" if axis == 0 else "obs"
+        for m, mod in modalities.items():
+            setattr(mod, f"{oattr}_names", [f"{m}_{oattr}{j}" for j in range(mod.shape[1 - axis])])
+
+        mdata = MuData(modalities, axis=axis)
+
+        # names along non-axis are concatenated
+        assert mdata.shape[1 - axis] == sum(mod.shape[1 - axis] for mod in modalities.values())
+        assert (
+            getattr(mdata, f"{oattr}_names")
+            == reduce(
+                lambda x, y: x.append(y),
+                (getattr(mod, f"{oattr}_names") for mod in modalities.values()),
+            )
+        ).all()
+
+        # names along axis are intersected
+        axisnames = reduce(
+            lambda x, y: x.union(y, sort=False),
+            (getattr(mod, f"{attr}_names") for mod in modalities.values()),
+        )
+        assert mdata.shape[axis] == axisnames.shape[0]
+        assert (getattr(mdata, f"{attr}_names") == axisnames).all()
+
+        # Variables are different across modalities
+        for m, mod in modalities.items():
+            # Columns are intact in individual modalities
+            assert "mod" in mod.obs.columns
+            assert all(mod.obs["mod"] == m)
+            assert "mod" in mod.var.columns
+            assert all(mod.var["mod"] == m)
+
+    @pytest.mark.parametrize("obs_mod", ["unique"])
+    @pytest.mark.parametrize("obs_across", ["intersecting"])
+    @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
+    def test_update_duplicates(self, modalities, axis):
+        """
+        Update should work when
+        - obs_names are the same across modalities,
+        - there are duplicated var_names, which are not intersecting
+          between modalities
+        """
+        attr = "obs" if axis == 0 else "var"
+        oattr = "var" if axis == 0 else "obs"
+        for m, mod in modalities.items():
+            setattr(
+                mod, f"{oattr}_names", [f"{m}_{oattr}{j // 2}" for j in range(mod.shape[1 - axis])]
+            )
+
+        mdata = MuData(modalities, axis=axis)
+
+        # names along non-axis are concatenated
+        assert mdata.shape[1 - axis] == sum(mod.shape[1 - axis] for mod in modalities.values())
+        assert (
+            getattr(mdata, f"{oattr}_names")
+            == reduce(
+                lambda x, y: x.append(y),
+                (getattr(mod, f"{oattr}_names") for mod in modalities.values()),
+            )
+        ).all()
+
+        # names along axis are intersected
+        axisnames = reduce(
+            lambda x, y: x.union(y, sort=False),
+            (getattr(mod, f"{attr}_names") for mod in modalities.values()),
+        )
+        assert mdata.shape[axis] == axisnames.shape[0]
+        assert (getattr(mdata, f"{attr}_names") == axisnames).all()
+
+        # Variables are different across modalities
+        for m, mod in modalities.items():
+            # Columns are intact in individual modalities
+            assert "mod" in mod.obs.columns
+            assert all(mod.obs["mod"] == m)
+            assert "mod" in mod.var.columns
+            assert all(mod.var["mod"] == m)
+
+    @pytest.mark.parametrize("obs_mod", ["unique"])
+    @pytest.mark.parametrize("obs_across", ["intersecting"])
+    @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
+    def test_update_intersecting(self, modalities, axis):
+        """
+        Update should work when
+        - obs_names are the same across modalities,
+        - there are intersecting var_names,
+          which are unique in each modality
+        """
+        attr = "obs" if axis == 0 else "var"
+        oattr = "var" if axis == 0 else "obs"
+        for m, mod in modalities.items():
+            setattr(
+                mod,
+                f"{oattr}_names",
+                [
+                    f"{m}_{oattr}{j}" if j != 0 else f"{oattr}_{j}"
+                    for j in range(mod.shape[1 - axis])
+                ],
+            )
+
+        mdata = MuData(modalities, axis=axis)
+
+        # names along non-axis are concatenated
+        assert mdata.shape[1 - axis] == sum(mod.shape[1 - axis] for mod in modalities.values())
+        assert (
+            getattr(mdata, f"{oattr}_names")
+            == reduce(
+                lambda x, y: x.append(y),
+                (getattr(mod, f"{oattr}_names") for mod in modalities.values()),
+            )
+        ).all()
+
+        # names along axis are intersected
+        axisnames = reduce(
+            lambda x, y: x.union(y, sort=False),
+            (getattr(mod, f"{attr}_names") for mod in modalities.values()),
+        )
+        assert mdata.shape[axis] == axisnames.shape[0]
+        assert (getattr(mdata, f"{attr}_names") == axisnames).all()
+
+        # Variables are different across modalities
+        for m, mod in modalities.items():
+            # Columns are intact in individual modalities
+            assert "mod" in mod.obs.columns
+            assert all(mod.obs["mod"] == m)
+            assert "mod" in mod.var.columns
+            assert all(mod.var["mod"] == m)
+
+    @pytest.mark.parametrize("obs_mod", ["unique"])
+    @pytest.mark.parametrize("obs_across", ["intersecting"])
+    @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
+    def test_update_after_filter_obs_adata(self, modalities, axis):
+        """
+        Check for muon issue #44.
+        """
+        # Replicate in-place filtering in muon:
+        # mu.pp.filter_obs(mdata['mod1'], 'min_count', lambda x: (x < -2))
+        mdata = MuData(modalities, axis=axis)
+        batches = np.random.choice(["a", "b", "c"], size=mdata.shape[0], replace=True)
+        mdata.obs["batch"] = batches
+
+        old_obsnames = mdata.obs_names
+        old_varnames = mdata.var_names
+
+        mdata.mod["mod1"] = mdata["mod1"][mdata["mod1"].obs["min_count"] < -2].copy()
+        mdata.update()
+        assert mdata.obs["batch"].isna().sum() == 0
+
+        assert (mdata.var_names == old_varnames).all()
+        if axis == 0:
+            assert (mdata.obs_names == old_obsnames).all()
+
+    @pytest.mark.parametrize("obs_mod", ["unique"])
+    @pytest.mark.parametrize("obs_across", ["intersecting"])
+    @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
+    def test_update_after_obs_reordered(self, modalities, axis):
+        """
+        Update should work if obs are reordered.
+        """
+        mdata = MuData(modalities, axis=axis)
+        mdata.obsm["test_obsm"] = np.random.normal(size=(mdata.n_obs, 2))
+
+        some_obs_names = mdata.obs_names.values[:2]
+
+        true_obsm_values = [
+            mdata.obsm["test_obsm"][np.where(mdata.obs_names.values == name)[0][0]]
+            for name in some_obs_names
+        ]
+
+        mdata.mod["mod1"] = mdata["mod1"][::-1].copy()
+        mdata.update()
+
+        test_obsm_values = [
+            mdata.obsm["test_obsm"][np.where(mdata.obs_names == name)[0][0]]
+            for name in some_obs_names
+        ]
+
+        assert all(
+            [all(true_obsm_values[i] == test_obsm_values[i]) for i in range(len(true_obsm_values))]
+        )
+
+
+@pytest.mark.usefixtures("filepath_h5mu")
+class TestMuDataLegacy:
+    @pytest.mark.parametrize("obs_mod", ["unique"])
     @pytest.mark.parametrize("obs_across", ["intersecting"])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
     def test_update_simple(self, modalities):
@@ -186,6 +351,7 @@ class TestMuData:
         # Replicate in-place filtering in muon:
         # mu.pp.filter_obs(mdata['mod1'], 'min_count', lambda x: (x < -2))
         mdata.mod["mod1"] = mdata["mod1"][mdata["mod1"].obs["min_count"] < -2].copy()
+        old_obsnames = mdata.obs_names
         mdata.update()
         assert mdata.obs["batch"].isna().sum() == 0
 

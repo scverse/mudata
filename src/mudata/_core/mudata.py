@@ -682,36 +682,16 @@ class MuData:
                 data_mod[colname] = col.astype(np.uint32)
 
             if len(data_global.columns) > 0:
-                # TODO: if there were intersecting attrnames between modalities,
-                #       this will increase the size of the index
-                # Should we use attrmap to figure the index out?
-                #
-                if not attr_intersecting:
+                if not attr_intersecting or axis == (1 - self.axis) or self.axis == -1:
                     data_mod = data_mod.join(data_global, how="left", sort=False)
                 else:
                     # In order to preserve the order of the index, instead,
-                    # perform a join based on (index, attrmap value) pairs.
-                    (col_index,) = self._find_unique_colnames(attr, 1)
-                    data_mod = data_mod.rename_axis(col_index, axis=0).reset_index()
-
-                    data_global = data_global.rename_axis(col_index, axis=0).reset_index()
-                    for mod in self.mod.keys():
-                        # Only add mapping for modalities that exist in attrmap
-                        if mod in getattr(self, attr + "map"):
-                            data_global[mod + ":" + rowcol] = getattr(self, attr + "map")[mod]
-                    attrmap_columns = [
-                        mod + ":" + rowcol
-                        for mod in self.mod.keys()
-                        if mod in getattr(self, attr + "map")
-                    ]
-
-                    data_mod = data_mod.merge(
-                        data_global, on=[col_index, *attrmap_columns], how="left", sort=False
-                    )
-
-                    # Restore the index and remove the helper column
-                    data_mod = data_mod.set_index(col_index).rename_axis(None, axis=0)
-                    data_global = data_global.set_index(col_index).rename_axis(None, axis=0)
+                    # perform a join based on unique index.
+                    data_mod = _make_index_unique(data_mod)
+                    data_global = _make_index_unique(data_global)
+                    data_mod = data_global.join(data_mod, how="left", sort=False)
+                    data_mod = _restore_index(data_mod)
+                    data_global = _restore_index(data_global)
         #
         # General case: with duplicates and/or intersections
         #
@@ -782,59 +762,24 @@ class MuData:
             data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
             data_mod.index.set_names(None, inplace=True)
 
+        if data_global.shape[0] > 0:
+            # reorder new index to conform to the old index as much as possible
+            kept_idx = data_global.index.isin(data_mod.index)
+            data_mod = data_mod.loc[
+                data_global.index[kept_idx].append(data_global.index[~kept_idx]), :
+            ]
+
         # get adata positions and remove columns from the data frame
         mdict = {}
         for m in self.mod.keys():
             colname = m + ":" + rowcol
             mdict[m] = data_mod[colname].to_numpy()
-            # data_mod.drop(colname, axis=1, inplace=True)
-
-        # Add data from global .obs/.var columns # This might reduce the size of .obs/.var if observations/variables were removed
-        if getattr(self, attr).index.is_unique:
-            # There are no new values in the index
-            # Original index is present in data_global
-            attr_reindexed = getattr(self, attr).reindex(index=data_mod.index, copy=False)
-        else:
-            # Reindexing won't work with duplicated labels:
-            #   cannot reindex on an axis with duplicate labels.
-            # Use attrmap to resolve it.
-
-            # TODO: might be possible to refactor to memoize it
-            # if it has already been done in the same ._update_attr()
-            col_index, col_range = self._find_unique_colnames(attr, 2)
-
-            # copy is made here
-            data_mod = data_mod.rename_axis(col_index, axis=0).reset_index()
-
-            data_global[col_range] = np.arange(len(data_global))
-
-            for mod in self.mod.keys():
-                if mod in getattr(self, attr + "map"):
-                    data_global[mod + ":" + rowcol] = getattr(self, attr + "map")[mod]
-            attrmap_columns = [
-                mod + ":" + rowcol for mod in self.mod.keys() if mod in getattr(self, attr + "map")
-            ]
-
-            data_mod = data_mod.merge(data_global, on=attrmap_columns, how="left", sort=False)
-
-            index_selection = data_mod[col_range].values
-
-            data_mod.drop(col_range, axis=1, inplace=True)
-            data_global.drop(col_range, axis=1, inplace=True)
-
-            # Restore the index and remove the helper column
-            data_mod = data_mod.set_index(col_index).rename_axis(None, axis=0)
-            attr_reindexed = getattr(self, attr).iloc[index_selection]
-            attr_reindexed.index = data_mod.index
-
-        # Clean up
-        for colname in (mod + "+" + rowcol for mod in self.mod.keys()):
-            data_mod.drop(colname, axis=1, inplace=True, errors="ignore")
+            data_mod.drop(colname, axis=1, inplace=True)
 
         setattr(
             self,
             "_" + attr,
-            attr_reindexed,
+            data_mod,
         )
 
         # Update .obsm/.varm
@@ -844,7 +789,7 @@ class MuData:
         for mod, mapping in mdict.items():
             attrm[mod] = mapping > 0
 
-        now_index = getattr(self, attr).index
+        now_index = data_mod.index
 
         if len(prev_index) == 0:
             # New object
