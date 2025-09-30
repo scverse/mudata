@@ -605,6 +605,7 @@ class MuData:
         attr_changed = self._check_changed_attr_names(attr)
 
         attr_duplicated = self._check_duplicated_attr_names(attr)
+        attr_intersecting = self._check_intersecting_attr_names(attr)
 
         if attr_duplicated:
             warnings.warn(
@@ -660,8 +661,8 @@ class MuData:
                 col.replace(np.nan, 0, inplace=True)
                 data_mod[colname] = col.astype(np.uint32)
 
-            data_mod = _make_index_unique(data_mod)
-            data_global = _make_index_unique(data_global)
+            data_mod = _make_index_unique(data_mod, force=attr_intersecting)
+            data_global = _make_index_unique(data_global, force=attr_intersecting)
             if data_global.shape[1] > 0:
                 data_mod = data_global.join(data_mod, how="left", sort=False)
 
@@ -705,7 +706,13 @@ class MuData:
                 col.replace(np.nan, 0, inplace=True)
                 col = col.astype(np.uint32)
                 data_mod[colname] = col
-                if mod in attrmap and np.array_equal(attrmap[mod], col):
+                if mod in attrmap and (
+                    col.shape[0] != data_global.shape[0]
+                    and np.sum(attrmap[mod] > 0)
+                    == getattr(amod, attr).shape[0]  # added/removed observations
+                    or col.shape[0] == data_global.shape[0]
+                    and np.array_equal(attrmap[mod], col)  # reordered
+                ):
                     data_mod.set_index(colname, append=True, inplace=True)
                     data_global.set_index(attrmap[mod].ravel(), append=True, inplace=True)
                     data_global.index.set_names(colname, level=-1, inplace=True)
@@ -719,8 +726,10 @@ class MuData:
                     data_mod.reset_index(
                         data_mod.index.names.difference(data_global.index.names), inplace=True
                     )
-                    data_mod = _make_index_unique(data_mod)
-                    data_global = _make_index_unique(data_global)
+                # after inserting a new modality with duplicates, but no duplicates before:
+                # data_mod.index is not unique
+                data_global = _make_index_unique(data_global, force=not data_mod.index.is_unique)
+                data_mod = _make_index_unique(data_mod)
                 data_mod = data_mod.join(data_global, how="left", sort=False)
 
                 # reorder new index to conform to the old index as much as possible
@@ -736,6 +745,9 @@ class MuData:
                     == data_global.shape[
                         0
                     ]  # renamed (since new_idx.shape[0] > 0 and kept_idx.shape[0] < data_global.shape[0])
+                    or axis == self._axis
+                    and data_mod.shape[0]
+                    > data_global.shape[0]  # new modality added and concacenated
                 )
 
             data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
