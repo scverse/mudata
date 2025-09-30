@@ -8,9 +8,9 @@ import pandas as pd
 T = TypeVar("T", pd.Series, pd.DataFrame)
 
 
-def _make_index_unique(df: pd.DataFrame) -> pd.DataFrame:
-    dup_idx = np.zeros((df.shape[0],), dtype=np.uint8)
-    if not df.index.is_unique:
+def _make_index_unique(df: pd.DataFrame, force: bool = False) -> pd.DataFrame:
+    if force or not df.index.is_unique:
+        dup_idx = np.zeros((df.shape[0],), dtype=np.uint8)
         duplicates = np.nonzero(df.index.duplicated())[0]
         cnt = Counter()
         for dup in duplicates:
@@ -22,11 +22,13 @@ def _make_index_unique(df: pd.DataFrame) -> pd.DataFrame:
                 dup_idx = dup_idx.astype(np.min_scalar_type(newval))
                 dup_idx[dup] = newval
             cnt[idxval] = newval
-    return df.set_index(dup_idx, append=True)
+        return df.set_index(dup_idx, append=True)
+    else:
+        return df
 
 
 def _restore_index(df: pd.DataFrame) -> pd.DataFrame:
-    return df.reset_index(level=-1, drop=True)
+    return df.reset_index(level=-1, drop=True) if df.index.nlevels > 1 else df
 
 
 def _maybe_coerce_to_boolean(df: T) -> T:

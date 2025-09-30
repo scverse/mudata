@@ -24,9 +24,9 @@ def modalities(request, obs_n, obs_across, obs_mod):
     if obs_n:
         if obs_n == "disjoint":
             mod2_which_obs = np.random.choice(
-                mods["mod2"].obs_names, size=mods["mod2"].n_obs // 2, replace=False
+                mods["mod1"].obs_names, size=mods["mod1"].n_obs // 2, replace=False
             )
-            mods["mod2"] = mods["mod2"][mod2_which_obs].copy()
+            mods["mod1"] = mods["mod1"][mod2_which_obs].copy()
 
     if obs_across:
         if obs_across != "intersecting":
@@ -66,7 +66,7 @@ class TestMuData:
         yield
         set_options(pull_on_update=None)
 
-    @pytest.mark.parametrize("obs_mod", ["unique"])
+    @pytest.mark.parametrize("obs_mod", ["unique", "duplicated"])
     @pytest.mark.parametrize("obs_across", ["intersecting"])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
     def test_update_simple(self, modalities, axis):
@@ -77,8 +77,6 @@ class TestMuData:
         """
         attr = "obs" if axis == 0 else "var"
         oattr = "var" if axis == 0 else "obs"
-        for m, mod in modalities.items():
-            setattr(mod, f"{oattr}_names", [f"{m}_{oattr}{j}" for j in range(mod.shape[1 - axis])])
 
         mdata = MuData(modalities, axis=axis)
 
@@ -92,13 +90,27 @@ class TestMuData:
             )
         ).all()
 
-        # names along axis are intersected
+        # names along axis are unioned
         axisnames = reduce(
             lambda x, y: x.union(y, sort=False),
             (getattr(mod, f"{attr}_names") for mod in modalities.values()),
         )
         assert mdata.shape[axis] == axisnames.shape[0]
-        assert (getattr(mdata, f"{attr}_names") == axisnames).all()
+        assert (getattr(mdata, f"{attr}_names").sort_values() == axisnames.sort_values()).all()
+
+        # guards against Pandas scrambling the order. This was the case for pandas < 1.4.0 when using pd.concat with an outer join on a MultiIndex.
+        # reprex:
+        #
+        # import numpy as np
+        # import pandas as pd
+        # df1 = pd.DataFrame({"a": np.repeat(np.arange(5), 2), "b": np.tile(np.asarray([0, 1]), 5), "c": np.arange(10)}).set_index("a").set_index("b", append=True)
+        # df2 = pd.DataFrame({"a": np.repeat(np.arange(10), 2), "b": np.tile(np.asarray([0, 1]), 10), "d": np.arange(20)}).set_index("a").set_index("b", append=True)
+        # df1 = df1.iloc[::-1, :]
+        # df = pd.concat((kdf1, df2), axis=1, join="outer", sort=False)
+        assert (
+            getattr(mdata, f"{attr}_names")[: modalities["mod1"].shape[axis]]
+            == getattr(modalities["mod1"], f"{attr}_names")
+        ).all()
 
         # Variables are different across modalities
         for m, mod in modalities.items():
@@ -108,7 +120,7 @@ class TestMuData:
             assert "mod" in mod.var.columns
             assert all(mod.var["mod"] == m)
 
-    @pytest.mark.parametrize("obs_mod", ["unique"])
+    @pytest.mark.parametrize("obs_mod", ["unique", "duplicated"])
     @pytest.mark.parametrize("obs_across", ["intersecting"])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
     def test_update_duplicates(self, modalities, axis):
@@ -153,7 +165,7 @@ class TestMuData:
             assert "mod" in mod.var.columns
             assert all(mod.var["mod"] == m)
 
-    @pytest.mark.parametrize("obs_mod", ["unique"])
+    @pytest.mark.parametrize("obs_mod", ["unique", "duplicated"])
     @pytest.mark.parametrize("obs_across", ["intersecting"])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
     def test_update_intersecting(self, modalities, axis):
@@ -203,7 +215,7 @@ class TestMuData:
             assert "mod" in mod.var.columns
             assert all(mod.var["mod"] == m)
 
-    @pytest.mark.parametrize("obs_mod", ["unique"])
+    @pytest.mark.parametrize("obs_mod", ["unique", "duplicated"])
     @pytest.mark.parametrize("obs_across", ["intersecting"])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
     def test_update_after_filter_obs_adata(self, modalities, axis):
@@ -219,15 +231,16 @@ class TestMuData:
         old_obsnames = mdata.obs_names
         old_varnames = mdata.var_names
 
-        mdata.mod["mod1"] = mdata["mod1"][mdata["mod1"].obs["min_count"] < -2].copy()
+        mdata.mod["mod3"] = mdata["mod3"][mdata["mod3"].obs["min_count"] < -2].copy()
         mdata.update()
         assert mdata.obs["batch"].isna().sum() == 0
 
         assert (mdata.var_names == old_varnames).all()
         if axis == 0:
-            assert (mdata.obs_names == old_obsnames).all()
+            # check if the order is preserved
+            assert (mdata.obs_names == old_obsnames[old_obsnames.isin(mdata.obs_names)]).all()
 
-    @pytest.mark.parametrize("obs_mod", ["unique"])
+    @pytest.mark.parametrize("obs_mod", ["unique", "duplicated"])
     @pytest.mark.parametrize("obs_across", ["intersecting"])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
     def test_update_after_obs_reordered(self, modalities, axis):
