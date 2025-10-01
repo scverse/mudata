@@ -165,6 +165,38 @@ class TestMuData:
                 == old_oattrnames.append(getattr(modalities[modnames[i]], f"{oattr}_names"))
             ).all()
 
+    def test_update_delete_modality(self, mdata, axis):
+        modnames = list(mdata.mod.keys())
+        attr = "obs" if axis == 0 else "var"
+        oattr = "var" if axis == 0 else "obs"
+
+        fullbatch = getattr(mdata, attr)["batch"]
+        fullobatch = getattr(mdata, oattr)["batch"]
+        keptmask = (getattr(mdata, f"{attr}map")[modnames[1]].reshape(-1) > 0) | (
+            getattr(mdata, f"{attr}map")[modnames[2]].reshape(-1) > 0
+        )
+        keptomask = (getattr(mdata, f"{oattr}map")[modnames[1]].reshape(-1) > 0) | (
+            getattr(mdata, f"{oattr}map")[modnames[2]].reshape(-1) > 0
+        )
+
+        del mdata.mod[modnames[0]]
+        mdata.update()
+
+        assert mdata.shape[1 - axis] == sum(mod.shape[1 - axis] for mod in mdata.mod.values())
+        assert (getattr(mdata, oattr)["batch"] == fullobatch[keptomask]).all()
+        assert (getattr(mdata, attr)["batch"] == fullbatch[keptmask]).all()
+
+        fullbatch = getattr(mdata, attr)["batch"]
+        fullobatch = getattr(mdata, oattr)["batch"]
+        keptmask = getattr(mdata, f"{attr}map")[modnames[1]].reshape(-1) > 0
+        keptomask = getattr(mdata, f"{oattr}map")[modnames[1]].reshape(-1) > 0
+        del mdata.mod[modnames[2]]
+        mdata.update()
+
+        assert mdata.shape[1 - axis] == sum(mod.shape[1 - axis] for mod in mdata.mod.values())
+        assert (getattr(mdata, oattr)["batch"] == fullobatch[keptomask]).all()
+        assert (getattr(mdata, attr)["batch"] == fullbatch[keptmask]).all()
+
     def test_update_intersecting(self, modalities, axis):
         """
         Update should work when

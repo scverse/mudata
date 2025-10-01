@@ -452,6 +452,8 @@ class MuData:
         attr_names_changed, attr_columns_changed = False, False
         if not hasattr(self, attrhash):
             attr_names_changed, attr_columns_changed = True, True
+        elif len(self.mod) < len(getattr(self, attrhash)):
+            attr_names_changed, attr_columns_changed = True, None
         else:
             for m in self.mod.keys():
                 if m in getattr(self, attrhash):
@@ -604,7 +606,13 @@ class MuData:
         _attrhash = f"_{attr}hash"
         attr_changed = self._check_changed_attr_names(attr)
 
-        attr_duplicated = self._check_duplicated_attr_names(attr)
+        if not any(attr_changed):
+            # Nothing to update
+            return
+
+        data_global = getattr(self, attr)
+
+        attr_duplicated = not data_global.index.is_unique or self._check_duplicated_attr_names(attr)
         attr_intersecting = self._check_intersecting_attr_names(attr)
 
         if attr_duplicated:
@@ -617,12 +625,6 @@ class MuData:
                     f"Behaviour is not defined with axis=-1, {attr}_names need to be made unique first.",
                     stacklevel=2,
                 )
-
-        if not any(attr_changed):
-            # Nothing to update
-            return
-
-        data_global = getattr(self, attr)
 
         # Generate unique colnames
         (rowcol,) = self._find_unique_colnames(attr, 1)
@@ -645,7 +647,6 @@ class MuData:
         # Join modality .obs/.var tables
         #
         # Main case: no duplicates and no intersection if the axis is not shared
-        #
         if not attr_duplicated:
             # Shared axis
             if axis == (1 - self._axis) or self._axis == -1:
@@ -664,7 +665,7 @@ class MuData:
             data_mod = _make_index_unique(data_mod, force=attr_intersecting)
             data_global = _make_index_unique(data_global, force=attr_intersecting)
             if data_global.shape[1] > 0:
-                data_mod = data_global.join(data_mod, how="left", sort=False)
+                data_mod = data_mod.join(data_global, how="left", sort=False)
 
             if data_global.shape[0] > 0:
                 # reorder new index to conform to the old index as much as possible
@@ -728,8 +729,11 @@ class MuData:
                     )
                 # after inserting a new modality with duplicates, but no duplicates before:
                 # data_mod.index is not unique
-                data_global = _make_index_unique(data_global, force=not data_mod.index.is_unique)
-                data_mod = _make_index_unique(data_mod)
+                # after deleting a modality with duplicates: data_global.index is not unique, but
+                # data_mod.index is unique
+                need_unique = data_mod.index.is_unique | data_global.index.is_unique
+                data_global = _make_index_unique(data_global, force=need_unique)
+                data_mod = _make_index_unique(data_mod, force=need_unique)
                 data_mod = data_mod.join(data_global, how="left", sort=False)
 
                 # reorder new index to conform to the old index as much as possible
@@ -749,6 +753,10 @@ class MuData:
                     and data_mod.shape[0]
                     > data_global.shape[0]  # new modality added and concacenated
                 )
+
+                if need_unique:
+                    data_mod = _restore_index(data_mod)
+                    data_global = _restore_index(data_global)
 
             data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
             data_global.reset_index(level=list(range(1, data_global.index.nlevels)), inplace=True)
