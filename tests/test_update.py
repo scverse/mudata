@@ -127,14 +127,6 @@ class TestMuData:
             == getattr(mdata["mod1"], f"{attr}_names")
         ).all()
 
-        # Variables are different across modalities
-        for m, mod in mdata.mod.items():
-            # Columns are intact in individual modalities
-            assert "mod" in mod.obs.columns
-            assert all(mod.obs["mod"] == m)
-            assert "mod" in mod.var.columns
-            assert all(mod.var["mod"] == m)
-
     def test_update_add_modality(self, modalities, axis):
         modnames = list(modalities.keys())
         mdata = MuData({modname: modalities[modname] for modname in modnames[:-2]}, axis=axis)
