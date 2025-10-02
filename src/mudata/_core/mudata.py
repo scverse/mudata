@@ -611,20 +611,10 @@ class MuData:
             return
 
         data_global = getattr(self, attr)
+        prev_index = data_global.index
 
         attr_duplicated = not data_global.index.is_unique or self._check_duplicated_attr_names(attr)
         attr_intersecting = self._check_intersecting_attr_names(attr)
-
-        if attr_duplicated:
-            warnings.warn(
-                f"{attr}_names are not unique. To make them unique, call `.{attr}_names_make_unique`.",
-                stacklevel=2,
-            )
-            if self._axis == -1:
-                warnings.warn(
-                    f"Behaviour is not defined with axis=-1, {attr}_names need to be made unique first.",
-                    stacklevel=2,
-                )
 
         # Generate unique colnames
         (rowcol,) = self._find_unique_colnames(attr, 1)
@@ -707,16 +697,19 @@ class MuData:
                 col.replace(np.nan, 0, inplace=True)
                 col = col.astype(np.uint32)
                 data_mod[colname] = col
-                if mod in attrmap and (
-                    col.shape[0] != data_global.shape[0]
-                    and np.sum(attrmap[mod] > 0)
-                    == getattr(amod, attr).shape[0]  # added/removed observations
-                    or col.shape[0] == data_global.shape[0]
-                    and np.array_equal(attrmap[mod], col)  # reordered
-                ):
-                    data_mod.set_index(colname, append=True, inplace=True)
-                    data_global.set_index(attrmap[mod].ravel(), append=True, inplace=True)
-                    data_global.index.set_names(colname, level=-1, inplace=True)
+                if mod in attrmap:
+                    modmap = attrmap[mod].reshape(-1)
+                    modmask = modmap > 0
+                    # only use unchanged modalities for ordering
+                    if (
+                        modmask.sum() == getattr(amod, attr).shape[0]
+                        and (
+                            getattr(amod, attr).index[modmap[modmask] - 1] == prev_index[modmask]
+                        ).all()
+                    ):
+                        data_mod.set_index(colname, append=True, inplace=True)
+                        data_global.set_index(attrmap[mod].reshape(-1), append=True, inplace=True)
+                        data_global.index.set_names(colname, level=-1, inplace=True)
 
             if data_global.shape[0] > 0:
                 if not data_global.index.is_unique:
@@ -749,9 +742,11 @@ class MuData:
                     == data_global.shape[
                         0
                     ]  # renamed (since new_idx.shape[0] > 0 and kept_idx.shape[0] < data_global.shape[0])
-                    or axis == self._axis
-                    and data_mod.shape[0]
-                    > data_global.shape[0]  # new modality added and concacenated
+                    or (
+                        axis == self._axis
+                        and axis != -1
+                        and data_mod.shape[0] > data_global.shape[0]
+                    )  # new modality added and concacenated
                 )
 
                 if need_unique:
@@ -770,6 +765,15 @@ class MuData:
             mdict[m] = data_mod[colname].to_numpy()
             data_mod.drop(colname, axis=1, inplace=True)
 
+        if not data_mod.index.is_unique:
+            warnings.warn(
+                f"{attr}_names are not unique. To make them unique, call `.{attr}_names_make_unique`."
+            )
+            if self._axis == -1:
+                warnings.warn(
+                    f"Behaviour is not defined with axis=-1, {attr}_names need to be made unique first."
+                )
+
         setattr(
             self,
             "_" + attr,
@@ -787,8 +791,14 @@ class MuData:
             if can_update:
                 for mx_key, mx in attrm.items():
                     if mx_key not in self.mod.keys():  # not a modality name
-                        attrm[mx_key] = attrm[mx_key][index_order]
-                        attrm[mx_key][index_order == -1] = np.nan
+                        cattr = attrm[mx_key]
+                        if isinstance(cattr, pd.DataFrame):
+                            cattr = cattr.iloc[index_order, :]
+                            cattr.iloc[index_order == -1, :] = pd.NA
+                        else:
+                            cattr = cattr[index_order]
+                            cattr[index_order == -1] = np.nan
+                        attrm[mx_key] = cattr
 
                 # Update .obsp/.varp (size might have changed)
                 for mx_key in attrp.keys():

@@ -34,19 +34,21 @@ def modalities(request, obs_n, obs_across, obs_mod):
 
     if obs_mod:
         if obs_mod == "duplicated":
-            for m in ["mod1", "mod2"]:
-                # Index does not support mutable operations
-                obs_names = mods[m].obs_names.values.copy()
-                obs_names[1] = obs_names[0]
-                mods[m].obs_names = obs_names
+            obsnames2 = mods["mod2"].obs_names.to_numpy()
+            obsnames3 = mods["mod3"].obs_names.to_numpy()
+            varnames2 = mods["mod2"].var_names.to_numpy()
+            varnames3 = mods["mod3"].var_names.to_numpy()
+            obsnames2[0] = obsnames2[1] = obsnames3[1] = "testobs"
+            varnames2[0] = varnames2[1] = varnames3[1] = "testvar"
+            mods["mod2"].obs_names = obsnames2
+            mods["mod3"].obs_names = obsnames3
+            mods["mod2"].var_names = varnames2
+            mods["mod3"].var_names = varnames3
         elif obs_mod == "extreme_duplicated": # integer overflow: https://github.com/scverse/mudata/issues/107
             obs_names = mods["mod1"].obs_names.to_numpy()
             obs_names[:-1] = obs_names[0]
             mods["mod1"].obs_names = obs_names
 
-                var_names = mods[m].var_names.values.copy()
-                var_names[1] = var_names[0]
-                mods[m].var_names = var_names
 
     return mods
 
@@ -68,8 +70,8 @@ def mdata(modalities, axis):
     md.obs["batch"] = np.random.choice(["a", "b", "c"], size=md.shape[0], replace=True)
     md.var["batch"] = np.random.choice(["d", "e", "f"], size=md.shape[1], replace=True)
 
-    md.obsm["test_obsm"] = np.random.normal(size=(md.n_obs, 2))
-    md.varm["test_varm"] = np.random.normal(size=(md.n_var, 2))
+    md.obsm["test"] = np.random.normal(size=(md.n_obs, 2))
+    md.varm["test"] = np.random.normal(size=(md.n_var, 2))
 
     return md
 
@@ -85,6 +87,14 @@ class TestMuData:
         set_options(pull_on_update=False)
         yield
         set_options(pull_on_update=None)
+
+    @staticmethod
+    def get_attrm_values(mdata, attr, key, names):
+        attrm = getattr(mdata, f"{attr}m")
+        index = getattr(mdata, f"{attr}_names")
+        return np.concatenate(
+            [np.atleast_1d(attrm[key][np.nonzero(index == name)[0]]) for name in names]
+        )
 
     def test_update_simple(self, mdata, axis):
         """
@@ -138,8 +148,24 @@ class TestMuData:
             old_attrnames = getattr(mdata, f"{attr}_names")
             old_oattrnames = getattr(mdata, f"{oattr}_names")
 
+            some_obs_names = mdata.obs_names[:2]
+            mdata.obsm["test"] = np.random.normal(size=(mdata.n_obs, 1))
+            true_obsm_values = self.get_attrm_values(mdata, "obs", "test", some_obs_names)
+
             mdata.mod[modnames[i]] = modalities[modnames[i]]
             mdata.update()
+
+            test_obsm_values = self.get_attrm_values(mdata, "obs", "test", some_obs_names)
+            if axis == 1:
+                assert np.isnan(mdata.obsm["test"]).sum() == modalities[modnames[i]].n_obs
+                assert np.all(np.isnan(mdata.obsm["test"][-modalities[modnames[i]].n_obs :]))
+                assert np.all(~np.isnan(mdata.obsm["test"][: -modalities[modnames[i]].n_obs]))
+                assert (
+                    test_obsm_values[~np.isnan(test_obsm_values)].reshape(-1)
+                    == true_obsm_values.reshape(-1)
+                ).all()
+            else:
+                assert (test_obsm_values == true_obsm_values).all()
 
             attrnames = getattr(mdata, f"{attr}_names")
             oattrnames = getattr(mdata, f"{oattr}_names")
@@ -161,9 +187,13 @@ class TestMuData:
         modnames = list(mdata.mod.keys())
         attr = "obs" if axis == 0 else "var"
         oattr = "var" if axis == 0 else "obs"
+        attrm = f"{attr}m"
+        oattrm = f"{oattr}m"
 
         fullbatch = getattr(mdata, attr)["batch"]
         fullobatch = getattr(mdata, oattr)["batch"]
+        fulltestm = getattr(mdata, attrm)["test"]
+        fullotestm = getattr(mdata, oattrm)["test"]
         keptmask = (getattr(mdata, f"{attr}map")[modnames[1]].reshape(-1) > 0) | (
             getattr(mdata, f"{attr}map")[modnames[2]].reshape(-1) > 0
         )
@@ -175,19 +205,26 @@ class TestMuData:
         mdata.update()
 
         assert mdata.shape[1 - axis] == sum(mod.shape[1 - axis] for mod in mdata.mod.values())
-        assert (getattr(mdata, oattr)["batch"] == fullobatch[keptomask]).all()
         assert (getattr(mdata, attr)["batch"] == fullbatch[keptmask]).all()
+        assert (getattr(mdata, oattr)["batch"] == fullobatch[keptomask]).all()
+        assert (getattr(mdata, attrm)["test"] == fulltestm[keptmask, :]).all()
+        assert (getattr(mdata, oattrm)["test"] == fullotestm[keptomask, :]).all()
 
         fullbatch = getattr(mdata, attr)["batch"]
         fullobatch = getattr(mdata, oattr)["batch"]
+        fulltestm = getattr(mdata, attrm)["test"]
+        fullotestm = getattr(mdata, oattrm)["test"]
         keptmask = getattr(mdata, f"{attr}map")[modnames[1]].reshape(-1) > 0
         keptomask = getattr(mdata, f"{oattr}map")[modnames[1]].reshape(-1) > 0
+
         del mdata.mod[modnames[2]]
         mdata.update()
 
         assert mdata.shape[1 - axis] == sum(mod.shape[1 - axis] for mod in mdata.mod.values())
         assert (getattr(mdata, oattr)["batch"] == fullobatch[keptomask]).all()
         assert (getattr(mdata, attr)["batch"] == fullbatch[keptmask]).all()
+        assert (getattr(mdata, attrm)["test"] == fulltestm[keptmask, :]).all()
+        assert (getattr(mdata, oattrm)["test"] == fullotestm[keptomask, :]).all()
 
     def test_update_intersecting(self, modalities, axis):
         """
@@ -220,21 +257,13 @@ class TestMuData:
             )
         ).all()
 
-        # names along axis are intersected
+        # names along axis are unioned
         axisnames = reduce(
             lambda x, y: x.union(y, sort=False),
             (getattr(mod, f"{attr}_names") for mod in modalities.values()),
         )
         assert mdata.shape[axis] == axisnames.shape[0]
         assert (getattr(mdata, f"{attr}_names") == axisnames).all()
-
-        # Variables are different across modalities
-        for m, mod in modalities.items():
-            # Columns are intact in individual modalities
-            assert "mod" in mod.obs.columns
-            assert all(mod.obs["mod"] == m)
-            assert "mod" in mod.var.columns
-            assert all(mod.var["mod"] == m)
 
     def test_update_after_filter_obs_adata(self, mdata, axis):
         """
@@ -246,6 +275,14 @@ class TestMuData:
         old_obsnames = mdata.obs_names
         old_varnames = mdata.var_names
 
+        filtermask = mdata["mod3"].obs["min_count"] < -2
+        fullfiltermask = mdata.obsmap["mod3"].copy() > 0
+        fullfiltermask[fullfiltermask] = filtermask
+        keptmask = (mdata.obsmap["mod1"] > 0) | (mdata.obsmap["mod2"] > 0) | fullfiltermask
+
+        some_obs_names = mdata[keptmask, :].obs_names.values[:2]
+        true_obsm_values = self.get_attrm_values(mdata[keptmask], "obs", "test", some_obs_names)
+
         mdata.mod["mod3"] = mdata["mod3"][mdata["mod3"].obs["min_count"] < -2].copy()
         mdata.update()
         assert mdata.obs["batch"].isna().sum() == 0
@@ -255,28 +292,23 @@ class TestMuData:
             # check if the order is preserved
             assert (mdata.obs_names == old_obsnames[old_obsnames.isin(mdata.obs_names)]).all()
 
+        test_obsm_values = self.get_attrm_values(mdata, "obs", "test", some_obs_names)
+        assert (true_obsm_values == test_obsm_values).all()
+
     def test_update_after_obs_reordered(self, mdata):
         """
         Update should work if obs are reordered.
         """
         some_obs_names = mdata.obs_names.values[:2]
 
-        true_obsm_values = [
-            mdata.obsm["test_obsm"][np.where(mdata.obs_names.values == name)[0][0]]
-            for name in some_obs_names
-        ]
+        true_obsm_values = self.get_attrm_values(mdata, "obs", "test", some_obs_names)
 
         mdata.mod["mod1"] = mdata["mod1"][::-1].copy()
         mdata.update()
 
-        test_obsm_values = [
-            mdata.obsm["test_obsm"][np.where(mdata.obs_names == name)[0][0]]
-            for name in some_obs_names
-        ]
+        test_obsm_values = self.get_attrm_values(mdata, "obs", "test", some_obs_names)
 
-        assert all(
-            [all(true_obsm_values[i] == test_obsm_values[i]) for i in range(len(true_obsm_values))]
-        )
+        assert (true_obsm_values == test_obsm_values).all()
 
 
 @pytest.mark.usefixtures("filepath_h5mu")
