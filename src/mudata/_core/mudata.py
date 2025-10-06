@@ -1965,21 +1965,20 @@ class MuData:
         derived_name_count = Counter([col["derived_name"] for col in cols])
 
         # - axis == self.axis
-        #   e.g. combine var from multiple modalities (with unique vars)
+        #   e.g. combine obs from multiple modalities (with shared obs)
         # - 1 - axis == self.axis
-        # . e.g. combine obs from multiple modalities (with shared obs)
-        axis = 0 if attr == "var" else 1
+        #   e.g. combine var from multiple modalities (with unique vars)
+        axis = 0 if attr == "obs" else 1
 
-        if 1 - axis == self.axis or self.axis == -1:
+        if axis == self.axis or self.axis == -1:
             if join_common or join_nonunique:
                 raise ValueError(f"Cannot join columns with the same name for shared {attr}_names.")
 
         if join_common is None:
-            join_common = False
-            if attr == "var":
-                join_common = self.axis == 0
-            elif attr == "obs":
+            if attr == "obs":
                 join_common = self.axis == 1
+            else:
+                join_common = self.axis == 0
 
         if join_nonunique is None:
             join_nonunique = False
@@ -2242,8 +2241,6 @@ class MuData:
                 raise ValueError("All mods should be present in mdata.mod")
             elif len(mods) == self.n_mod:
                 mods = None
-            for k, v in {"common": common, "prefixed": prefixed}.items():
-                assert v is None, f"Cannot use mods with {k}."
 
         if only_drop:
             drop = True
@@ -2252,15 +2249,22 @@ class MuData:
 
         if columns is not None:
             for k, v in {"common": common, "prefixed": prefixed}.items():
-                assert v is None, f"Cannot use columns with {k}."
+                if v:
+                    warnings.warn(
+                        f"Both columns and {k} given. Columns take precedence, {k} will be ignored",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
 
             # - modname1:column -> [modname1:column]
             # - column -> [modname1:column, modname2:column, ...]
-            cols = [col for col in cols if col["name"] in columns or col["derived_name"] in columns]
-
             # preemptively drop columns from other modalities
-            if mods is not None:
-                cols = [col for col in cols if col["prefix"] in mods or col["prefix"] == ""]
+            cols = [
+                col
+                for col in cols
+                if (col["name"] in columns or col["derived_name"] in columns)
+                and (col["prefix"] == "" or mods is not None and col["prefix"] in mods)
+            ]
         else:
             if common is None:
                 common = True

@@ -122,30 +122,17 @@ def _classify_prefixed_columns(
     res: list[dict[str, str]] = []
 
     for name in names:
-        name_common = {
-            "name": name,
-            "prefix": "",
-            "derived_name": name,
-        }
-        name_split = name.split(":", 1)
-
-        if len(name_split) < 2:
-            res.append(name_common)
+        if len(name_split := name.split(":", 1)) < 2 or name_split[0] not in prefixes:
+            res.append({"name": name, "prefix": "", "derived_name": name, "class": "common"})
         else:
-            maybe_modname, derived_name = name_split
-
-            if maybe_modname in prefixes:
-                name_prefixed = {
+            res.append(
+                {
                     "name": name,
-                    "prefix": maybe_modname,
-                    "derived_name": derived_name,
+                    "prefix": name_split[0],
+                    "derived_name": name_split[1],
+                    "class": "prefixed",
                 }
-                res.append(name_prefixed)
-            else:
-                res.append(name_common)
-
-    for name_res in res:
-        name_res["class"] = "common" if name_res["prefix"] == "" else "prefixed"
+            )
 
     return res
 
