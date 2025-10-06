@@ -1915,37 +1915,37 @@ class MuData:
         if mods is not None:
             if isinstance(mods, str):
                 mods = [mods]
-            mods = list(dict.fromkeys(mods))
             if not all(m in self.mod for m in mods):
                 raise ValueError("All mods should be present in mdata.mod")
             elif len(mods) == self.n_mod:
                 mods = None
-            for k, v in {"common": common, "nonunique": nonunique, "unique": unique}.items():
-                assert v is None, f"Cannot use mods with {k}."
 
         if only_drop:
             drop = True
 
         cols = _classify_attr_columns(
-            np.concatenate(
-                [
-                    [f"{m}:{val}" for val in getattr(mod, attr).columns.values]
-                    for m, mod in self.mod.items()
-                ]
-            ),
-            self.mod.keys(),
+            {modname: getattr(mod, attr).columns for modname, mod in self.mod.items()}
         )
 
         if columns is not None:
             for k, v in {"common": common, "nonunique": nonunique, "unique": unique}.items():
-                assert v is None, f"Cannot use {k} with columns."
+                if v is not None:
+                    warnings.warn(
+                        f"Both columns and {k} given. Columns take precedence, {k} will be ignored",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
 
             # - modname1:column -> [modname1:column]
             # - column -> [modname1:column, modname2:column, ...]
-            cols = [col for col in cols if col["name"] in columns or col["derived_name"] in columns]
-
-            if mods is not None:
-                cols = [col for col in cols if col["prefix"] in mods]
+            cols = {
+                prefix: [
+                    col
+                    for col in modcols
+                    if col["name"] in columns or col["derived_name"] in columns
+                ]
+                for prefix, modcols in cols.items()
+            }
 
             # TODO: Counter for columns in order to track their usage
             # and error out if some columns were not used
@@ -1959,10 +1959,17 @@ class MuData:
                 unique = True
 
             selector = {"common": common, "nonunique": nonunique, "unique": unique}
+            cols = {
+                prefix: [col for col in modcols if selector[col["class"]]]
+                for prefix, modcols in cols.items()
+            }
 
-            cols = [col for col in cols if selector[col["class"]]]
+        if mods is not None:
+            cols = {prefix: cols[prefix] for prefix in mods}
 
-        derived_name_count = Counter([col["derived_name"] for col in cols])
+        derived_name_count = Counter(
+            [col["derived_name"] for modcols in cols.values() for col in modcols]
+        )
 
         # - axis == self.axis
         #   e.g. combine obs from multiple modalities (with shared obs)
@@ -1994,44 +2001,36 @@ class MuData:
         n_attr = self.n_vars if attr == "var" else self.n_obs
 
         dfs: list[pd.DataFrame] = []
-        for m, mod in self.mod.items():
-            if mods is not None and m not in mods:
-                continue
+        for m, modcols in cols.items():
+            mod = self.mod[m]
             mod_map = attrmap[m].ravel()
-            mod_n_attr = mod.n_vars if attr == "var" else mod.n_obs
-            mask = mod_map != 0
+            mask = mod_map > 0
 
-            mod_df = getattr(mod, attr)
-            mod_columns = [
-                col["derived_name"] for col in cols if col["prefix"] == "" or col["prefix"] == m
-            ]
-            mod_df = mod_df[mod_df.columns.intersection(mod_columns)]
-
+            mod_df = getattr(mod, attr)[[col["derived_name"] for col in modcols]]
             if drop:
                 getattr(mod, attr).drop(columns=mod_df.columns, inplace=True)
 
-            # Don't use modname: prefix if columns need to be joined
-            if join_common or join_nonunique or (not prefix_unique):
-                cols_special = [
-                    col["derived_name"]
-                    for col in cols
-                    if (
-                        (col["class"] == "common") & join_common
-                        or (col["class"] == "nonunique") & join_nonunique
-                        or (col["class"] == "unique") & (not prefix_unique)
+            mod_df.rename(
+                columns={
+                    col["derived_name"]: col["name"]
+                    for col in modcols
+                    if not (
+                        (
+                            join_common
+                            and col["class"] == "common"
+                            or join_nonunique
+                            and col["class"] == "nonunique"
+                            or not prefix_unique
+                            and col["class"] == "unique"
+                        )
+                        and derived_name_count[col["derived_name"]] == col["count"]
                     )
-                    and col["prefix"] == m
-                    and derived_name_count[col["derived_name"]] == col["count"]
-                ]
-                mod_df.columns = [
-                    col if col in cols_special else f"{m}:{col}" for col in mod_df.columns
-                ]
-            else:
-                mod_df.columns = [f"{m}:{col}" for col in mod_df.columns]
+                },
+                inplace=True,
+            )
 
             mod_df = (
                 _maybe_coerce_to_boolean(mod_df)
-                .set_index(np.arange(mod_n_attr))
                 .iloc[mod_map[mask] - 1]
                 .set_index(np.arange(n_attr)[mask])
                 .reindex(np.arange(n_attr))
@@ -2296,7 +2295,7 @@ class MuData:
             if mods is not None and m not in mods:
                 continue
 
-            mod_map = attrmap[m]
+            mod_map = attrmap[m].ravel()
             mask = mod_map != 0
             mod_n_attr = mod.n_vars if attr == "var" else mod.n_obs
 
@@ -2304,11 +2303,7 @@ class MuData:
             df = getattr(self, attr)[mask].loc[:, [col["name"] for col in mod_cols]]
             df.columns = [col["derived_name"] for col in mod_cols]
 
-            df = (
-                df.set_index(np.arange(mod_n_attr))
-                .iloc[mod_map[mask] - 1]
-                .set_index(np.arange(mod_n_attr))
-            )
+            df = df.iloc[np.argsort(mod_map[mask])].set_index(np.arange(mod_n_attr))
 
             if not only_drop:
                 # TODO: _maybe_coerce_to_bool

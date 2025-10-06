@@ -1,5 +1,5 @@
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import TypeVar
 
 import numpy as np
@@ -38,9 +38,7 @@ def _maybe_coerce_to_boolean(df: T) -> T:
     return df
 
 
-def _classify_attr_columns(
-    names: Sequence[str], prefixes: Sequence[str]
-) -> Sequence[dict[str, str]]:
+def _classify_attr_columns(names: Mapping[str, Sequence[str]]) -> dict[str, list[dict[str, str]]]:
     """
     Classify names into common, non-unique, and unique
     w.r.t. to the list of prefixes.
@@ -53,50 +51,35 @@ def _classify_attr_columns(
       and there is only one modality prefix
       for a column with a certain name.
 
-    E.g. ["global", "mod1:annotation", "mod2:annotation", "mod1:unique"] will be classified
-    into [
-        {"name": "global", "prefix": "", "derived_name": "global", "count": 1, "class": "common"},
-        {"name": "mod1:annotation", "prefix": "mod1", "derived_name": "annotation", "count": 2, "class": "nonunique"},
-        {"name": "mod2:annotation", "prefix": "mod2", "derived_name": "annotation", "count": 2, "class": "nonunique"},
-        {"name": "mod1:unique", "prefix": "mod1", "derived_name": "annotation", "count": 2, "class": "unique"},
-    ]
+    E.g. {"mod1": ["annotation", "unique"], "mod2": ["annotation"]} will be classified
+    into {"mod1": [{"name": "mod1:annotation", "derived_name": "annotation", "count": 2, "class": "nonunique"},
+                   {"name": "mod1:unique", "derived_name": "unique", "count": 1, "class": "unique"}}],
+          "mod2": [{"name": "mod2:annotation", "derived_name": "annotation", "count": 2, "class": "nonunique"}],
+         }
     """
-    n_mod = len(prefixes)
-    res: list[dict[str, str]] = []
+    n_mod = len(names)
+    res: dict[str, list[dict[str, str]]] = {}
 
-    for name in names:
-        name_common = {
-            "name": name,
-            "prefix": "",
-            "derived_name": name,
-        }
-        name_split = name.split(":", 1)
-
-        if len(name_split) < 2:
-            res.append(name_common)
-        else:
-            maybe_modname, derived_name = name_split
-
-            if maybe_modname in prefixes:
-                name_prefixed = {
-                    "name": name,
-                    "prefix": maybe_modname,
-                    "derived_name": derived_name,
+    derived_name_counts = Counter()
+    for prefix, names in names.items():
+        cres = []
+        for name in names:
+            cres.append(
+                {
+                    "name": f"{prefix}:{name}",
+                    "derived_name": name,
                 }
-                res.append(name_prefixed)
-            else:
-                res.append(name_common)
+            )
+            derived_name_counts[name] += 1
+        res[prefix] = cres
 
-    derived_name_counts = Counter(name_res["derived_name"] for name_res in res)
-    for name_res in res:
-        name_res["count"] = derived_name_counts[name_res["derived_name"]]
-
-    for name_res in res:
-        name_res["class"] = (
-            "common"
-            if name_res["count"] == n_mod
-            else "unique" if name_res["count"] == 1 else "nonunique"
-        )
+    for prefix, names in res.items():
+        for name_res in names:
+            count = derived_name_counts[name_res["derived_name"]]
+            name_res["count"] = count
+            name_res["class"] = (
+                "common" if count == n_mod else "unique" if count == 1 else "nonunique"
+            )
 
     return res
 
@@ -138,7 +121,7 @@ def _classify_prefixed_columns(
 
 
 def _update_and_concat(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
-    df = df1.copy()
+    df = df1.copy(deep=False)
     # This converts boolean to object dtype, unfortunately
     # df.update(df2)
     common_cols = df1.columns.intersection(df2.columns)
