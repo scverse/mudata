@@ -1,6 +1,6 @@
 from collections import Counter
 from collections.abc import Mapping, Sequence
-from typing import TypeVar
+from typing import Literal, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -38,7 +38,56 @@ def _maybe_coerce_to_boolean(df: T) -> T:
     return df
 
 
-def _classify_attr_columns(names: Mapping[str, Sequence[str]]) -> dict[str, list[dict[str, str]]]:
+class MetadataColumn:
+    __slots__ = ("prefix", "derived_name", "count", "_allowed_prefixes")
+
+    def __init__(
+        self,
+        *,
+        allowed_prefixes: Sequence[str],
+        prefix: str | None = None,
+        name: str | None = None,
+        count: int = 0,
+    ):
+        self._allowed_prefixes = allowed_prefixes
+        if prefix is None:
+            self.name = name
+        else:
+            self.prefix = prefix
+            self.derived_name = name
+        self.count = count
+
+    @property
+    def name(self) -> str:
+        if self.prefix is not None:
+            return f"{self.prefix}:{self.derived_name}"
+        else:
+            return self.derived_name
+
+    @name.setter
+    def name(self, new_name):
+        if (
+            len(name_split := new_name.split(":", 1)) < 2
+            or name_split[0] not in self._allowed_prefixes
+        ):
+            self.prefix = None
+            self.derived_name = new_name
+        else:
+            self.prefix, self.derived_name = name_split
+
+    @property
+    def klass(self) -> Literal["common", "unique", "nonunique", "unknown"]:
+        if self.prefix is None or self.count == len(self._allowed_prefixes):
+            return "common"
+        elif self.count == 1:
+            return "unique"
+        elif self.count > 0:
+            return "nonunique"
+        else:
+            return "unknown"
+
+
+def _classify_attr_columns(names: Mapping[str, Sequence[str]]) -> dict[str, list[MetadataColumn]]:
     """
     Classify names into common, non-unique, and unique
     w.r.t. to the list of prefixes.
@@ -50,72 +99,21 @@ def _classify_attr_columns(names: Mapping[str, Sequence[str]]) -> dict[str, list
     - Unique columns are prefixed by modality names,
       and there is only one modality prefix
       for a column with a certain name.
-
-    E.g. {"mod1": ["annotation", "unique"], "mod2": ["annotation"]} will be classified
-    into {"mod1": [{"name": "mod1:annotation", "derived_name": "annotation", "count": 2, "class": "nonunique"},
-                   {"name": "mod1:unique", "derived_name": "unique", "count": 1, "class": "unique"}}],
-          "mod2": [{"name": "mod2:annotation", "derived_name": "annotation", "count": 2, "class": "nonunique"}],
-         }
     """
-    n_mod = len(names)
-    res: dict[str, list[dict[str, str]]] = {}
+    res: dict[str, list[MetadataColumn]] = {}
 
     derived_name_counts = Counter()
-    for prefix, names in names.items():
+    for prefix, pnames in names.items():
         cres = []
-        for name in names:
-            cres.append(
-                {
-                    "name": f"{prefix}:{name}",
-                    "derived_name": name,
-                }
-            )
+        for name in pnames:
+            cres.append(MetadataColumn(allowed_prefixes=names.keys(), prefix=prefix, name=name))
             derived_name_counts[name] += 1
         res[prefix] = cres
 
     for prefix, names in res.items():
         for name_res in names:
-            count = derived_name_counts[name_res["derived_name"]]
-            name_res["count"] = count
-            name_res["class"] = (
-                "common" if count == n_mod else "unique" if count == 1 else "nonunique"
-            )
-
-    return res
-
-
-def _classify_prefixed_columns(
-    names: Sequence[str], prefixes: Sequence[str]
-) -> Sequence[dict[str, str]]:
-    """
-    Classify names into common and prefixed
-    w.r.t. to the list of prefixes.
-
-    - Common columns do not have modality prefixes.
-    - Prefixed columns are prefixed by modality names.
-
-    E.g. ["global", "mod1:annotation", "mod2:annotation", "mod1:unique"] will be classified
-    into [
-        {"name": "global", "prefix": "", "derived_name": "global", "class": "common"},
-        {"name": "mod1:annotation", "prefix": "mod1", "derived_name": "annotation", "class": "prefixed"},
-        {"name": "mod2:annotation", "prefix": "mod2", "derived_name": "annotation", "class": "prefixed"},
-        {"name": "mod1:unique", "prefix": "mod1", "derived_name": "annotation", "class": "prefixed"},
-    ]
-    """
-    res: list[dict[str, str]] = []
-
-    for name in names:
-        if len(name_split := name.split(":", 1)) < 2 or name_split[0] not in prefixes:
-            res.append({"name": name, "prefix": "", "derived_name": name, "class": "common"})
-        else:
-            res.append(
-                {
-                    "name": name,
-                    "prefix": name_split[0],
-                    "derived_name": name_split[1],
-                    "class": "prefixed",
-                }
-            )
+            count = derived_name_counts[name_res.derived_name]
+            name_res.count = count
 
     return res
 

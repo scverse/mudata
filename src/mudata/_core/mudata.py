@@ -27,8 +27,8 @@ from .config import OPTIONS
 from .file_backing import MuDataFileManager
 from .repr import MUDATA_CSS, block_matrix, details_block_table
 from .utils import (
+    MetadataColumn,
     _classify_attr_columns,
-    _classify_prefixed_columns,
     _make_index_unique,
     _maybe_coerce_to_bool,
     _maybe_coerce_to_boolean,
@@ -1940,9 +1940,7 @@ class MuData:
             # - column -> [modname1:column, modname2:column, ...]
             cols = {
                 prefix: [
-                    col
-                    for col in modcols
-                    if col["name"] in columns or col["derived_name"] in columns
+                    col for col in modcols if col.name in columns or col.derived_name in columns
                 ]
                 for prefix, modcols in cols.items()
             }
@@ -1960,7 +1958,7 @@ class MuData:
 
             selector = {"common": common, "nonunique": nonunique, "unique": unique}
             cols = {
-                prefix: [col for col in modcols if selector[col["class"]]]
+                prefix: [col for col in modcols if selector[col.klass]]
                 for prefix, modcols in cols.items()
             }
 
@@ -1968,7 +1966,7 @@ class MuData:
             cols = {prefix: cols[prefix] for prefix in mods}
 
         derived_name_count = Counter(
-            [col["derived_name"] for modcols in cols.values() for col in modcols]
+            [col.derived_name for modcols in cols.values() for col in modcols]
         )
 
         # - axis == self.axis
@@ -2006,24 +2004,24 @@ class MuData:
             mod_map = attrmap[m].ravel()
             mask = mod_map > 0
 
-            mod_df = getattr(mod, attr)[[col["derived_name"] for col in modcols]]
+            mod_df = getattr(mod, attr)[[col.derived_name for col in modcols]]
             if drop:
                 getattr(mod, attr).drop(columns=mod_df.columns, inplace=True)
 
             mod_df.rename(
                 columns={
-                    col["derived_name"]: col["name"]
+                    col.derived_name: col.name
                     for col in modcols
                     if not (
                         (
                             join_common
-                            and col["class"] == "common"
+                            and col.klass == "common"
                             or join_nonunique
-                            and col["class"] == "nonunique"
+                            and col.klass == "nonunique"
                             or not prefix_unique
-                            and col["class"] == "unique"
+                            and col.klass == "unique"
                         )
-                        and derived_name_count[col["derived_name"]] == col["count"]
+                        and derived_name_count[col.derived_name] == col.count
                     )
                 },
                 inplace=True,
@@ -2244,7 +2242,10 @@ class MuData:
         if only_drop:
             drop = True
 
-        cols = _classify_prefixed_columns(getattr(self, attr).columns.values, self.mod.keys())
+        cols = [
+            MetadataColumn(allowed_prefixes=self.mod.keys(), name=name)
+            for name in getattr(self, attr).columns
+        ]
 
         if columns is not None:
             for k, v in {"common": common, "prefixed": prefixed}.items():
@@ -2261,8 +2262,8 @@ class MuData:
             cols = [
                 col
                 for col in cols
-                if (col["name"] in columns or col["derived_name"] in columns)
-                and (col["prefix"] == "" or mods is not None and col["prefix"] in mods)
+                if (col.name in columns or col.derived_name in columns)
+                and (col.prefix is None or mods is not None and col.prefix in mods)
             ]
         else:
             if common is None:
@@ -2270,14 +2271,14 @@ class MuData:
             if prefixed is None:
                 prefixed = True
 
-            selector = {"common": common, "prefixed": prefixed}
+            selector = {"common": common, "unknown": prefixed}
 
-            cols = [col for col in cols if selector[col["class"]]]
+            cols = [col for col in cols if selector[col.klass]]
 
         if len(cols) == 0:
             return
 
-        derived_name_count = Counter([col["derived_name"] for col in cols])
+        derived_name_count = Counter([col.derived_name for col in cols])
         for c, count in derived_name_count.items():
             # if count > 1, there are both colname and modname:colname present
             if count > 1 and c in getattr(self, attr).columns:
@@ -2299,9 +2300,9 @@ class MuData:
             mask = mod_map != 0
             mod_n_attr = mod.n_vars if attr == "var" else mod.n_obs
 
-            mod_cols = [col for col in cols if col["prefix"] == m or col["class"] == "common"]
-            df = getattr(self, attr)[mask].loc[:, [col["name"] for col in mod_cols]]
-            df.columns = [col["derived_name"] for col in mod_cols]
+            mod_cols = [col for col in cols if col.prefix == m or col.klass == "common"]
+            df = getattr(self, attr)[mask].loc[:, [col.name for col in mod_cols]]
+            df.columns = [col.derived_name for col in mod_cols]
 
             df = df.iloc[np.argsort(mod_map[mask])].set_index(np.arange(mod_n_attr))
 
@@ -2316,7 +2317,7 @@ class MuData:
 
         if drop:
             for col in cols:
-                getattr(self, attr).drop(col["name"], axis=1, inplace=True)
+                getattr(self, attr).drop(col.name, axis=1, inplace=True)
 
     def push_obs(
         self,
