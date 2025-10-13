@@ -1,5 +1,5 @@
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from typing import Literal, TypeVar
 
 import numpy as np
@@ -39,7 +39,7 @@ def _maybe_coerce_to_boolean(df: T) -> T:
 
 
 class MetadataColumn:
-    __slots__ = ("prefix", "derived_name", "count", "_allowed_prefixes")
+    __slots__ = ("prefix", "derived_name", "count", "_allowed_prefixes", "_strip_prefix")
 
     def __init__(
         self,
@@ -48,9 +48,12 @@ class MetadataColumn:
         prefix: str | None = None,
         name: str | None = None,
         count: int = 0,
+        strip_prefix: bool = True,
     ):
+        self._strip_prefix = strip_prefix
         self._allowed_prefixes = allowed_prefixes
-        if prefix is None:
+        self.prefix = prefix
+        if prefix is None and strip_prefix:
             self.name = name
         else:
             self.prefix = prefix
@@ -67,7 +70,8 @@ class MetadataColumn:
     @name.setter
     def name(self, new_name):
         if (
-            len(name_split := new_name.split(":", 1)) < 2
+            not self._strip_prefix
+            or len(name_split := new_name.split(":", 1)) < 2
             or name_split[0] not in self._allowed_prefixes
         ):
             self.prefix = None
@@ -85,37 +89,6 @@ class MetadataColumn:
             return "nonunique"
         else:
             return "unknown"
-
-
-def _classify_attr_columns(names: Mapping[str, Sequence[str]]) -> dict[str, list[MetadataColumn]]:
-    """
-    Classify names into common, non-unique, and unique
-    w.r.t. to the list of prefixes.
-
-    - Common columns do not have modality prefixes.
-    - Non-unqiue columns have a modality prefix,
-      and there are multiple columns that differ
-      only by their modality prefix.
-    - Unique columns are prefixed by modality names,
-      and there is only one modality prefix
-      for a column with a certain name.
-    """
-    res: dict[str, list[MetadataColumn]] = {}
-
-    derived_name_counts = Counter()
-    for prefix, pnames in names.items():
-        cres = []
-        for name in pnames:
-            cres.append(MetadataColumn(allowed_prefixes=names.keys(), prefix=prefix, name=name))
-            derived_name_counts[name] += 1
-        res[prefix] = cres
-
-    for prefix, names in res.items():
-        for name_res in names:
-            count = derived_name_counts[name_res.derived_name]
-            name_res.count = count
-
-    return res
 
 
 def _update_and_concat(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:

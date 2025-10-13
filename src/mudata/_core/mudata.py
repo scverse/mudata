@@ -28,7 +28,6 @@ from .file_backing import MuDataFileManager
 from .repr import MUDATA_CSS, block_matrix, details_block_table
 from .utils import (
     MetadataColumn,
-    _classify_attr_columns,
     _make_index_unique,
     _maybe_coerce_to_bool,
     _maybe_coerce_to_boolean,
@@ -1923,9 +1922,29 @@ class MuData:
         if only_drop:
             drop = True
 
-        cols = _classify_attr_columns(
-            {modname: getattr(mod, attr).columns for modname, mod in self.mod.items()}
-        )
+        cols: dict[str, list[MetadataColumn]] = {}
+
+        # get all columns from all modalities and count how many times each column is present
+        derived_name_counts = Counter()
+        for prefix, mod in self.mod.items():
+            modcols = getattr(mod, attr).columns
+            ccols = []
+            for name in modcols:
+                ccols.append(
+                    MetadataColumn(
+                        allowed_prefixes=self.mod.keys(),
+                        prefix=prefix,
+                        name=name,
+                        strip_prefix=False,
+                    )
+                )
+                derived_name_counts[name] += 1
+            cols[prefix] = ccols
+
+        for prefix, modcols in cols.items():
+            for col in modcols:
+                count = derived_name_counts[col.derived_name]
+                col.count = count  # this is important to classify columns
 
         if columns is not None:
             for k, v in {"common": common, "nonunique": nonunique, "unique": unique}.items():
@@ -1936,8 +1955,7 @@ class MuData:
                         stacklevel=2,
                     )
 
-            # - modname1:column -> [modname1:column]
-            # - column -> [modname1:column, modname2:column, ...]
+            # keep only requested columns
             cols = {
                 prefix: [
                     col for col in modcols if col.name in columns or col.derived_name in columns
@@ -1956,15 +1974,18 @@ class MuData:
             if unique is None:
                 unique = True
 
+            # filter columns by class, keep only those that were requested
             selector = {"common": common, "nonunique": nonunique, "unique": unique}
             cols = {
                 prefix: [col for col in modcols if selector[col.klass]]
                 for prefix, modcols in cols.items()
             }
 
+        # filter columns, keep only requested modalities
         if mods is not None:
             cols = {prefix: cols[prefix] for prefix in mods}
 
+        # count final filtered column names, required later to decide whether to prefix a column with its source modality
         derived_name_count = Counter(
             [col.derived_name for modcols in cols.values() for col in modcols]
         )
@@ -2008,6 +2029,8 @@ class MuData:
             if drop:
                 getattr(mod, attr).drop(columns=mod_df.columns, inplace=True)
 
+            # prepend modality prefix to column names if requested via arguments and there are no skipped modalities with
+            # the same column name (prefixing those columns may cause problems with future pulls or pushes)
             mod_df.rename(
                 columns={
                     col.derived_name: col.name
@@ -2027,6 +2050,7 @@ class MuData:
                 inplace=True,
             )
 
+            # reorder modality DF to conform to global order
             mod_df = (
                 _maybe_coerce_to_boolean(mod_df)
                 .iloc[mod_map[mask] - 1]
@@ -2242,6 +2266,7 @@ class MuData:
         if only_drop:
             drop = True
 
+        # get all global columns
         cols = [
             MetadataColumn(allowed_prefixes=self.mod.keys(), name=name)
             for name in getattr(self, attr).columns
@@ -2256,9 +2281,7 @@ class MuData:
                         stacklevel=2,
                     )
 
-            # - modname1:column -> [modname1:column]
-            # - column -> [modname1:column, modname2:column, ...]
-            # preemptively drop columns from other modalities
+            # keep only requested columns
             cols = [
                 col
                 for col in cols
@@ -2271,8 +2294,8 @@ class MuData:
             if prefixed is None:
                 prefixed = True
 
+            # filter columns by class, keep only those that were requested
             selector = {"common": common, "unknown": prefixed}
-
             cols = [col for col in cols if selector[col.klass]]
 
         if len(cols) == 0:
@@ -2290,20 +2313,22 @@ class MuData:
                 )
 
         attrmap = getattr(self, f"{attr}map")
-        _n_attr = self.n_vars if attr == "var" else self.n_obs
-
         for m, mod in self.mod.items():
             if mods is not None and m not in mods:
                 continue
 
             mod_map = attrmap[m].ravel()
-            mask = mod_map != 0
-            mod_n_attr = mod.n_vars if attr == "var" else mod.n_obs
+            mask = mod_map > 0
+            mod_n_attr = mod.n_obs if attr == "obs" else mod.n_vars
 
+            # get all common and modality-specific columns for the current modality
             mod_cols = [col for col in cols if col.prefix == m or col.klass == "common"]
             df = getattr(self, attr)[mask].loc[:, [col.name for col in mod_cols]]
+
+            # strip modality prefix where necessary
             df.columns = [col.derived_name for col in mod_cols]
 
+            # reorder global DF to conform to modality order
             df = df.iloc[np.argsort(mod_map[mask])].set_index(np.arange(mod_n_attr))
 
             if not only_drop:
