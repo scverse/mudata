@@ -61,10 +61,8 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
     attrs["axis"] = mdata.axis
 
     mod = file.require_group("mod")
-    for k, v in mdata.mod.items():
+    for k, adata in mdata.mod.items():
         group = mod.require_group(k)
-
-        adata = mdata.mod[k]
 
         adata.strings_to_categoricals()
         if adata.raw is not None:
@@ -173,10 +171,8 @@ def write_zarr(
         attrs["axis"] = mdata.axis
 
         mod = file.require_group("mod")
-        for k, v in mdata.mod.items():
+        for k, adata in mdata.mod.items():
             group = mod.require_group(k)
-
-            adata = mdata.mod[k]
 
             adata.strings_to_categoricals()
             if adata.raw is not None:
@@ -398,20 +394,19 @@ def _validate_h5mu(filename: PathLike) -> (str, Callable | None):
         if isinstance(filename, str) or isinstance(filename, Path):
             if h5py.is_hdf5(filename):
                 warn(
-                    "The HDF5 file was not created by muon/mudata, we can't guarantee that everything will work correctly"
+                    "The HDF5 file was not created by muon/mudata, we can't guarantee that everything will work correctly",
+                    stacklevel=2,
                 )
             else:
                 raise ValueError("The file is not an HDF5 file")
         else:
-            warn("Cannot verify that the (remote) file is a valid H5MU file")
+            warn("Cannot verify that the (remote) file is a valid H5MU file", stacklevel=2)
 
     return fname, callback
 
 
 def read_h5mu(filename: PathLike, backed: str | bool | None = None):
-    """
-    Read MuData object from HDF5 file
-    """
+    """Read MuData object from HDF5 file."""
     assert backed in [
         None,
         True,
@@ -446,7 +441,7 @@ def read_h5mu(filename: PathLike, backed: str | bool | None = None):
                 mod_order = None
                 if "mod-order" in gmods.attrs:
                     mod_order = _read_attr(gmods.attrs, "mod-order")
-                if mod_order is not None and all([m in gmods for m in mod_order]):
+                if mod_order is not None and all(m in gmods for m in mod_order):
                     mods = {k: mods[k] for k in mod_order}
 
                 d[k] = mods
@@ -465,8 +460,7 @@ def read_h5mu(filename: PathLike, backed: str | bool | None = None):
 
 
 def read_zarr(store: str | Path | MutableMapping | zarr.Group):
-    """\
-    Read from a hierarchical Zarr array store.
+    """Read from a hierarchical Zarr array store.
 
     Parameters
     ----------
@@ -504,7 +498,7 @@ def read_zarr(store: str | Path | MutableMapping | zarr.Group):
             mod_order = None
             if "mod-order" in gmods.attrs:
                 mod_order = _read_attr(gmods.attrs, "mod-order")
-            if mod_order is not None and all([m in gmods for m in mod_order]):
+            if mod_order is not None and all(m in gmods for m in mod_order):
                 mods = {k: mods[k] for k in mod_order}
 
             d[k] = mods
@@ -580,9 +574,7 @@ def read_h5ad(
     mod: str | None,
     backed: str | bool | None = None,
 ) -> AnnData:
-    """
-    Read AnnData object from inside a .h5mu file
-    or from a standalone .h5ad file (mod=None)
+    """Read AnnData object from inside a .h5mu file or from a standalone .h5ad file (mod=None).
 
     Currently replicates and modifies anndata._io.h5ad.read_h5ad.
     Matrices are loaded as they are in the file (sparse or dense).
@@ -644,9 +636,7 @@ read_anndata = read_h5ad
 
 
 def read(filename: PathLike, **kwargs) -> MuData | AnnData:
-    """
-    Read MuData object from HDF5 file
-    or AnnData object (a single modality) inside it
+    """Read MuData object from HDF5 file or AnnData object (a single modality) inside it.
 
     This function is designed to enhance I/O ease of use.
     It recognises the following formats:

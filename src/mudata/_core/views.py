@@ -8,9 +8,7 @@ if TYPE_CHECKING:
 
 
 class _ViewMixin(_SetItemMixin):
-    """
-    AnnData View Mixin but using ._mudata_ref
-    """
+    """AnnData View Mixin but using ._mudata_ref"""
 
     def __init__(
         self,
@@ -30,8 +28,6 @@ class _ViewMixin(_SetItemMixin):
 
 
 class DictView(_ViewMixin, dict):
-    """
-    AnnData DictView adopted for MuData
-    """
+    """AnnData DictView adapted for MuData"""
 
     pass

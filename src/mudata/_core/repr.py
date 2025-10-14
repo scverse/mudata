@@ -18,7 +18,7 @@ def maybe_module_class(obj, sep=".", builtins=False) -> tuple[str, str]:
             m = ""
         else:
             m += sep
-    except Exception:
+    except AttributeError:
         m += ""
     return (m, cl)
 
@@ -49,7 +49,7 @@ def format_values(x):
             elif isinstance(x, pd.Series):
                 x = x.to_numpy()
             else:
-                warn(f"got unknown array type {type(x)}, don't know how handle it.")
+                warn(f"got unknown array type {type(x)}, don't know how handle it.", stacklevel=1)
                 return type(x)
             if x.dtype == object:
                 try:
@@ -63,16 +63,12 @@ def format_values(x):
                     pass
         if testval is None:
             testval = x[0]
-        if (
-            isinstance(testval, Integral)
-            or isinstance(testval, np.bool_)
-            or isinstance(testval, bool)
-        ):
+        if isinstance(testval, Integral) or isinstance(testval, np.bool_) or isinstance(testval, bool):
             s += ",".join([f"{i}" for i in x])
         elif isinstance(testval, Real):
             s += ",".join([f"{i:.2f}" for i in x])
         elif isinstance(testval, Complex):
-            warn("got complex number, don't know how to handle it")
+            warn("got complex number, don't know how to handle it", stacklevel=1)
         elif isinstance(testval, Iterable):
             s += ",".join(map(format_values, x))
         lastidx = max(50, s.find(","))
@@ -88,9 +84,7 @@ def block_matrix(data, attr, name):
     s += "<div>"
     s += """
             <span class='hl-types'>{}</span> <span>&nbsp;&nbsp;&nbsp;<span class='hl-import'>{}</span>{}</span>
-         """.format(
-        obj.dtype, *maybe_module_class(obj)
-    )
+         """.format(obj.dtype, *maybe_module_class(obj))
     s += "</table></div>"
     return s
 
@@ -131,9 +125,7 @@ def details_block_table(data, attr, name, expand=0, dims=True, square=False):
                     [
                         """<tr>
                                        <td class='col-index'>{}</td>  <td class='hl-types'>{}</td>  <td><span class='hl-import'>{}</span>{}</td>
-                                   </tr>""".format(
-                            attr_key, obj[attr_key].dtype, *maybe_module_class(obj[attr_key])
-                        )
+                                   </tr>""".format(attr_key, obj[attr_key].dtype, *maybe_module_class(obj[attr_key]))
                         for attr_key in obj.keys()
                     ]
                 )
@@ -146,11 +138,7 @@ def details_block_table(data, attr, name, expand=0, dims=True, square=False):
                             attr_key,
                             obj[attr_key].dtype if hasattr(obj[attr_key], "dtype") else "",
                             *maybe_module_class(obj[attr_key]),
-                            (
-                                f"{obj[attr_key].shape[1]} columns"
-                                if len(obj[attr_key].shape) > 1 and dims
-                                else ""
-                            ),
+                            (f"{obj[attr_key].shape[1]} columns" if len(obj[attr_key].shape) > 1 and dims else ""),
                         )
                         for attr_key in obj.keys()
                     ]
@@ -166,9 +154,7 @@ def details_block_table(data, attr, name, expand=0, dims=True, square=False):
         s += "<div><table>"
         s += """<tr>
                 <td class='hl-types'>{}</td>  <td><span class='hl-import'>{}</span>{}</td>
-                </tr>""".format(
-            obj.dtype, *maybe_module_class(obj)
-        )
+                </tr>""".format(obj.dtype, *maybe_module_class(obj))
         s += "</table></div>"
         s += "</details>"
     else:  # Unstructured

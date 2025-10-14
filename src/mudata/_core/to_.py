@@ -8,7 +8,7 @@ from mudata import MuData
 
 def to_anndata(mdata: MuData, **kwargs) -> AnnData:
     """
-    Convert MuData to AnnData by concatenating modalities
+    Convert MuData to AnnData by concatenating modalities.
 
     If mdata.axis == 0 (shared observations),
     concatenate modalities along axis 1 (`anndata.concat(axis=1)`).
@@ -17,9 +17,9 @@ def to_anndata(mdata: MuData, **kwargs) -> AnnData:
 
     Parameters
     ----------
-    data    : MuData
+    data
         MuData object to convert  to AnnData
-    kwargs  : dict
+    kwargs
         Keyword arguments passed to anndata.concat
     """
     if mdata.axis == -1:
@@ -42,8 +42,7 @@ def to_mudata(
     by: str,
 ) -> MuData:
     """
-    Convert AnnData to MuData by splitting it
-    along obs or var
+    Convert AnnData to MuData by splitting it along obs or var.
 
     Axis signifies the shared axis.
     Use `axis=0` for getting MuData with shared observations (axis=0),
@@ -51,11 +50,11 @@ def to_mudata(
 
     Paramteters
     -----------
-    adata   : AnnData
+    adata
         AnnData object to convert to MuData
-    axis    : int
+    axis
         Axis of shared observations (0) or variables (1)
-    by      : str
+    by
         Key in `adata.var` (if axis=0) or `adata.obs` (if axis=1) to split by
     """
     # Use AnnData.split_by() when it's ready

@@ -25,12 +25,12 @@ class set_options:
 
     Options can be set in the context:
 
-    >>> with mudata.set_options(display_style='html'):
+    >>> with mudata.set_options(display_style="html"):
     ...     print("Options are applied here")
 
     ... or globally:
 
-    >>> mudata.set_options(display_style='html')
+    >>> mudata.set_options(display_style="html")
     """
 
     def __init__(self, **kwargs):

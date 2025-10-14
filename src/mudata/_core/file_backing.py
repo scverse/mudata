@@ -27,10 +27,7 @@ class MuDataFileManager(AnnDataFileManager):
         add_ref=False,
     ) -> bool:
         if self.is_open and (
-            filename is None
-            and filemode is None
-            or filename == self.filename
-            and filemode == self._filemode
+            filename is None and filemode is None or filename == self.filename and filemode == self._filemode
         ):
             if add_ref:
                 self.counter += 1

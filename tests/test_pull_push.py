@@ -11,7 +11,7 @@ from mudata import MuData
 @pytest.fixture()
 def modalities(request, obs_n, var_unique):
     n_mod = 3
-    mods = dict()
+    mods = {}
     np.random.seed(100)
     for i in range(n_mod):
         i1 = i + 1
@@ -35,9 +35,7 @@ def modalities(request, obs_n, var_unique):
 
     if obs_n:
         if obs_n == "disjoint":
-            mod2_which_obs = np.random.choice(
-                mods["mod2"].obs_names, size=mods["mod2"].n_obs // 2, replace=False
-            )
+            mod2_which_obs = np.random.choice(mods["mod2"].obs_names, size=mods["mod2"].n_obs // 2, replace=False)
             mods["mod2"] = mods["mod2"][mod2_which_obs].copy()
 
     return mods
@@ -46,7 +44,7 @@ def modalities(request, obs_n, var_unique):
 @pytest.fixture()
 def datasets(request, var_n, obs_unique):
     n_datasets = 3
-    datasets = dict()
+    datasets = {}
     np.random.seed(100)
     for i in range(n_datasets):
         i1 = i + 1

@@ -23,9 +23,7 @@ def mdata(request, obs_n, obs_across, obs_mod):
 
     if obs_n:
         if obs_n == "disjoint":
-            mod2_which_obs = np.random.choice(
-                mods["mod2"].obs_names, size=mods["mod2"].n_obs // 2, replace=False
-            )
+            mod2_which_obs = np.random.choice(mods["mod2"].obs_names, size=mods["mod2"].n_obs // 2, replace=False)
             mods["mod2"] = mods["mod2"][mod2_which_obs].copy()
 
     if obs_across:
@@ -51,7 +49,7 @@ def mdata(request, obs_n, obs_across, obs_mod):
 @pytest.fixture()
 def modalities(request, obs_n, obs_across, obs_mod):
     n_mod = 3
-    mods = dict()
+    mods = {}
     np.random.seed(100)
     for i in range(n_mod):
         i1 = i + 1
@@ -62,9 +60,7 @@ def modalities(request, obs_n, obs_across, obs_mod):
 
     if obs_n:
         if obs_n == "disjoint":
-            mod2_which_obs = np.random.choice(
-                mods["mod2"].obs_names, size=mods["mod2"].n_obs // 2, replace=False
-            )
+            mod2_which_obs = np.random.choice(mods["mod2"].obs_names, size=mods["mod2"].n_obs // 2, replace=False)
             mods["mod2"] = mods["mod2"][mod2_which_obs].copy()
 
     if obs_across:
@@ -191,21 +187,15 @@ class TestMuData:
         some_obs_names = mdata.obs_names.values[:2]
 
         true_obsm_values = [
-            mdata.obsm["test_obsm"][np.where(mdata.obs_names.values == name)[0][0]]
-            for name in some_obs_names
+            mdata.obsm["test_obsm"][np.where(mdata.obs_names.values == name)[0][0]] for name in some_obs_names
         ]
 
         mdata.mod["mod1"] = mdata["mod1"][::-1].copy()
         mdata.update()
 
-        test_obsm_values = [
-            mdata.obsm["test_obsm"][np.where(mdata.obs_names == name)[0][0]]
-            for name in some_obs_names
-        ]
+        test_obsm_values = [mdata.obsm["test_obsm"][np.where(mdata.obs_names == name)[0][0]] for name in some_obs_names]
 
-        assert all(
-            [all(true_obsm_values[i] == test_obsm_values[i]) for i in range(len(true_obsm_values))]
-        )
+        assert all(all(true_obsm_values[i] == test_obsm_values[i]) for i in range(len(true_obsm_values)))
 
 
 # @pytest.mark.usefixtures("filepath_h5mu")

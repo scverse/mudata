@@ -38,12 +38,9 @@ def _maybe_coerce_to_boolean(df: T) -> T:
     return df
 
 
-def _classify_attr_columns(
-    names: Sequence[str], prefixes: Sequence[str]
-) -> Sequence[dict[str, str]]:
+def _classify_attr_columns(names: Sequence[str], prefixes: Sequence[str]) -> Sequence[dict[str, str]]:
     """
-    Classify names into common, non-unique, and unique
-    w.r.t. to the list of prefixes.
+    Classify names into common, non-unique, and unique w.r.t. to the list of prefixes.
 
     - Common columns do not have modality prefixes.
     - Non-unqiue columns have a modality prefix,
@@ -93,20 +90,15 @@ def _classify_attr_columns(
 
     for name_res in res:
         name_res["class"] = (
-            "common"
-            if name_res["count"] == n_mod
-            else "unique" if name_res["count"] == 1 else "nonunique"
+            "common" if name_res["count"] == n_mod else "unique" if name_res["count"] == 1 else "nonunique"
         )
 
     return res
 
 
-def _classify_prefixed_columns(
-    names: Sequence[str], prefixes: Sequence[str]
-) -> Sequence[dict[str, str]]:
+def _classify_prefixed_columns(names: Sequence[str], prefixes: Sequence[str]) -> Sequence[dict[str, str]]:
     """
-    Classify names into common and prefixed
-    w.r.t. to the list of prefixes.
+    Classify names into common and prefixed w.r.t. to the list of prefixes.
 
     - Common columns do not have modality prefixes.
     - Prefixed columns are prefixed by modality names.
@@ -156,9 +148,7 @@ def _update_and_concat(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
     # df.update(df2)
     common_cols = df1.columns.intersection(df2.columns)
     for col in common_cols:
-        if isinstance(df[col].values, pd.Categorical) and isinstance(
-            df2[col].values, pd.Categorical
-        ):
+        if isinstance(df[col].values, pd.Categorical) and isinstance(df2[col].values, pd.Categorical):
             common_cats = pd.api.types.union_categoricals([df[col], df2[col]]).categories
             df[col] = df[col].cat.set_categories(common_cats)
             df2[col] = df2[col].cat.set_categories(common_cats)

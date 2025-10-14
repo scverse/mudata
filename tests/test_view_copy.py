@@ -164,9 +164,7 @@ class TestMuData:
 
         # Slice a subset of cells
         n_obs_subset = 50
-        random_indices = np.random.choice(
-            mdata_with_obsp.obs_names, size=n_obs_subset, replace=False
-        )
+        random_indices = np.random.choice(mdata_with_obsp.obs_names, size=n_obs_subset, replace=False)
 
         # Create a slice view
         mdata_slice = mdata_with_obsp[random_indices]

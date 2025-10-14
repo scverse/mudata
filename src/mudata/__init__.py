@@ -7,8 +7,8 @@ try:  # See https://github.com/maresb/hatch-vcs-footgun-example
 except (ImportError, LookupError):
     try:
         from ._version import __version__
-    except ModuleNotFoundError:
-        raise RuntimeError("mudata is not correctly installed. Please install it, e.g. with pip.")
+    except ModuleNotFoundError as e:
+        raise RuntimeError("mudata is not correctly installed. Please install it, e.g. with pip.") from e
 
 from anndata import AnnData
 
