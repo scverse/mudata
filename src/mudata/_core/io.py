@@ -36,9 +36,7 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
         file,
         "obs",
         mdata.strings_to_categoricals(
-            mdata._shrink_attr("obs", inplace=False).copy()
-            if OPTIONS["pull_on_update"] is None
-            else mdata.obs.copy()
+            mdata._shrink_attr("obs", inplace=False).copy() if OPTIONS["pull_on_update"] is None else mdata.obs.copy()
         ),
         dataset_kwargs=kwargs,
     )
@@ -46,9 +44,7 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
         file,
         "var",
         mdata.strings_to_categoricals(
-            mdata._shrink_attr("var", inplace=False).copy()
-            if OPTIONS["pull_on_update"] is None
-            else mdata.var.copy()
+            mdata._shrink_attr("var", inplace=False).copy() if OPTIONS["pull_on_update"] is None else mdata.var.copy()
         ),
         dataset_kwargs=kwargs,
     )
@@ -239,9 +235,7 @@ def write_h5mu(filename: PathLike, mdata: MuData, **kwargs):
         nbytes = f.write(
             f"MuData (format-version={__mudataversion__};creator=muon;creator-version={__version__})".encode()
         )
-        f.write(
-            b"\0" * (512 - nbytes)
-        )  # this is only needed because the H5file was written in append mode
+        f.write(b"\0" * (512 - nbytes))  # this is only needed because the H5file was written in append mode
 
 
 def write_h5ad(filename: PathLike, mod: str, data: MuData | AnnData):
@@ -314,14 +308,14 @@ def write(filename: PathLike, data: MuData | AnnData):
 
     This function is designed to enhance I/O ease of use.
     It recognises the following formats of filename:
-      - for MuData
-            - FILE.h5mu
-      - for AnnData
-              - FILE.h5mu/MODALITY
-              - FILE.h5mu/mod/MODALITY
-              - FILE.h5ad
-    """
 
+    - for MuData
+        - `FILE.h5mu`
+    - for AnnData
+        - `FILE.h5mu/MODALITY`
+        - `FILE.h5mu/mod/MODALITY`
+        - `FILE.h5ad`
+    """
     import re
 
     if filename.endswith(".h5mu") or isinstance(data, MuData):
@@ -395,9 +389,7 @@ def _validate_h5mu(filename: PathLike) -> (str, Callable | None):
                     callback = lambda: fname.__exit__()
                 ish5mu = fname.read(6) == b"MuData"
             except ImportError as e:
-                raise ImportError(
-                    "To read from remote storage or cache, install fsspec: pip install fsspec"
-                ) from e
+                raise ImportError("To read from remote storage or cache, install fsspec: pip install fsspec") from e
         else:
             ish5mu = False
             raise e
@@ -475,6 +467,7 @@ def read_h5mu(filename: PathLike, backed: str | bool | None = None):
 def read_zarr(store: str | Path | MutableMapping | zarr.Group):
     """\
     Read from a hierarchical Zarr array store.
+
     Parameters
     ----------
     store
@@ -612,10 +605,7 @@ def read_h5ad(
         except TypeError as e:
             fname, callback = filename, None
             # Support fsspec
-            if (
-                filename.__class__.__name__ == "BufferedReader"
-                or filename.__class__.__name__ == "OpenFile"
-            ):
+            if filename.__class__.__name__ == "BufferedReader" or filename.__class__.__name__ == "OpenFile":
                 try:
                     from fsspec.core import OpenFile
 
@@ -623,9 +613,7 @@ def read_h5ad(
                         fname = filename.__enter__()
                         callback = lambda: fname.__exit__()
                 except ImportError as e:
-                    raise ImportError(
-                        "To read from remote storage or cache, install fsspec: pip install fsspec"
-                    ) from e
+                    raise ImportError("To read from remote storage or cache, install fsspec: pip install fsspec") from e
 
                 adata = read_h5ad(fname, backed=backed)
                 if callable is not None:
@@ -662,17 +650,25 @@ def read(filename: PathLike, **kwargs) -> MuData | AnnData:
 
     This function is designed to enhance I/O ease of use.
     It recognises the following formats:
-      - FILE.h5mu
-      - FILE.h5mu/MODALITY
-      - FILE.h5mu/mod/MODALITY
-      - FILE.h5ad
+
+    - `FILE.h5mu`
+    - `FILE.h5mu/MODALITY`
+    - `FILE.h5mu/mod/MODALITY`
+    - `FILE.h5ad`
 
     OpenFile and BufferedReader from fsspec are supported for remote storage, e.g.:
-      - mdata = read(fsspec.open("s3://bucket/file.h5mu")))
-      - with fsspec.open("s3://bucket/file.h5mu") as f:
-            mdata = read(f)
-      - with fsspec.open("https://server/file.h5ad") as f:
-            adata = read(f)
+
+    - .. code-block::
+
+         mdata = read(fsspec.open("s3://bucket/file.h5mu")))
+    - .. code-block::
+
+         with fsspec.open("s3://bucket/file.h5mu") as f:
+             mdata = read(f)
+    - .. code-block::
+
+         with fsspec.open("https://server/file.h5ad") as f:
+             adata = read(f)
     """
     import re
 
