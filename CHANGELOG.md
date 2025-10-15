@@ -89,11 +89,17 @@ To copy the annotations explicitly, you will need to use [`pull_obs()`](#mudata.
 
 ## [0.2.0]
 
-This version uses new I/O serialisation of `AnnData v0.8 <https://anndata.readthedocs.io/en/latest/release-notes/index.html#th-march-2022>`_.
+### Added
 
-Updating a MuData object with :func:`mudata.MuData.update` is even faster in many use cases.
+- [new axes interface](https://github.com/scverse/mudata/blob/master/docs/source/notebooks/axes.ipynb) that allows to use MuData objects as containers with different shared dimensions.
 
-There's `a new axes interface <https://github.com/scverse/mudata/blob/master/docs/source/notebooks/axes.ipynb>`_ that allows to use MuData objects as containers with different shared dimensions.
+### Changed
+
+- new I/O serialisation of [AnnData v0.8](https://anndata.readthedocs.io/en/latest/release-notes/index.html#th-march-2022)_.
+
+### Fixed
+
+- Updating a MuData object with `MuData.update()` is even faster in many use cases.
 
 ## [0.1.2]
 
