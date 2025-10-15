@@ -18,7 +18,6 @@ def mdata():
     )
 
 
-@pytest.mark.usefixtures("filepath_h5mu", "filepath_zarr")
 class TestMuData:
     def test_write_read_h5mu_basic(self, mdata, filepath_h5mu):
         mdata.write(filepath_h5mu)
@@ -59,7 +58,6 @@ class TestMuData:
         assert mdata_.obs["mod1:column"].values[0] == 2
 
 
-@pytest.mark.usefixtures("filepath_h5mu")
 class TestMuDataMod:
     def test_h5mu_mod_backed(self, mdata, filepath_h5mu):
         mdata.write(
