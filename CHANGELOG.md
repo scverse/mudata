@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning][].
 
 ### Fixed
 
-- Fixed an [issue](https://github.com/scverse/mudata/issues/99) in [`update()`](#mudata.MuData.update)
+- Fixed an [issue](https://github.com/scverse/mudata/issues/99) in `update()`
 
 ## [0.3.1]
 
@@ -24,27 +24,27 @@ and this project adheres to [Semantic Versioning][].
 
 ### Added
 
-- Pull/push interface for annotations: [`pull_obs()`](#mudata.MuData.pull_obs), [`pull_var()`](#mudata.MuData.pull_var), [`push_obs()`](#mudata.MuData.push_obs), [`push_var()`](#mudata.MuData.push_var)
-- Conversion functions: [`to_anndata()`](#mudata.MuData.to_anndata), [`to_mudata()`](#mudata.to_mudata)
-- [Concatenation](#mudata.concat) of MuData objects
+- Pull/push interface for annotations: `pull_obs()`, `pull_var()`, `push_obs()`, `push_var()`
+- Conversion functions: `to_anndata()`, `to_mudata()`
+- Concatenation of MuData objects
 - `MuData.mod_names` attribute
 - Pretty-printing for `MuData.mod`
 - `fsspec` support for readers.
 
 ### Fixed
 
-- Improved performance and behavior of [`update()`](#mudata.MuData.update).
+- Improved performance and behavior of `update()`.
   For compatibility reasons, this release keeps the old behaviour of pulling annotations on read/update as default.
-- [`read_zarr()`](#mudata.read_zarr) now supports `mod-order`
+- `read_zarr()` now supports `mod-order`
 - Correct handling of the `uns` attribute by views.
 
 ### Note
 
 If you want to adopt the new update behaviour, set `mudata.set_options(pull_on_update=False)`.
 This will be the default behaviour in the next release.
-With it, the annotations will not be copied from the modalities on [`update()`](#mudata.MuData.update) implicitly.
+With it, the annotations will not be copied from the modalities on `update()` implicitly.
 
-To copy the annotations explicitly, you will need to use [`pull_obs()`](#mudata.MuData.pull_obs) and/or [`pull_var()`](#mudata.MuData.pull_var).
+To copy the annotations explicitly, you will need to use `pull_obs()` and/or `pull_var()`.
 
 ## [0.2.4]
 
@@ -68,15 +68,15 @@ To copy the annotations explicitly, you will need to use [`pull_obs()`](#mudata.
 
 ### Fixed
 
-- [`Path`](#pathlib.Path) objects now work in [](#mudata.read)
+- `Path` objects now work in `mudata.read()`
 
 ## [0.2.1]
 
 ### Added
 
-- [`MuData.__len__`](#mudata.MuData.__len__).
+- `MuData.__len__`.
   This should make it easier to build MuData into workflows that operate on data containers with length.
-  In practice using [`n_obs`](#mudata.MuData.n_obs) should be preferred.
+  In practice using `n_obs` should be preferred.
 
 ### Changed
 
@@ -85,7 +85,7 @@ To copy the annotations explicitly, you will need to use [`pull_obs()`](#mudata.
 
 ### Fixed
 
-- Improvements and optimizations to [`update()`](#mudata.MuData.update)
+- Improvements and optimizations to `update()`
 
 ## [0.2.0]
 
@@ -95,7 +95,7 @@ To copy the annotations explicitly, you will need to use [`pull_obs()`](#mudata.
 
 ### Changed
 
-- new I/O serialisation of [AnnData v0.8](https://anndata.readthedocs.io/en/latest/release-notes/index.html#th-march-2022)_.
+- new I/O serialisation of [AnnData v0.8](https://anndata.readthedocs.io/en/latest/release-notes/index.html#th-march-2022).
 
 ### Fixed
 
@@ -105,11 +105,11 @@ To copy the annotations explicitly, you will need to use [`pull_obs()`](#mudata.
 
 ### Changed
 
-- Improved documentation, including [a new page describing the sharp bits](notebooks/nuances.ipynb)
+- Improved documentation, including a new page describing the sharp bits.
 
 ### Fixed
 
-- Updating a MuData object with [`update()`](#mudata.MuData.update) is now much faster.
+- Updating a MuData object with `update()` is now much faster.
 
 ## [0.1.1]
 
@@ -117,7 +117,7 @@ To copy the annotations explicitly, you will need to use [`pull_obs()`](#mudata.
 
 ## [0.1.0]
 
-Initial `mudata` release with [`MuData`](#mudata.MuData), previously a part of the `muon` framework.
+Initial `mudata` release with `MuData`, previously a part of the `muon` framework.
 
 [0.3.2]: https://github.com/scverse/mudata/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/scverse/mudata/compare/v0.3.0...v0.3.1
