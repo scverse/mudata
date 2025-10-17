@@ -37,8 +37,8 @@ dependencies = [
 ]
 optional-dependencies.dev = [
   "fsspec",
+  "hatch-vcs",    # for version handling in editable mode
   "pre-commit",
-  "setuptools-scm", # for version handling in editable mode
   "twine>=4.0.2",
   "zarr<3",
 ]
