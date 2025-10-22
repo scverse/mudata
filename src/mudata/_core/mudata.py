@@ -2337,7 +2337,7 @@ class MuData:
                 # TODO: _maybe_coerce_to_bool
                 # TODO: _maybe_coerce_to_int
                 # TODO: _prune_unused_categories
-                mod_df = getattr(mod, attr).set_index(np.arange(mod_n_attr))
+                mod_df = getattr(mod, attr).set_index(np.arange(mod_n_attr, dtype=mod_map.dtype))
                 mod_df = _update_and_concat(mod_df, df)
                 mod_df = mod_df.set_index(getattr(mod, f"{attr}_names"))
                 setattr(mod, attr, mod_df)
