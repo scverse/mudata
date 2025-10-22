@@ -2329,7 +2329,9 @@ class MuData:
             df.columns = [col.derived_name for col in mod_cols]
 
             # reorder global DF to conform to modality order
-            df = df.iloc[np.argsort(mod_map[mask])].set_index(np.arange(mod_n_attr))
+            idx = np.empty(mod_n_attr, dtype=mod_map.dtype)
+            idx[mod_map[mask] - 1] = np.arange(mod_n_attr)
+            df = df.iloc[idx].set_index(np.arange(mod_n_attr))
 
             if not only_drop:
                 # TODO: _maybe_coerce_to_bool
