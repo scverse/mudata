@@ -10,12 +10,7 @@ if TYPE_CHECKING:
 class _ViewMixin(_SetItemMixin):
     """AnnData View Mixin but using ._mudata_ref"""
 
-    def __init__(
-        self,
-        *args,
-        view_args: tuple["MuData", str, tuple[str, ...]] = None,
-        **kwargs,
-    ):
+    def __init__(self, *args, view_args: tuple["MuData", str, tuple[str, ...]] = None, **kwargs):
         if view_args is not None:
             view_args = ElementRef(*view_args)
         self._view_args = view_args

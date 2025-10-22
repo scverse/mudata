@@ -170,8 +170,7 @@ def concat(
 
     # Label column
     label_col = pd.Categorical.from_codes(
-        np.repeat(np.arange(len(mdatas)), [m.shape[axis] for m in mdatas]),
-        categories=keys,
+        np.repeat(np.arange(len(mdatas)), [m.shape[axis] for m in mdatas]), categories=keys
     )
 
     # Combining indexes
@@ -185,11 +184,7 @@ def concat(
 
     # Annotation for concatenation axis
     check_combinable_cols([getattr(m, dim).columns for m in mdatas], join=join)
-    concat_annot = pd.concat(
-        unify_dtypes([getattr(m, dim) for m in mdatas]),
-        join=join,
-        ignore_index=True,
-    )
+    concat_annot = pd.concat(unify_dtypes([getattr(m, dim) for m in mdatas]), join=join, ignore_index=True)
     concat_annot.index = concat_indices
     if label is not None:
         concat_annot[label] = label_col
@@ -213,10 +208,7 @@ def concat(
         patch_alt_dim.append(elems_alt_dim)
 
     if join == "inner":
-        concat_mapping = inner_concat_aligned_mapping(
-            [getattr(m, f"{dim}m") for m in mdatas],
-            index=concat_indices,
-        )
+        concat_mapping = inner_concat_aligned_mapping([getattr(m, f"{dim}m") for m in mdatas], index=concat_indices)
         if pairwise:
             concat_pairwise = concat_pairwise_mapping(
                 mappings=[getattr(m, f"{dim}p") for m in mdatas],
@@ -227,9 +219,7 @@ def concat(
             concat_pairwise = {}
     elif join == "outer":
         concat_mapping = outer_concat_aligned_mapping(
-            [getattr(m, f"{dim}m") for m in mdatas],
-            index=concat_indices,
-            fill_value=fill_value,
+            [getattr(m, f"{dim}m") for m in mdatas], index=concat_indices, fill_value=fill_value
         )
         if pairwise:
             concat_pairwise = concat_pairwise_mapping(
@@ -262,7 +252,7 @@ def concat(
         [
             {k: r(v, axis=0) for k, v in getattr(a, f"{alt_dim}m").items()}
             for r, a in zip(reindexers, mdatas, strict=False)
-        ],
+        ]
     )
     alt_pairwise = merge(
         [

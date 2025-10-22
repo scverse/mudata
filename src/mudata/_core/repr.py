@@ -53,12 +53,7 @@ def format_values(x):
                 return type(x)
             if x.dtype == object:
                 try:
-                    testval = next(
-                        filter(
-                            lambda y: ~np.isnan(y) if isinstance(y, Number) else x is not None,
-                            x,
-                        )
-                    )
+                    testval = next(filter(lambda y: ~np.isnan(y) if isinstance(y, Number) else x is not None, x))
                 except StopIteration:
                     pass
         if testval is None:

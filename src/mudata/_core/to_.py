@@ -36,11 +36,7 @@ def to_anndata(mdata: MuData, **kwargs) -> AnnData:
     return adata
 
 
-def to_mudata(
-    adata: AnnData,
-    axis: Literal[0, 1],
-    by: str,
-) -> MuData:
+def to_mudata(adata: AnnData, axis: Literal[0, 1], by: str) -> MuData:
     """
     Convert AnnData to MuData by splitting it along obs or var.
 

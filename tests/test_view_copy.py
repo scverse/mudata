@@ -14,12 +14,10 @@ from mudata import MuData
 def mdata():
     rng = np.random.default_rng(42)
     mod1 = AnnData(
-        np.arange(0, 100, 0.1).reshape(-1, 10),
-        obs=pd.DataFrame(index=rng.choice(150, size=100, replace=False)),
+        np.arange(0, 100, 0.1).reshape(-1, 10), obs=pd.DataFrame(index=rng.choice(150, size=100, replace=False))
     )
     mod2 = AnnData(
-        np.arange(101, 2101, 1).reshape(-1, 20),
-        obs=pd.DataFrame(index=rng.choice(150, size=100, replace=False)),
+        np.arange(101, 2101, 1).reshape(-1, 20), obs=pd.DataFrame(index=rng.choice(150, size=100, replace=False))
     )
     mods = {"mod1": mod1, "mod2": mod2}
     # Make var_names different in different modalities
@@ -34,12 +32,10 @@ def mdata_with_obsp():
     """Create a MuData object with populated obsp and varp fields."""
     rng = np.random.default_rng(42)
     mod1 = AnnData(
-        np.arange(0, 100, 0.1).reshape(-1, 10),
-        obs=pd.DataFrame(index=rng.choice(150, size=100, replace=False)),
+        np.arange(0, 100, 0.1).reshape(-1, 10), obs=pd.DataFrame(index=rng.choice(150, size=100, replace=False))
     )
     mod2 = AnnData(
-        np.arange(101, 2101, 1).reshape(-1, 20),
-        obs=pd.DataFrame(index=rng.choice(150, size=100, replace=False)),
+        np.arange(101, 2101, 1).reshape(-1, 20), obs=pd.DataFrame(index=rng.choice(150, size=100, replace=False))
     )
     mods = {"mod1": mod1, "mod2": mod2}
     # Make var_names different in different modalities
@@ -170,26 +166,22 @@ class TestMuData:
         mdata_slice = mdata_with_obsp[random_indices]
 
         # Check that the sliced obsp matrices have correct shape in the view
-        assert mdata_slice.obsp["distances"].shape == (
-            n_obs_subset,
-            n_obs_subset,
-        ), f"Expected shape in view: {(n_obs_subset, orig_n_obs)}, got: {mdata_slice.obsp['distances'].shape}"
-        assert mdata_slice.obsp["connectivities"].shape == (
-            n_obs_subset,
-            n_obs_subset,
-        ), f"Expected shape in view: {(n_obs_subset, orig_n_obs)}, got: {mdata_slice.obsp['connectivities'].shape}"
+        assert mdata_slice.obsp["distances"].shape == (n_obs_subset, n_obs_subset), (
+            f"Expected shape in view: {(n_obs_subset, orig_n_obs)}, got: {mdata_slice.obsp['distances'].shape}"
+        )
+        assert mdata_slice.obsp["connectivities"].shape == (n_obs_subset, n_obs_subset), (
+            f"Expected shape in view: {(n_obs_subset, orig_n_obs)}, got: {mdata_slice.obsp['connectivities'].shape}"
+        )
 
         # Make a copy of the sliced MuData object
         mdata_copy = mdata_slice.copy()
         # Check shapes after copy - these should be (n_obs_subset, n_obs_subset) if correctly copied
-        assert mdata_copy.obsp["distances"].shape == (
-            n_obs_subset,
-            n_obs_subset,
-        ), f"Expected shape after copy: {(n_obs_subset, n_obs_subset)}, got: {mdata_copy.obsp['distances'].shape}"
-        assert mdata_copy.obsp["connectivities"].shape == (
-            n_obs_subset,
-            n_obs_subset,
-        ), f"Expected shape after copy: {(n_obs_subset, n_obs_subset)}, got: {mdata_copy.obsp['connectivities'].shape}"
+        assert mdata_copy.obsp["distances"].shape == (n_obs_subset, n_obs_subset), (
+            f"Expected shape after copy: {(n_obs_subset, n_obs_subset)}, got: {mdata_copy.obsp['distances'].shape}"
+        )
+        assert mdata_copy.obsp["connectivities"].shape == (n_obs_subset, n_obs_subset), (
+            f"Expected shape after copy: {(n_obs_subset, n_obs_subset)}, got: {mdata_copy.obsp['connectivities'].shape}"
+        )
 
     def test_varp_slicing(self, mdata_with_obsp):
         """Test that varp matrices are correctly sliced when subsetting a MuData object."""
@@ -207,15 +199,13 @@ class TestMuData:
         mdata_slice = mdata_with_obsp[:, random_var_indices]
 
         # Check that the sliced varp matrix has correct shape in the view
-        assert mdata_slice.varp["correlations"].shape == (
-            n_var_subset,
-            n_var_subset,
-        ), f"Expected shape in view: {(n_var_subset, orig_n_var)}, got: {mdata_slice.varp['correlations'].shape}"
+        assert mdata_slice.varp["correlations"].shape == (n_var_subset, n_var_subset), (
+            f"Expected shape in view: {(n_var_subset, orig_n_var)}, got: {mdata_slice.varp['correlations'].shape}"
+        )
 
         # Copy the sliced MuData object
         mdata_copy = mdata_slice.copy()
         # Check shapes after copy
-        assert mdata_copy.varp["correlations"].shape == (
-            n_var_subset,
-            n_var_subset,
-        ), f"Expected shape after copy: {(n_var_subset, n_var_subset)}, got: {mdata_copy.varp['correlations'].shape}"
+        assert mdata_copy.varp["correlations"].shape == (n_var_subset, n_var_subset), (
+            f"Expected shape after copy: {(n_var_subset, n_var_subset)}, got: {mdata_copy.varp['correlations'].shape}"
+        )

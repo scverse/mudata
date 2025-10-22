@@ -16,10 +16,7 @@ from typing import Any, Literal, Union
 import numpy as np
 import pandas as pd
 from anndata import AnnData
-from anndata._core.aligned_mapping import (
-    AxisArraysBase,
-    PairwiseArraysView,
-)
+from anndata._core.aligned_mapping import AxisArraysBase, PairwiseArraysView
 from anndata._core.views import DataFrameView
 from anndata.utils import convert_to_dict
 
@@ -148,11 +145,7 @@ class MuData:
         self,
         data: Union[AnnData, Mapping[str, AnnData], "MuData"] | None = None,
         feature_types_names: dict | None = MappingProxyType(
-            {
-                "Gene Expression": "rna",
-                "Peaks": "atac",
-                "Antibody Capture": "prot",
-            }
+            {"Gene Expression": "rna", "Peaks": "atac", "Antibody Capture": "prot"}
         ),
         as_view: bool = False,
         index: tuple[slice | Integral, slice | Integral] | slice | Integral | None = None,
@@ -697,12 +690,7 @@ class MuData:
                 )
                 for m, a in self.mod.items()
             ]
-            data_mod = pd.concat(
-                dfs,
-                join="outer",
-                axis=axis,
-                sort=False,
-            )
+            data_mod = pd.concat(dfs, join="outer", axis=axis, sort=False)
 
             # pd.concat wrecks the ordering when doing an outer join with a MultiIndex and different data frame shapes
             if axis == 1:
@@ -797,11 +785,7 @@ class MuData:
         for colname in (mod + "+" + rowcol for mod in self.mod.keys()):
             data_mod.drop(colname, axis=1, inplace=True, errors="ignore")
 
-        setattr(
-            self,
-            "_" + attr,
-            attr_reindexed,
-        )
+        setattr(self, "_" + attr, attr_reindexed)
 
         # Update .obsm/.varm
         # this needs to be after setting _obs/_var due to dimension checking in the aligned mapping
@@ -964,8 +948,7 @@ class MuData:
         if join_common:
             # If all modalities have a column with the same name, it is not global
             columns_common = reduce(
-                lambda a, b: a.intersection(b),
-                [getattr(self.mod[mod], attr).columns for mod in self.mod],
+                lambda a, b: a.intersection(b), [getattr(self.mod[mod], attr).columns for mod in self.mod]
             )
             data_global = data_global.loc[:, [c not in columns_common for c in data_global.columns]]
 
@@ -1091,12 +1074,7 @@ class MuData:
                 ]
 
                 # Here, attr_names are guaranteed to be unique and are safe to be used for joins
-                data_mod = pd.concat(
-                    dfs,
-                    join="outer",
-                    axis=axis,
-                    sort=False,
-                )
+                data_mod = pd.concat(dfs, join="outer", axis=axis, sort=False)
 
                 data_common = pd.concat(
                     [
@@ -1117,12 +1095,7 @@ class MuData:
                     )
                     for m, a in self.mod.items()
                 ]
-                data_mod = pd.concat(
-                    dfs,
-                    join="outer",
-                    axis=axis,
-                    sort=False,
-                )
+                data_mod = pd.concat(dfs, join="outer", axis=axis, sort=False)
 
             # pd.concat wrecks the ordering when doing an outer join with a MultiIndex and different data frame shapes
             if axis == 1:
@@ -2241,13 +2214,7 @@ class MuData:
             Forces drop=True. False by default.
         """
         return self._push_attr(
-            "obs",
-            columns=columns,
-            mods=mods,
-            common=common,
-            prefixed=prefixed,
-            drop=drop,
-            only_drop=only_drop,
+            "obs", columns=columns, mods=mods, common=common, prefixed=prefixed, drop=drop, only_drop=only_drop
         )
 
     def push_var(
@@ -2286,13 +2253,7 @@ class MuData:
             Forces drop=True. False by default.
         """
         return self._push_attr(
-            "var",
-            columns=columns,
-            mods=mods,
-            common=common,
-            prefixed=prefixed,
-            drop=drop,
-            only_drop=only_drop,
+            "var", columns=columns, mods=mods, common=common, prefixed=prefixed, drop=drop, only_drop=only_drop
         )
 
     def write_h5mu(self, filename: str | None = None, **kwargs):
@@ -2378,16 +2339,7 @@ class MuData:
                 descr += f"\n{mod_indent}{k}:\t" + v._gen_repr(v.n_obs, v.n_vars, extensive, nest_level + 1)
                 continue
             descr += f"\n{mod_indent}{k}:\t{v.n_obs} x {v.n_vars}"
-            for attr in [
-                "obs",
-                "var",
-                "uns",
-                "obsm",
-                "varm",
-                "layers",
-                "obsp",
-                "varp",
-            ]:
+            for attr in ["obs", "var", "uns", "obsm", "varm", "layers", "obsp", "varp"]:
                 try:
                     keys = getattr(v, attr).keys()
                     if len(keys) > 0:

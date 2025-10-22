@@ -9,23 +9,14 @@ from anndata._core.file_backing import AnnDataFileManager
 
 
 class MuDataFileManager(AnnDataFileManager):
-    def __init__(
-        self,
-        filename: PathLike | None = None,
-        filemode: Literal["r", "r+"] | None = None,
-    ):
+    def __init__(self, filename: PathLike | None = None, filemode: Literal["r", "r+"] | None = None):
         self._counter = 0
         self._children = WeakSet()
         if filename is not None:
             filename = Path(filename)
         super().__init__(ad.AnnData(), filename, filemode)
 
-    def open(
-        self,
-        filename: PathLike | None = None,
-        filemode: Literal["r", "r+"] | None = None,
-        add_ref=False,
-    ) -> bool:
+    def open(self, filename: PathLike | None = None, filemode: Literal["r", "r+"] | None = None, add_ref=False) -> bool:
         if self.is_open and (
             filename is None and filemode is None or filename == self.filename and filemode == self._filemode
         ):
@@ -77,12 +68,7 @@ class MuDataFileManager(AnnDataFileManager):
 class AnnDataFileManager(ad._core.file_backing.AnnDataFileManager):
     _h5files = {}
 
-    def __init__(
-        self,
-        adata: ad.AnnData,
-        mod: str,
-        parent: MuDataFileManager,
-    ):
+    def __init__(self, adata: ad.AnnData, mod: str, parent: MuDataFileManager):
         self._parent = parent
         self._mod = mod
         parent._children.add(self)
@@ -91,11 +77,7 @@ class AnnDataFileManager(ad._core.file_backing.AnnDataFileManager):
         if parent.is_open:
             self._set_file()
 
-    def open(
-        self,
-        filename: PathLike | None = None,
-        filemode: Literal["r", "r+"] | None = None,
-    ):
+    def open(self, filename: PathLike | None = None, filemode: Literal["r", "r+"] | None = None):
         if not self._parent.open(filename, filemode, add_ref=True):
             self._set_file()
 

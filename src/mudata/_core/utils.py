@@ -62,11 +62,7 @@ def _classify_attr_columns(names: Sequence[str], prefixes: Sequence[str]) -> Seq
     res: list[dict[str, str]] = []
 
     for name in names:
-        name_common = {
-            "name": name,
-            "prefix": "",
-            "derived_name": name,
-        }
+        name_common = {"name": name, "prefix": "", "derived_name": name}
         name_split = name.split(":", 1)
 
         if len(name_split) < 2:
@@ -75,11 +71,7 @@ def _classify_attr_columns(names: Sequence[str], prefixes: Sequence[str]) -> Seq
             maybe_modname, derived_name = name_split
 
             if maybe_modname in prefixes:
-                name_prefixed = {
-                    "name": name,
-                    "prefix": maybe_modname,
-                    "derived_name": derived_name,
-                }
+                name_prefixed = {"name": name, "prefix": maybe_modname, "derived_name": derived_name}
                 res.append(name_prefixed)
             else:
                 res.append(name_common)
@@ -114,11 +106,7 @@ def _classify_prefixed_columns(names: Sequence[str], prefixes: Sequence[str]) ->
     res: list[dict[str, str]] = []
 
     for name in names:
-        name_common = {
-            "name": name,
-            "prefix": "",
-            "derived_name": name,
-        }
+        name_common = {"name": name, "prefix": "", "derived_name": name}
         name_split = name.split(":", 1)
 
         if len(name_split) < 2:
@@ -127,11 +115,7 @@ def _classify_prefixed_columns(names: Sequence[str], prefixes: Sequence[str]) ->
             maybe_modname, derived_name = name_split
 
             if maybe_modname in prefixes:
-                name_prefixed = {
-                    "name": name,
-                    "prefix": maybe_modname,
-                    "derived_name": derived_name,
-                }
+                name_prefixed = {"name": name, "prefix": maybe_modname, "derived_name": derived_name}
                 res.append(name_prefixed)
             else:
                 res.append(name_common)

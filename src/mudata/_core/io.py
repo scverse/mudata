@@ -102,13 +102,7 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
         mdata.update()
 
 
-def write_zarr(
-    store: MutableMapping | str | Path,
-    data: MuData | AnnData,
-    chunks=None,
-    write_data=True,
-    **kwargs,
-):
+def write_zarr(store: MutableMapping | str | Path, data: MuData | AnnData, chunks=None, write_data=True, **kwargs):
     """
     Write MuData or AnnData object to the Zarr store
 
@@ -407,13 +401,7 @@ def _validate_h5mu(filename: PathLike) -> (str, Callable | None):
 
 def read_h5mu(filename: PathLike, backed: str | bool | None = None):
     """Read MuData object from HDF5 file."""
-    assert backed in [
-        None,
-        True,
-        False,
-        "r",
-        "r+",
-    ], "Argument `backed` should be boolean, or r/r+, or None"
+    assert backed in [None, True, False, "r", "r+"], "Argument `backed` should be boolean, or r/r+, or None"
 
     from anndata._io.h5ad import read_dataframe
     from anndata._io.specs.registry import read_elem
@@ -469,12 +457,8 @@ def read_zarr(store: str | Path | MutableMapping | zarr.Group):
     """
     import zarr
     from anndata._io.specs.registry import read_elem
-    from anndata._io.zarr import (
-        read_dataframe,
-    )
-    from anndata._io.zarr import (
-        read_zarr as anndata_read_zarr,
-    )
+    from anndata._io.zarr import read_dataframe
+    from anndata._io.zarr import read_zarr as anndata_read_zarr
 
     if isinstance(store, Path):
         store = str(store)
@@ -532,11 +516,7 @@ def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: boo
         ad.file = AnnDataFileManager(ad, Path(g.name).name, manager)
 
     raw = _read_legacy_raw(
-        g,
-        d.get("raw"),
-        read_dataframe,
-        read_elem,
-        attrs=("var", "varm") if backed else ("var", "varm", "X"),
+        g, d.get("raw"), read_dataframe, read_elem, attrs=("var", "varm") if backed else ("var", "varm", "X")
     )
     if raw:
         ad._raw = Raw(ad, **raw)
@@ -569,11 +549,7 @@ def _read_h5mu_mod(g: h5py.Group, manager: MuDataFileManager = None, backed: boo
     return ad
 
 
-def read_h5ad(
-    filename: PathLike,
-    mod: str | None,
-    backed: str | bool | None = None,
-) -> AnnData:
+def read_h5ad(filename: PathLike, mod: str | None, backed: str | bool | None = None) -> AnnData:
     """Read AnnData object from inside a .h5mu file or from a standalone .h5ad file (mod=None).
 
     Currently replicates and modifies anndata._io.h5ad.read_h5ad.
@@ -581,13 +557,7 @@ def read_h5ad(
 
     Ideally this is merged later to anndata._io.h5ad.read_h5ad.
     """
-    assert backed in [
-        None,
-        True,
-        False,
-        "r",
-        "r+",
-    ], "Argument `backed` should be boolean, or r/r+, or None"
+    assert backed in [None, True, False, "r", "r+"], "Argument `backed` should be boolean, or r/r+, or None"
 
     from anndata import read_h5ad
 
