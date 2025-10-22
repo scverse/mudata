@@ -2323,7 +2323,7 @@ class MuData:
 
             # get all common and modality-specific columns for the current modality
             mod_cols = [col for col in cols if col.prefix == m or col.klass == "common"]
-            df = getattr(self, attr)[mask].loc[:, [col.name for col in mod_cols]]
+            df = getattr(self, attr)[mask][[col.name for col in mod_cols]]
 
             # strip modality prefix where necessary
             df.columns = [col.derived_name for col in mod_cols]
