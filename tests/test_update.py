@@ -44,7 +44,9 @@ def modalities(request, obs_n, obs_across, obs_mod):
             mods["mod3"].obs_names = obsnames3
             mods["mod2"].var_names = varnames2
             mods["mod3"].var_names = varnames3
-        elif obs_mod == "extreme_duplicated": # integer overflow: https://github.com/scverse/mudata/issues/107
+        elif (
+            obs_mod == "extreme_duplicated"
+        ):  # integer overflow: https://github.com/scverse/mudata/issues/107
             obsnames2 = mods["mod2"].obs_names.to_numpy()
             varnames2 = mods["mod2"].var_names.to_numpy()
             obsnames2[:-1] = obsnames2[0] = "testobs"
@@ -107,6 +109,10 @@ class TestMuData:
         attr = "obs" if axis == 0 else "var"
         oattr = "var" if axis == 0 else "obs"
 
+        for mod in mdata.mod.keys():
+            assert mdata.obsmap[mod].dtype.kind == "u"
+            assert mdata.varmap[mod].dtype.kind == "u"
+
         # names along non-axis are concatenated
         assert mdata.shape[1 - axis] == sum(mod.shape[1 - axis] for mod in mdata.mod.values())
         assert (
@@ -157,6 +163,10 @@ class TestMuData:
             mdata.mod[modnames[i]] = modalities[modnames[i]]
             mdata.update()
 
+            for mod in mdata.mod.keys():
+                assert mdata.obsmap[mod].dtype.kind == "u"
+                assert mdata.varmap[mod].dtype.kind == "u"
+
             test_obsm_values = self.get_attrm_values(mdata, "obs", "test", some_obs_names)
             if axis == 1:
                 assert np.isnan(mdata.obsm["test"]).sum() == modalities[modnames[i]].n_obs
@@ -206,6 +216,10 @@ class TestMuData:
         del mdata.mod[modnames[0]]
         mdata.update()
 
+        for mod in mdata.mod.keys():
+            assert mdata.obsmap[mod].dtype.kind == "u"
+            assert mdata.varmap[mod].dtype.kind == "u"
+
         assert mdata.shape[1 - axis] == sum(mod.shape[1 - axis] for mod in mdata.mod.values())
         assert (getattr(mdata, attr)["batch"] == fullbatch[keptmask]).all()
         assert (getattr(mdata, oattr)["batch"] == fullobatch[keptomask]).all()
@@ -249,6 +263,10 @@ class TestMuData:
 
         mdata = MuData(modalities, axis=axis)
 
+        for mod in mdata.mod.keys():
+            assert mdata.obsmap[mod].dtype.kind == "u"
+            assert mdata.varmap[mod].dtype.kind == "u"
+
         # names along non-axis are concatenated
         assert mdata.shape[1 - axis] == sum(mod.shape[1 - axis] for mod in modalities.values())
         assert (
@@ -287,6 +305,11 @@ class TestMuData:
 
         mdata.mod["mod3"] = mdata["mod3"][mdata["mod3"].obs["min_count"] < -2].copy()
         mdata.update()
+
+        for mod in mdata.mod.keys():
+            assert mdata.obsmap[mod].dtype.kind == "u"
+            assert mdata.varmap[mod].dtype.kind == "u"
+
         assert mdata.obs["batch"].isna().sum() == 0
 
         assert (mdata.var_names == old_varnames).all()
@@ -307,6 +330,10 @@ class TestMuData:
 
         mdata.mod["mod1"] = mdata["mod1"][::-1].copy()
         mdata.update()
+
+        for mod in mdata.mod.keys():
+            assert mdata.obsmap[mod].dtype.kind == "u"
+            assert mdata.varmap[mod].dtype.kind == "u"
 
         test_obsm_values = self.get_attrm_values(mdata, "obs", "test", some_obs_names)
 
