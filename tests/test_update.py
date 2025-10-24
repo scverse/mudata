@@ -45,10 +45,12 @@ def modalities(request, obs_n, obs_across, obs_mod):
             mods["mod2"].var_names = varnames2
             mods["mod3"].var_names = varnames3
         elif obs_mod == "extreme_duplicated": # integer overflow: https://github.com/scverse/mudata/issues/107
-            obs_names = mods["mod1"].obs_names.to_numpy()
-            obs_names[:-1] = obs_names[0]
-            mods["mod1"].obs_names = obs_names
-
+            obsnames2 = mods["mod2"].obs_names.to_numpy()
+            varnames2 = mods["mod2"].var_names.to_numpy()
+            obsnames2[:-1] = obsnames2[0] = "testobs"
+            varnames2[:-1] = varnames2[0] = "testvar"
+            mods["mod2"].obs_names = obsnames2
+            mods["mod2"].var_names = varnames2
 
     return mods
 
@@ -78,7 +80,7 @@ def mdata(modalities, axis):
 
 @pytest.mark.usefixtures("filepath_h5mu")
 @pytest.mark.parametrize("axis", [0, 1])
-@pytest.mark.parametrize("obs_mod", ["unique", "duplicated"])
+@pytest.mark.parametrize("obs_mod", ["unique", "duplicated", "extreme_duplicated"])
 @pytest.mark.parametrize("obs_across", ["intersecting"])
 @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
 class TestMuData:
