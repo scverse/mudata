@@ -39,7 +39,9 @@ def mdata(request, obs_n, obs_across, obs_mod):
                 obs_names = mods[m].obs_names.to_numpy()
                 obs_names[1] = obs_names[0]
                 mods[m].obs_names = obs_names
-        elif obs_mod == "extreme_duplicated":
+        elif (
+            obs_mod == "extreme_duplicated"
+        ):  # integer overflow: https://github.com/scverse/mudata/issues/107
             obs_names = mods["mod1"].obs_names.to_numpy()
             obs_names[:-1] = obs_names[0]
             mods["mod1"].obs_names = obs_names
