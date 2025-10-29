@@ -16,7 +16,11 @@ def _make_index_unique(df: pd.DataFrame) -> pd.DataFrame:
         for dup in duplicates:
             idxval = df.index[dup]
             newval = cnt[idxval] + 1
-            dup_idx[dup] = newval
+            try:
+                dup_idx[dup] = newval
+            except OverflowError:
+                dup_idx = dup_idx.astype(np.min_scalar_type(newval))
+                dup_idx[dup] = newval
             cnt[idxval] = newval
     return df.set_index(dup_idx, append=True)
 

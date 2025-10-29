@@ -11,7 +11,7 @@ from mudata import MuData
 def mdata(request, obs_n, obs_across, obs_mod):
     # Generate unique, intersecting, and joint observations by default
     np.random.seed(100)
-    mod1 = AnnData(X=np.random.normal(size=1000).reshape(-1, 10))
+    mod1 = AnnData(X=np.random.normal(size=3000).reshape(-1, 10))
     mod2 = AnnData(X=np.random.normal(size=1000).reshape(-1, 10))
 
     mods = {"mod1": mod1, "mod2": mod2}
@@ -36,9 +36,15 @@ def mdata(request, obs_n, obs_across, obs_mod):
         if obs_mod == "duplicated":
             for m in ["mod1", "mod2"]:
                 # Index does not support mutable operations
-                obs_names = mods[m].obs_names.values.copy()
+                obs_names = mods[m].obs_names.to_numpy()
                 obs_names[1] = obs_names[0]
                 mods[m].obs_names = obs_names
+        elif (
+            obs_mod == "extreme_duplicated"
+        ):  # integer overflow: https://github.com/scverse/mudata/issues/107
+            obs_names = mods["mod1"].obs_names.to_numpy()
+            obs_names[:-1] = obs_names[0]
+            mods["mod1"].obs_names = obs_names
 
     mdata = MuData(mods)
 
@@ -56,7 +62,7 @@ def modalities(request, obs_n, obs_across, obs_mod):
     for i in range(n_mod):
         i1 = i + 1
         m = f"mod{i1}"
-        mods[m] = AnnData(X=np.random.normal(size=1000 * i1).reshape(-1, 10 * i1))
+        mods[m] = AnnData(X=np.random.normal(size=3000 * i1).reshape(-1, 10 * i1))
         mods[m].obs["mod"] = m
         mods[m].var["mod"] = m
 
@@ -78,13 +84,17 @@ def modalities(request, obs_n, obs_across, obs_mod):
                 obs_names = mods[m].obs_names.values.copy()
                 obs_names[1] = obs_names[0]
                 mods[m].obs_names = obs_names
+        elif obs_mod == "extreme_duplicated":
+            obs_names = mods["mod1"].obs_names.to_numpy()
+            obs_names[:-1] = obs_names[0]
+            mods["mod1"].obs_names = obs_names
 
     return mods
 
 
 @pytest.mark.usefixtures("filepath_h5mu")
 class TestMuData:
-    @pytest.mark.parametrize("obs_mod", ["unique"])
+    @pytest.mark.parametrize("obs_mod", ["unique", "extreme_duplicated"])
     @pytest.mark.parametrize("obs_across", ["intersecting"])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
     def test_update_simple(self, modalities):
@@ -110,7 +120,7 @@ class TestMuData:
             assert "mod" in mod.var.columns
             assert all(mod.var["mod"] == m)
 
-    @pytest.mark.parametrize("obs_mod", ["unique"])
+    @pytest.mark.parametrize("obs_mod", ["unique", "extreme_duplicated"])
     @pytest.mark.parametrize("obs_across", ["intersecting"])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
     def test_update_duplicates(self, modalities):
@@ -137,7 +147,7 @@ class TestMuData:
             assert "mod" in mod.var.columns
             assert all(mod.var["mod"] == m)
 
-    @pytest.mark.parametrize("obs_mod", ["unique"])
+    @pytest.mark.parametrize("obs_mod", ["unique", "extreme_duplicated"])
     @pytest.mark.parametrize("obs_across", ["intersecting"])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
     def test_update_intersecting(self, modalities):
@@ -179,7 +189,7 @@ class TestMuData:
         mdata.update()
         assert mdata.obs["batch"].isna().sum() == 0
 
-    @pytest.mark.parametrize("obs_mod", ["unique"])
+    @pytest.mark.parametrize("obs_mod", ["unique", "extreme_duplicated"])
     @pytest.mark.parametrize("obs_across", ["intersecting"])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
     def test_update_after_obs_reordered(self, mdata):
