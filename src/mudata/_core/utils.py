@@ -157,3 +157,14 @@ def _maybe_coerce_to_int(df: T) -> T:
                 pass
 
     return df
+
+
+def fix_attrmap_col(data_mod: pd.DataFrame, mod: str, rowcol: str) -> str:
+    colname = mod + ":" + rowcol
+    # use 0 as special value for missing
+    # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
+    # also, this is compatible to Muon.jl
+    col = data_mod[colname] + 1
+    col.replace(np.nan, 0, inplace=True)
+    data_mod[colname] = col.astype(np.uint32)
+    return colname

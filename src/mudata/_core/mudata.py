@@ -35,6 +35,7 @@ from .utils import (
     _maybe_coerce_to_int,
     _restore_index,
     _update_and_concat,
+    fix_attrmap_col,
 )
 from .views import DictView
 
@@ -643,14 +644,8 @@ class MuData:
                 data_mod = pd.concat(dfs, join="outer", axis=1, sort=False)
             else:
                 data_mod = _maybe_coerce_to_bool(pd.concat(dfs, join="outer", axis=0, sort=False))
-            for mod, amod in self.mod.items():
-                colname = mod + ":" + rowcol
-                # use 0 as special value for missing
-                # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
-                # also, this is compatible to Muon.jl
-                col = data_mod[colname] + 1
-                col.replace(np.nan, 0, inplace=True)
-                data_mod[colname] = col.astype(np.uint32)
+            for mod in self.mod.keys():
+                fix_attrmap_col(data_mod, mod, rowcol)
 
             data_mod = _make_index_unique(data_mod, force=attr_intersecting)
             data_global = _make_index_unique(data_global, force=attr_intersecting)
@@ -689,16 +684,9 @@ class MuData:
             data_mod.index.set_names(rowcol, inplace=True)
             data_global.index.set_names(rowcol, inplace=True)
             for mod, amod in self.mod.items():
-                colname = mod + ":" + rowcol
-                # use 0 as special value for missing
-                # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
-                # also, this is compatible to Muon.jl
-                col = data_mod.loc[:, colname] + 1
-                col.replace(np.nan, 0, inplace=True)
-                col = col.astype(np.uint32)
-                data_mod[colname] = col
+                colname = fix_attrmap_col(data_mod, mod, rowcol)
                 if mod in attrmap:
-                    modmap = attrmap[mod].reshape(-1)
+                    modmap = attrmap[mod].ravel()
                     modmask = modmap > 0
                     # only use unchanged modalities for ordering
                     if (
