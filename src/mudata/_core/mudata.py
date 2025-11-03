@@ -628,8 +628,7 @@ class MuData:
         dfs = [
             getattr(a, attr)
             .loc[:, []]
-            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-            .add_prefix(m + ":")
+            .assign(**{f"{m}:{rowcol}": np.arange(getattr(a, attr).shape[0])})
             for m, a in self.mod.items()
         ]
 
@@ -641,10 +640,12 @@ class MuData:
         # Main case: no duplicates and no intersection if the axis is not shared
         if not attr_duplicated:
             # Shared axis
-            if axis == (1 - self._axis) or self._axis == -1:
-                data_mod = pd.concat(dfs, join="outer", axis=1, sort=False)
-            else:
-                data_mod = _maybe_coerce_to_bool(pd.concat(dfs, join="outer", axis=0, sort=False))
+            data_mod = pd.concat(
+                dfs,
+                join="outer",
+                axis=1 if axis == (1 - self._axis) or self._axis == -1 else 0,
+                sort=False,
+            )
             for mod in self.mod.keys():
                 update_fix_attrmap_col(data_mod, mod, rowcol)
 
@@ -665,10 +666,12 @@ class MuData:
         #
         else:
             dfs = [_make_index_unique(df, force=True) for df in dfs]
-            if axis == (1 - self._axis) or self._axis == -1:
-                data_mod = pd.concat(dfs, join="outer", axis=1, sort=False)
-            else:
-                data_mod = _maybe_coerce_to_bool(pd.concat(dfs, join="outer", axis=0, sort=False))
+            data_mod = pd.concat(
+                dfs,
+                join="outer",
+                axis=1 if axis == (1 - self._axis) or self._axis == -1 else 0,
+                sort=False,
+            )
 
             data_mod = _restore_index(data_mod)
             data_mod.index.set_names(rowcol, inplace=True)
