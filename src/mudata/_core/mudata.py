@@ -35,7 +35,8 @@ from .utils import (
     _maybe_coerce_to_int,
     _restore_index,
     _update_and_concat,
-    fix_attrmap_col,
+    update_fix_attrmap_col,
+    update_reorder_df_and_attrm_index,
 )
 from .views import DictView
 
@@ -645,7 +646,7 @@ class MuData:
             else:
                 data_mod = _maybe_coerce_to_bool(pd.concat(dfs, join="outer", axis=0, sort=False))
             for mod in self.mod.keys():
-                fix_attrmap_col(data_mod, mod, rowcol)
+                update_fix_attrmap_col(data_mod, mod, rowcol)
 
             data_mod = _make_index_unique(data_mod, force=attr_intersecting)
             data_global = _make_index_unique(data_global, force=attr_intersecting)
@@ -653,19 +654,8 @@ class MuData:
                 data_mod = data_mod.join(data_global, how="left", sort=False)
 
             if data_global.shape[0] > 0:
-                # reorder new index to conform to the old index as much as possible
-                kept_idx = data_global.index[data_global.index.isin(data_mod.index)]
-                new_idx = data_mod.index[~data_mod.index.isin(data_global.index)]
-                data_mod = data_mod.loc[kept_idx.append(new_idx), :]
-
-                index_order = data_global.index.get_indexer(data_mod.index)
-                can_update = (
-                    new_idx.shape[0] == 0  # filtered or reordered
-                    or kept_idx.shape[0] == data_global.shape[0]  # new rows only
-                    or data_mod.shape[0]
-                    == data_global.shape[
-                        0
-                    ]  # renamed (since new_idx.shape[0] > 0 and kept_idx.shape[0] < data_global.shape[0])
+                data_mod, index_order, can_update = update_reorder_df_and_attrm_index(
+                    data_mod, data_global, axis, self.axis
                 )
 
             data_mod = _restore_index(data_mod)
@@ -684,7 +674,7 @@ class MuData:
             data_mod.index.set_names(rowcol, inplace=True)
             data_global.index.set_names(rowcol, inplace=True)
             for mod, amod in self.mod.items():
-                colname = fix_attrmap_col(data_mod, mod, rowcol)
+                colname = update_fix_attrmap_col(data_mod, mod, rowcol)
                 if mod in attrmap:
                     modmap = attrmap[mod].ravel()
                     modmask = modmap > 0
@@ -717,24 +707,8 @@ class MuData:
                 data_mod = _make_index_unique(data_mod, force=need_unique)
                 data_mod = data_mod.join(data_global, how="left", sort=False)
 
-                # reorder new index to conform to the old index as much as possible
-                kept_idx = data_global.index[data_global.index.isin(data_mod.index)]
-                new_idx = data_mod.index[~data_mod.index.isin(data_global.index)]
-                data_mod = data_mod.loc[kept_idx.append(new_idx), :]
-
-                index_order = data_global.index.get_indexer(data_mod.index)
-                can_update = (
-                    new_idx.shape[0] == 0  # filtered or reordered
-                    or kept_idx.shape[0] == data_global.shape[0]  # new rows only
-                    or data_mod.shape[0]
-                    == data_global.shape[
-                        0
-                    ]  # renamed (since new_idx.shape[0] > 0 and kept_idx.shape[0] < data_global.shape[0])
-                    or (
-                        axis == self._axis
-                        and axis != -1
-                        and data_mod.shape[0] > data_global.shape[0]
-                    )  # new modality added and concacenated
+                data_mod, index_order, can_update = update_reorder_df_and_attrm_index(
+                    data_mod, data_global, axis, self.axis
                 )
 
                 if need_unique:

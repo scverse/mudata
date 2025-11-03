@@ -159,7 +159,7 @@ def _maybe_coerce_to_int(df: T) -> T:
     return df
 
 
-def fix_attrmap_col(data_mod: pd.DataFrame, mod: str, rowcol: str) -> str:
+def update_fix_attrmap_col(data_mod: pd.DataFrame, mod: str, rowcol: str) -> str:
     colname = mod + ":" + rowcol
     # use 0 as special value for missing
     # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
@@ -168,3 +168,30 @@ def fix_attrmap_col(data_mod: pd.DataFrame, mod: str, rowcol: str) -> str:
     col.replace(np.nan, 0, inplace=True)
     data_mod[colname] = col.astype(np.uint32)
     return colname
+
+
+def update_reorder_df_and_attrm_index(
+    data_mod: pd.DataFrame,
+    data_global: pd.DataFrame,
+    axis: Literal[-1, 0, 1],
+    mdaxis: Literal[-1, 0, 1],
+) -> tuple[pd.DataFrame, np.ndarray[np.intp], bool]:
+    # reorder new index to conform to the old index as much as possible
+    kept_idx = data_global.index[data_global.index.isin(data_mod.index)]
+    new_idx = data_mod.index[~data_mod.index.isin(data_global.index)]
+    data_mod = data_mod.loc[kept_idx.append(new_idx), :]
+
+    index_order = data_global.index.get_indexer(data_mod.index)
+    can_update = (
+        new_idx.shape[0] == 0  # filtered or reordered
+        or kept_idx.shape[0] == data_global.shape[0]  # new rows only
+        or data_mod.shape[0]
+        == data_global.shape[
+            0
+        ]  # renamed (since new_idx.shape[0] > 0 and kept_idx.shape[0] < data_global.shape[0])
+        or (
+            axis == mdaxis and axis != -1 and data_mod.shape[0] > data_global.shape[0]
+        )  # new modality added and concacenated
+    )
+
+    return data_mod, index_order, can_update
