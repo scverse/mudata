@@ -35,8 +35,6 @@ from .utils import (
     _maybe_coerce_to_int,
     _restore_index,
     _update_and_concat,
-    update_fix_attrmap_col,
-    update_reorder_df_and_attrm_index,
 )
 from .views import DictView
 
@@ -634,6 +632,42 @@ class MuData:
 
         index_order = None
         can_update = True
+
+        def fix_attrmap_col(data_mod: pd.DataFrame, mod: str, rowcol: str) -> str:
+            colname = mod + ":" + rowcol
+            # use 0 as special value for missing
+            # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
+            # also, this is compatible to Muon.jl
+            col = data_mod[colname] + 1
+            col.replace(np.nan, 0, inplace=True)
+            data_mod[colname] = col.astype(np.uint32)
+            return colname
+
+        kept_idx: Any
+        new_idx: Any
+
+        def reorder_data_mod():
+            nonlocal kept_idx, new_idx, data_mod
+            # reorder new index to conform to the old index as much as possible
+            kept_idx = data_global.index[data_global.index.isin(data_mod.index)]
+            new_idx = data_mod.index[~data_mod.index.isin(data_global.index)]
+            data_mod = data_mod.loc[kept_idx.append(new_idx), :]
+
+        def calc_attrm_update():
+            nonlocal index_order, can_update
+            index_order = data_global.index.get_indexer(data_mod.index)
+            can_update = (
+                new_idx.shape[0] == 0  # filtered or reordered
+                or kept_idx.shape[0] == data_global.shape[0]  # new rows only
+                or data_mod.shape[0]
+                == data_global.shape[
+                    0
+                ]  # renamed (since new_idx.shape[0] > 0 and kept_idx.shape[0] < data_global.shape[0])
+                or (
+                    axis == self.axis and axis != -1 and data_mod.shape[0] > data_global.shape[0]
+                )  # new modality added and concacenated
+            )
+
         #
         # Join modality .obs/.var tables
         #
@@ -647,7 +681,7 @@ class MuData:
                 sort=False,
             )
             for mod in self.mod.keys():
-                update_fix_attrmap_col(data_mod, mod, rowcol)
+                fix_attrmap_col(data_mod, mod, rowcol)
 
             data_mod = _make_index_unique(data_mod, force=attr_intersecting)
             data_global = _make_index_unique(data_global, force=attr_intersecting)
@@ -655,9 +689,8 @@ class MuData:
                 data_mod = data_mod.join(data_global, how="left", sort=False)
 
             if data_global.shape[0] > 0:
-                data_mod, index_order, can_update = update_reorder_df_and_attrm_index(
-                    data_mod, data_global, axis, self.axis
-                )
+                reorder_data_mod()
+                calc_attrm_update()
 
             data_mod = _restore_index(data_mod)
             data_global = _restore_index(data_global)
@@ -677,7 +710,7 @@ class MuData:
             data_mod.index.set_names(rowcol, inplace=True)
             data_global.index.set_names(rowcol, inplace=True)
             for mod, amod in self.mod.items():
-                colname = update_fix_attrmap_col(data_mod, mod, rowcol)
+                colname = fix_attrmap_col(data_mod, mod, rowcol)
                 if mod in attrmap:
                     modmap = attrmap[mod].ravel()
                     modmask = modmap > 0
@@ -710,9 +743,8 @@ class MuData:
                 data_mod = _make_index_unique(data_mod, force=need_unique)
                 data_mod = data_mod.join(data_global, how="left", sort=False)
 
-                data_mod, index_order, can_update = update_reorder_df_and_attrm_index(
-                    data_mod, data_global, axis, self.axis
-                )
+                reorder_data_mod()
+                calc_attrm_update()
 
                 if need_unique:
                     data_mod = _restore_index(data_mod)
