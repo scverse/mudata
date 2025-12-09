@@ -8,6 +8,17 @@ Release notes
    :maxdepth: 10
 
    *
+v0.3.3
+------
+
+* Fixed an `issue <https://github.com/scverse/mudata/issues/103>`_ in ``update()``
+* Fixed an `issue <https://github.com/scverse/mudata/issues/109>`_ in ``push_obs()``
+
+v0.3.2
+------
+
+Fixed an `issue <https://github.com/scverse/mudata/issues/99>`_ in ``update()``
+
 v0.3.1
 ------
 
