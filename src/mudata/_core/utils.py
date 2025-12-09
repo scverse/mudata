@@ -9,22 +9,22 @@ T = TypeVar("T", pd.Series, pd.DataFrame)
 
 
 def _make_index_unique(df: pd.DataFrame, force: bool = False) -> pd.DataFrame:
-    if force or not df.index.is_unique:
-        dup_idx = np.zeros((df.shape[0],), dtype=np.uint8)
-        duplicates = np.nonzero(df.index.duplicated())[0]
-        cnt = Counter()
-        for dup in duplicates:
-            idxval = df.index[dup]
-            newval = cnt[idxval] + 1
-            try:
-                dup_idx[dup] = newval
-            except OverflowError:
-                dup_idx = dup_idx.astype(np.min_scalar_type(newval))
-                dup_idx[dup] = newval
-            cnt[idxval] = newval
-        return df.set_index(dup_idx, append=True)
-    else:
+    if not force and df.index.is_unique:
         return df
+
+    dup_idx = np.zeros((df.shape[0],), dtype=np.uint8)
+    duplicates = np.nonzero(df.index.duplicated())[0]
+    cnt = Counter()
+    for dup in duplicates:
+        idxval = df.index[dup]
+        newval = cnt[idxval] + 1
+        try:
+            dup_idx[dup] = newval
+        except OverflowError:
+            dup_idx = dup_idx.astype(np.min_scalar_type(newval))
+            dup_idx[dup] = newval
+        cnt[idxval] = newval
+    return df.set_index(dup_idx, append=True)
 
 
 def _restore_index(df: pd.DataFrame) -> pd.DataFrame:
