@@ -452,6 +452,8 @@ class MuData:
         attr_names_changed, attr_columns_changed = False, False
         if not hasattr(self, attrhash):
             attr_names_changed, attr_columns_changed = True, True
+        elif len(self.mod) < len(getattr(self, attrhash)):
+            attr_names_changed, attr_columns_changed = True, None
         else:
             for m in self.mod.keys():
                 if m in getattr(self, attrhash):
@@ -599,32 +601,20 @@ class MuData:
             self._update_attr_legacy(attr, axis, join_common, **kwargs)
             return
 
-        prev_index = getattr(self, attr).index
-
         # No _attrhash when upon read
         # No _attrhash in mudata < 0.2.0
         _attrhash = f"_{attr}hash"
         attr_changed = self._check_changed_attr_names(attr)
-
-        attr_duplicated = self._check_duplicated_attr_names(attr)
-        attr_intersecting = self._check_intersecting_attr_names(attr)
-
-        if attr_duplicated:
-            warnings.warn(
-                f"{attr}_names are not unique. To make them unique, call `.{attr}_names_make_unique`.",
-                stacklevel=2,
-            )
-            if self._axis == -1:
-                warnings.warn(
-                    f"Behaviour is not defined with axis=-1, {attr}_names need to be made unique first.",
-                    stacklevel=2,
-                )
 
         if not any(attr_changed):
             # Nothing to update
             return
 
         data_global = getattr(self, attr)
+        prev_index = data_global.index
+
+        attr_duplicated = not data_global.index.is_unique or self._check_duplicated_attr_names(attr)
+        attr_intersecting = self._check_intersecting_attr_names(attr)
 
         # Generate unique colnames
         (rowcol,) = self._find_unique_colnames(attr, 1)
@@ -633,141 +623,109 @@ class MuData:
         attrp = getattr(self, attr + "p")
         attrmap = getattr(self, attr + "map")
 
-        # TODO: take advantage when attr_changed[0] == False — only new columns to be added
+        dfs = [
+            getattr(a, attr)
+            .loc[:, []]
+            .assign(**{f"{m}:{rowcol}": np.arange(getattr(a, attr).shape[0])})
+            for m, a in self.mod.items()
+        ]
+
+        index_order = None
+        can_update = True
+
+        def fix_attrmap_col(data_mod: pd.DataFrame, mod: str, rowcol: str) -> str:
+            colname = mod + ":" + rowcol
+            # use 0 as special value for missing
+            # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
+            # also, this is compatible to Muon.jl
+            col = data_mod[colname] + 1
+            col.replace(np.nan, 0, inplace=True)
+            data_mod[colname] = col.astype(np.uint32)
+            return colname
+
+        kept_idx: Any
+        new_idx: Any
+
+        def reorder_data_mod():
+            nonlocal kept_idx, new_idx, data_mod
+            # reorder new index to conform to the old index as much as possible
+            kept_idx = data_global.index[data_global.index.isin(data_mod.index)]
+            new_idx = data_mod.index[~data_mod.index.isin(data_global.index)]
+            data_mod = data_mod.loc[kept_idx.append(new_idx), :]
+
+        def calc_attrm_update():
+            nonlocal index_order, can_update
+            index_order = data_global.index.get_indexer(data_mod.index)
+            can_update = (
+                new_idx.shape[0] == 0  # noqa: F821   filtered or reordered
+                or kept_idx.shape[0] == data_global.shape[0]  # noqa: F821     new rows only
+                or data_mod.shape[0]
+                == data_global.shape[
+                    0
+                ]  # renamed (since new_idx.shape[0] > 0 and kept_idx.shape[0] < data_global.shape[0])
+                or (
+                    axis == self.axis and axis != -1 and data_mod.shape[0] > data_global.shape[0]
+                )  # new modality added and concacenated
+            )
 
         #
         # Join modality .obs/.var tables
         #
         # Main case: no duplicates and no intersection if the axis is not shared
-        #
         if not attr_duplicated:
             # Shared axis
-            if axis == (1 - self._axis) or self._axis == -1:
-                # We assume attr_intersecting and can't join_common
-                data_mod = pd.concat(
-                    [
-                        getattr(a, attr)
-                        .loc[:, []]
-                        .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                        .add_prefix(m + ":")
-                        for m, a in self.mod.items()
-                    ],
-                    join="outer",
-                    axis=1,
-                    sort=False,
-                )
-            else:
-                data_mod = _maybe_coerce_to_bool(
-                    pd.concat(
-                        [
-                            getattr(a, attr)
-                            .loc[:, []]
-                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                            .add_prefix(m + ":")
-                            for m, a in self.mod.items()
-                        ],
-                        join="outer",
-                        axis=0,
-                        sort=False,
-                    )
-                )
-
+            data_mod = pd.concat(
+                dfs,
+                join="outer",
+                axis=1 if axis == (1 - self._axis) or self._axis == -1 else 0,
+                sort=False,
+            )
             for mod in self.mod.keys():
-                colname = mod + ":" + rowcol
-                # use 0 as special value for missing
-                # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
-                # also, this is compatible to Muon.jl
-                col = data_mod[colname] + 1
-                col.replace(np.nan, 0, inplace=True)
-                data_mod[colname] = col.astype(np.uint32)
+                fix_attrmap_col(data_mod, mod, rowcol)
 
-            if len(data_global.columns) > 0:
-                # TODO: if there were intersecting attrnames between modalities,
-                #       this will increase the size of the index
-                # Should we use attrmap to figure the index out?
-                #
-                if not attr_intersecting:
-                    data_mod = data_mod.join(data_global, how="left", sort=False)
-                else:
-                    # In order to preserve the order of the index, instead,
-                    # perform a join based on (index, attrmap value) pairs.
-                    (col_index,) = self._find_unique_colnames(attr, 1)
-                    data_mod = data_mod.rename_axis(col_index, axis=0).reset_index()
+            data_mod = _make_index_unique(data_mod, force=attr_intersecting)
+            data_global = _make_index_unique(data_global, force=attr_intersecting)
+            if data_global.shape[1] > 0:
+                data_mod = data_mod.join(data_global, how="left", sort=False)
 
-                    data_global = data_global.rename_axis(col_index, axis=0).reset_index()
-                    for mod in self.mod.keys():
-                        # Only add mapping for modalities that exist in attrmap
-                        if mod in getattr(self, attr + "map"):
-                            data_global[mod + ":" + rowcol] = getattr(self, attr + "map")[mod]
-                    attrmap_columns = [
-                        mod + ":" + rowcol
-                        for mod in self.mod.keys()
-                        if mod in getattr(self, attr + "map")
-                    ]
+            if data_global.shape[0] > 0:
+                reorder_data_mod()
+                calc_attrm_update()
 
-                    data_mod = data_mod.merge(
-                        data_global, on=[col_index, *attrmap_columns], how="left", sort=False
-                    )
-
-                    # Restore the index and remove the helper column
-                    data_mod = data_mod.set_index(col_index).rename_axis(None, axis=0)
-                    data_global = data_global.set_index(col_index).rename_axis(None, axis=0)
+            data_mod = _restore_index(data_mod)
+            data_global = _restore_index(data_global)
         #
         # General case: with duplicates and/or intersections
         #
         else:
-            dfs = [
-                _make_index_unique(
-                    getattr(a, attr)
-                    .loc[:, []]
-                    .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                    .add_prefix(m + ":")
-                )
-                for m, a in self.mod.items()
-            ]
+            dfs = [_make_index_unique(df, force=True) for df in dfs]
             data_mod = pd.concat(
                 dfs,
                 join="outer",
-                axis=axis,
+                axis=1 if axis == (1 - self._axis) or self._axis == -1 else 0,
                 sort=False,
             )
-
-            # pd.concat wrecks the ordering when doing an outer join with a MultiIndex and different data frame shapes
-            if axis == 1:
-                newidx = (
-                    reduce(lambda x, y: x.union(y, sort=False), (df.index for df in dfs))
-                    .to_frame()
-                    .reset_index(level=1, drop=True)
-                )
-                globalidx = data_global.index.get_level_values(0)
-                mask = globalidx.isin(newidx.iloc[:, 0])
-                if len(mask) > 0:
-                    negativemask = ~newidx.index.get_level_values(0).isin(globalidx)
-                    newidx = pd.MultiIndex.from_frame(
-                        pd.concat(
-                            [newidx.loc[globalidx[mask], :], newidx.iloc[negativemask, :]], axis=0
-                        )
-                    )
-                data_mod = data_mod.reindex(newidx, copy=False)
 
             data_mod = _restore_index(data_mod)
             data_mod.index.set_names(rowcol, inplace=True)
             data_global.index.set_names(rowcol, inplace=True)
             for mod, amod in self.mod.items():
-                colname = mod + ":" + rowcol
-                # use 0 as special value for missing
-                # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
-                # also, this is compatible to Muon.jl
-                col = data_mod.loc[:, colname] + 1
-                col.replace(np.nan, 0, inplace=True)
-                col = col.astype(np.uint32)
-                data_mod.loc[:, colname] = col
-                data_mod.set_index(colname, append=True, inplace=True)
-                if mod in attrmap and np.sum(attrmap[mod] > 0) == getattr(amod, attr).shape[0]:
-                    data_global.set_index(attrmap[mod], append=True, inplace=True)
-                    data_global.index.set_names(colname, level=-1, inplace=True)
+                colname = fix_attrmap_col(data_mod, mod, rowcol)
+                if mod in attrmap:
+                    modmap = attrmap[mod].ravel()
+                    modmask = modmap > 0
+                    # only use unchanged modalities for ordering
+                    if (
+                        modmask.sum() == getattr(amod, attr).shape[0]
+                        and (
+                            getattr(amod, attr).index[modmap[modmask] - 1] == prev_index[modmask]
+                        ).all()
+                    ):
+                        data_mod.set_index(colname, append=True, inplace=True)
+                        data_global.set_index(attrmap[mod].reshape(-1), append=True, inplace=True)
+                        data_global.index.set_names(colname, level=-1, inplace=True)
 
-            if len(data_global) > 0:
+            if data_global.shape[0] > 0:
                 if not data_global.index.is_unique:
                     warnings.warn(
                         f"{attr}_names is not unique, global {attr} is present, and {attr}map is empty. The update() is not well-defined, verify if global {attr} map to the correct modality-specific {attr}.",
@@ -776,65 +734,47 @@ class MuData:
                     data_mod.reset_index(
                         data_mod.index.names.difference(data_global.index.names), inplace=True
                     )
-                    data_mod = _make_index_unique(data_mod)
-                    data_global = _make_index_unique(data_global)
+                # after inserting a new modality with duplicates, but no duplicates before:
+                # data_mod.index is not unique
+                # after deleting a modality with duplicates: data_global.index is not unique, but
+                # data_mod.index is unique
+                need_unique = data_mod.index.is_unique | data_global.index.is_unique
+                data_global = _make_index_unique(data_global, force=need_unique)
+                data_mod = _make_index_unique(data_mod, force=need_unique)
                 data_mod = data_mod.join(data_global, how="left", sort=False)
+
+                reorder_data_mod()
+                calc_attrm_update()
+
+                if need_unique:
+                    data_mod = _restore_index(data_mod)
+                    data_global = _restore_index(data_global)
+
             data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
+            data_global.reset_index(level=list(range(1, data_global.index.nlevels)), inplace=True)
             data_mod.index.set_names(None, inplace=True)
+            data_global.index.set_names(None, inplace=True)
 
         # get adata positions and remove columns from the data frame
         mdict = {}
         for m in self.mod.keys():
             colname = m + ":" + rowcol
             mdict[m] = data_mod[colname].to_numpy()
-            # data_mod.drop(colname, axis=1, inplace=True)
+            data_mod.drop(colname, axis=1, inplace=True)
 
-        # Add data from global .obs/.var columns # This might reduce the size of .obs/.var if observations/variables were removed
-        if getattr(self, attr).index.is_unique:
-            # There are no new values in the index
-            # Original index is present in data_global
-            attr_reindexed = getattr(self, attr).reindex(index=data_mod.index, copy=False)
-        else:
-            # Reindexing won't work with duplicated labels:
-            #   cannot reindex on an axis with duplicate labels.
-            # Use attrmap to resolve it.
-
-            # TODO: might be possible to refactor to memoize it
-            # if it has already been done in the same ._update_attr()
-            col_index, col_range = self._find_unique_colnames(attr, 2)
-
-            # copy is made here
-            data_mod = data_mod.rename_axis(col_index, axis=0).reset_index()
-
-            data_global[col_range] = np.arange(len(data_global))
-
-            for mod in self.mod.keys():
-                if mod in getattr(self, attr + "map"):
-                    data_global[mod + ":" + rowcol] = getattr(self, attr + "map")[mod]
-            attrmap_columns = [
-                mod + ":" + rowcol for mod in self.mod.keys() if mod in getattr(self, attr + "map")
-            ]
-
-            data_mod = data_mod.merge(data_global, on=attrmap_columns, how="left", sort=False)
-
-            index_selection = data_mod[col_range].values
-
-            data_mod.drop(col_range, axis=1, inplace=True)
-            data_global.drop(col_range, axis=1, inplace=True)
-
-            # Restore the index and remove the helper column
-            data_mod = data_mod.set_index(col_index).rename_axis(None, axis=0)
-            attr_reindexed = getattr(self, attr).iloc[index_selection]
-            attr_reindexed.index = data_mod.index
-
-        # Clean up
-        for colname in (mod + "+" + rowcol for mod in self.mod.keys()):
-            data_mod.drop(colname, axis=1, inplace=True, errors="ignore")
+        if not data_mod.index.is_unique:
+            warnings.warn(
+                f"{attr}_names are not unique. To make them unique, call `.{attr}_names_make_unique`."
+            )
+            if self._axis == -1:
+                warnings.warn(
+                    f"Behaviour is not defined with axis=-1, {attr}_names need to be made unique first."
+                )
 
         setattr(
             self,
             "_" + attr,
-            attr_reindexed,
+            data_mod,
         )
 
         # Update .obsm/.varm
@@ -844,62 +784,24 @@ class MuData:
         for mod, mapping in mdict.items():
             attrm[mod] = mapping > 0
 
-        now_index = getattr(self, attr).index
-
-        if len(prev_index) == 0:
-            # New object
-            pass
-        elif now_index.equals(prev_index):
-            # Index is the same
-            pass
-        else:
-            keep_index = prev_index.isin(now_index)
-            new_index = ~now_index.isin(prev_index)
-
-            if new_index.sum() == 0 or (
-                keep_index.sum() + new_index.sum() == len(now_index)
-                and len(now_index) > len(prev_index)
-            ):
-                # Another length (filtered) or new modality added
-                # Update .obsm/.varm (size might have changed)
-                # NOTE: .get_index doesn't work with duplicated indices
-                if any(prev_index.duplicated()):
-                    # Assume the relative order of duplicates hasn't changed
-                    # NOTE: .get_loc() for each element is too slow
-                    # We will rename duplicated in prev_index and now_index
-                    # in order to use .get_indexer
-                    # index_order = [
-                    #    prev_index.get_loc(i) if i in prev_index else -1 for i in now_index
-                    # ]
-                    prev_values = prev_index.values.copy()
-                    now_values = now_index.values.copy()
-                    for value in prev_index[np.where(prev_index.duplicated())[0]]:
-                        v_now = np.where(now_index == value)[0]
-                        v_prev = np.where(prev_index.get_loc(value))[0]
-                        for i in range(min(len(v_now), len(v_prev))):
-                            prev_values[v_prev[i]] = f"{str(value)}-{i}"
-                            now_values[v_now[i]] = f"{str(value)}-{i}"
-
-                    prev_index = pd.Index(prev_values)
-                    now_index = pd.Index(now_values)
-
-                index_order = prev_index.get_indexer(now_index)
-
-                for mx_key in attrm.keys():
+        if index_order is not None:
+            if can_update:
+                for mx_key, mx in attrm.items():
                     if mx_key not in self.mod.keys():  # not a modality name
-                        attrm[mx_key] = attrm[mx_key][index_order]
-                        attrm[mx_key][index_order == -1] = np.nan
+                        cattr = attrm[mx_key]
+                        if isinstance(cattr, pd.DataFrame):
+                            cattr = cattr.iloc[index_order, :]
+                            cattr.iloc[index_order == -1, :] = pd.NA
+                        else:
+                            cattr = cattr[index_order]
+                            cattr[index_order == -1] = np.nan
+                        attrm[mx_key] = cattr
 
                 # Update .obsp/.varp (size might have changed)
                 for mx_key in attrp.keys():
                     attrp[mx_key] = attrp[mx_key][index_order, index_order]
                     attrp[mx_key][index_order == -1, :] = -1
                     attrp[mx_key][:, index_order == -1] = -1
-
-            elif len(now_index) == len(prev_index):
-                # Renamed since new_index.sum() != 0
-                # We have to assume the order hasn't changed
-                pass
 
             else:
                 raise NotImplementedError(
@@ -1133,7 +1035,8 @@ class MuData:
                             getattr(a, attr)
                             .drop(columns_common, axis=1)
                             .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                            .add_prefix(m + ":")
+                            .add_prefix(m + ":"),
+                            force=True,
                         )
                     )
                     for m, a in self.mod.items()
@@ -1150,7 +1053,7 @@ class MuData:
                 data_common = pd.concat(
                     [
                         _maybe_coerce_to_boolean(
-                            _make_index_unique(getattr(a, attr)[columns_common])
+                            _make_index_unique(getattr(a, attr)[columns_common], force=True)
                         )
                         for m, a in self.mod.items()
                     ],
@@ -1166,7 +1069,8 @@ class MuData:
                     _make_index_unique(
                         getattr(a, attr)
                         .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                        .add_prefix(m + ":")
+                        .add_prefix(m + ":"),
+                        force=True,
                     )
                     for m, a in self.mod.items()
                 ]
@@ -1228,8 +1132,8 @@ class MuData:
                     data_mod.reset_index(
                         data_mod.index.names.difference(data_global.index.names), inplace=True
                     )
-                    data_mod = _make_index_unique(data_mod)
-                    data_global = _make_index_unique(data_global)
+                    data_mod = _make_index_unique(data_mod, force=True)
+                    data_global = _make_index_unique(data_global, force=True)
                 data_mod = data_mod.join(data_global, how="left", sort=False)
             data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
             data_mod.index.set_names(None, inplace=True)
