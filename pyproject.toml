@@ -30,7 +30,7 @@ dynamic = [ "version" ]
 dependencies = [
   "anndata>=0.10.8",
   "numpy",
-  "pandas",
+  "pandas>=1.4",
   "scipy",
   # for debug logging (referenced from the issue template)
   "session-info2",

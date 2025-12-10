@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning][].
 [keep a changelog]: https://keepachangelog.com/en/1.1.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
+## [0.3.3]
+
+- Fixed an [issue](https://github.com/scverse/mudata/issues/103) in `update()`
+- Fixed an [issue](https://github.com/scverse/mudata/issues/109) in `push_obs()`
+
 ## [0.3.2]
 
 ### Fixed
@@ -119,6 +124,7 @@ To copy the annotations explicitly, you will need to use `pull_obs()` and/or `pu
 
 Initial `mudata` release with `MuData`, previously a part of the `muon` framework.
 
+[0.3.3]: https://github.com/scverse/mudata/compare/v0.3.1...v0.3.3
 [0.3.2]: https://github.com/scverse/mudata/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/scverse/mudata/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/scverse/mudata/compare/v0.2.4...v0.3.0
