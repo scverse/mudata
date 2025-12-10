@@ -13,9 +13,7 @@ class TestMuData:
         n, d_raw, d_preproc = 100, 900, 300
 
         a_raw = AnnData(np.random.normal(size=(n, d_raw)))
-        a_preproc = a_raw[
-            :, np.sort(np.random.choice(np.arange(d_raw), d_preproc, replace=False))
-        ].copy()
+        a_preproc = a_raw[:, np.sort(np.random.choice(np.arange(d_raw), d_preproc, replace=False))].copy()
 
         mdata = MuData({"raw": a_raw, "preproc": a_preproc}, axis=-1)
 

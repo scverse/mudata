@@ -30,9 +30,7 @@ class TestMuData:
         assert list(mdata.obs.columns.values) == [f"{m}:demo" for m in mdata.mod.keys()] + ["demo"]
         mdata.write(filepath_h5mu)
         mdata_ = mudata.read(filepath_h5mu)
-        assert list(mdata_.obs.columns.values) == [f"{m}:demo" for m in mdata_.mod.keys()] + [
-            "demo"
-        ]
+        assert list(mdata_.obs.columns.values) == [f"{m}:demo" for m in mdata_.mod.keys()] + ["demo"]
 
     def test_var_global_columns(self, mdata, filepath_h5mu):
         for m, mod in mdata.mod.items():

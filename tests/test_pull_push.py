@@ -5,13 +5,13 @@ import pandas as pd
 import pytest
 from anndata import AnnData
 
-from mudata import MuData, set_options
+from mudata import MuData
 
 
 @pytest.fixture()
 def modalities(request, obs_n, var_unique):
     n_mod = 3
-    mods = dict()
+    mods = {}
     np.random.seed(100)
     for i in range(n_mod):
         i1 = i + 1
@@ -36,9 +36,7 @@ def modalities(request, obs_n, var_unique):
 
     if obs_n:
         if obs_n == "disjoint":
-            mod2_which_obs = np.random.choice(
-                mods["mod2"].obs_names, size=mods["mod2"].n_obs // 2, replace=False
-            )
+            mod2_which_obs = np.random.choice(mods["mod2"].obs_names, size=mods["mod2"].n_obs // 2, replace=False)
             mods["mod2"] = mods["mod2"][mod2_which_obs].copy()
 
     return mods
@@ -47,7 +45,7 @@ def modalities(request, obs_n, var_unique):
 @pytest.fixture()
 def datasets(request, var_n, obs_unique):
     n_datasets = 3
-    datasets = dict()
+    datasets = {}
     np.random.seed(100)
     for i in range(n_datasets):
         i1 = i + 1
@@ -206,9 +204,7 @@ class TestMultiModal:
         assert "mod2_pushed" in mdata["mod2"].var.columns
         map = mdata.varmap["mod2"].ravel()
         mask = map > 0
-        assert (
-            mdata.var["mod2:mod2_pushed"][mask] == mdata["mod2"].var["mod2_pushed"][map[mask] - 1]
-        ).all()
+        assert (mdata.var["mod2:mod2_pushed"][mask] == mdata["mod2"].var["mod2_pushed"][map[mask] - 1]).all()
 
     @pytest.mark.parametrize("var_unique", [True, False])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
@@ -234,9 +230,7 @@ class TestMultiModal:
         assert "mod2_pushed" in mdata["mod2"].obs.columns
         map = mdata.obsmap["mod2"].ravel()
         mask = map > 0
-        assert (
-            mdata.obs["mod2:mod2_pushed"][mask] == mdata["mod2"].obs["mod2_pushed"][map[mask] - 1]
-        ).all()
+        assert (mdata.obs["mod2:mod2_pushed"][mask] == mdata["mod2"].obs["mod2_pushed"][map[mask] - 1]).all()
 
 
 @pytest.mark.usefixtures("filepath_h5mu")

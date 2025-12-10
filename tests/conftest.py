@@ -1,26 +1,21 @@
 import pytest
 
 
-@pytest.fixture(scope="module")
-def filepath_h5mu(tmpdir_factory):
-    return str(tmpdir_factory.mktemp("tmp_test_dir").join("testA.h5mu"))
+@pytest.fixture
+def filepath_h5mu(tmp_path):
+    return tmp_path / "testA.h5mu"
 
 
-@pytest.fixture(scope="module")
-def filepath2_h5mu(tmpdir_factory):
-    return str(tmpdir_factory.mktemp("tmp_test_dir").join("testB.h5mu"))
+@pytest.fixture
+def filepath2_h5mu(tmp_path):
+    return tmp_path / "testB.h5mu"
 
 
-@pytest.fixture(scope="module")
-def filepath_hdf5(tmpdir_factory):
-    return str(tmpdir_factory.mktemp("tmp_mofa_dir").join("mofa_pytest.hdf5"))
+@pytest.fixture
+def filepath_zarr(tmp_path):
+    return tmp_path / "testA.zarr"
 
 
-@pytest.fixture(scope="module")
-def filepath_zarr(tmpdir_factory):
-    return str(tmpdir_factory.mktemp("tmp_test_dir").join("testA.zarr"))
-
-
-@pytest.fixture(scope="module")
-def filepath2_zarr(tmpdir_factory):
-    return str(tmpdir_factory.mktemp("tmp_test_dir").join("testB.zarr"))
+@pytest.fixture
+def filepath2_zarr(tmp_path):
+    return tmp_path / "testB.zarr"

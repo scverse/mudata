@@ -11,7 +11,7 @@ from mudata import MuData, set_options
 @pytest.fixture()
 def modalities(request, obs_n, obs_across, obs_mod):
     n_mod = 3
-    mods = dict()
+    mods = {}
     np.random.seed(100)
     for i in range(n_mod):
         i1 = i + 1
@@ -23,9 +23,7 @@ def modalities(request, obs_n, obs_across, obs_mod):
 
     if obs_n:
         if obs_n == "disjoint":
-            mod2_which_obs = np.random.choice(
-                mods["mod1"].obs_names, size=mods["mod1"].n_obs // 2, replace=False
-            )
+            mod2_which_obs = np.random.choice(mods["mod1"].obs_names, size=mods["mod1"].n_obs // 2, replace=False)
             mods["mod1"] = mods["mod1"][mod2_which_obs].copy()
 
     if obs_across:
@@ -44,9 +42,7 @@ def modalities(request, obs_n, obs_across, obs_mod):
             mods["mod3"].obs_names = obsnames3
             mods["mod2"].var_names = varnames2
             mods["mod3"].var_names = varnames3
-        elif (
-            obs_mod == "extreme_duplicated"
-        ):  # integer overflow: https://github.com/scverse/mudata/issues/107
+        elif obs_mod == "extreme_duplicated":  # integer overflow: https://github.com/scverse/mudata/issues/107
             obsnames2 = mods["mod2"].obs_names.to_numpy()
             varnames2 = mods["mod2"].var_names.to_numpy()
             obsnames2[:-1] = obsnames2[0] = "testobs"
@@ -96,9 +92,7 @@ class TestMuData:
     def get_attrm_values(mdata, attr, key, names):
         attrm = getattr(mdata, f"{attr}m")
         index = getattr(mdata, f"{attr}_names")
-        return np.concatenate(
-            [np.atleast_1d(attrm[key][np.nonzero(index == name)[0]]) for name in names]
-        )
+        return np.concatenate([np.atleast_1d(attrm[key][np.nonzero(index == name)[0]]) for name in names])
 
     def test_update_simple(self, mdata, axis):
         """
@@ -117,16 +111,12 @@ class TestMuData:
         assert mdata.shape[1 - axis] == sum(mod.shape[1 - axis] for mod in mdata.mod.values())
         assert (
             getattr(mdata, f"{oattr}_names")
-            == reduce(
-                lambda x, y: x.append(y),
-                (getattr(mod, f"{oattr}_names") for mod in mdata.mod.values()),
-            )
+            == reduce(lambda x, y: x.append(y), (getattr(mod, f"{oattr}_names") for mod in mdata.mod.values()))
         ).all()
 
         # names along axis are unioned
         axisnames = reduce(
-            lambda x, y: x.union(y, sort=False),
-            (getattr(mod, f"{attr}_names") for mod in mdata.mod.values()),
+            lambda x, y: x.union(y, sort=False), (getattr(mod, f"{attr}_names") for mod in mdata.mod.values())
         )
         assert mdata.shape[axis] == axisnames.shape[0]
         assert (getattr(mdata, f"{attr}_names").sort_values() == axisnames.sort_values()).all()
@@ -141,8 +131,7 @@ class TestMuData:
         # df1 = df1.iloc[::-1, :]
         # df = pd.concat((kdf1, df2), axis=1, join="outer", sort=False)
         assert (
-            getattr(mdata, f"{attr}_names")[: mdata["mod1"].shape[axis]]
-            == getattr(mdata["mod1"], f"{attr}_names")
+            getattr(mdata, f"{attr}_names")[: mdata["mod1"].shape[axis]] == getattr(mdata["mod1"], f"{attr}_names")
         ).all()
 
     def test_update_add_modality(self, modalities, axis):
@@ -172,10 +161,7 @@ class TestMuData:
                 assert np.isnan(mdata.obsm["test"]).sum() == modalities[modnames[i]].n_obs
                 assert np.all(np.isnan(mdata.obsm["test"][-modalities[modnames[i]].n_obs :]))
                 assert np.all(~np.isnan(mdata.obsm["test"][: -modalities[modnames[i]].n_obs]))
-                assert (
-                    test_obsm_values[~np.isnan(test_obsm_values)].reshape(-1)
-                    == true_obsm_values.reshape(-1)
-                ).all()
+                assert (test_obsm_values[~np.isnan(test_obsm_values)].reshape(-1) == true_obsm_values.reshape(-1)).all()
             else:
                 assert (test_obsm_values == true_obsm_values).all()
 
@@ -185,15 +171,9 @@ class TestMuData:
             assert (oattrnames[: old_oattrnames.size] == old_oattrnames).all()
 
             assert (
-                attrnames
-                == old_attrnames.union(
-                    getattr(modalities[modnames[i]], f"{attr}_names"), sort=False
-                )
+                attrnames == old_attrnames.union(getattr(modalities[modnames[i]], f"{attr}_names"), sort=False)
             ).all()
-            assert (
-                oattrnames
-                == old_oattrnames.append(getattr(modalities[modnames[i]], f"{oattr}_names"))
-            ).all()
+            assert (oattrnames == old_oattrnames.append(getattr(modalities[modnames[i]], f"{oattr}_names"))).all()
 
     def test_update_delete_modality(self, mdata, axis):
         modnames = list(mdata.mod.keys())
@@ -255,10 +235,7 @@ class TestMuData:
             setattr(
                 mod,
                 f"{oattr}_names",
-                [
-                    f"{m}_{oattr}{j}" if j != 0 else f"{oattr}_{j}"
-                    for j in range(mod.shape[1 - axis])
-                ],
+                [f"{m}_{oattr}{j}" if j != 0 else f"{oattr}_{j}" for j in range(mod.shape[1 - axis])],
             )
 
         mdata = MuData(modalities, axis=axis)
@@ -271,16 +248,12 @@ class TestMuData:
         assert mdata.shape[1 - axis] == sum(mod.shape[1 - axis] for mod in modalities.values())
         assert (
             getattr(mdata, f"{oattr}_names")
-            == reduce(
-                lambda x, y: x.append(y),
-                (getattr(mod, f"{oattr}_names") for mod in modalities.values()),
-            )
+            == reduce(lambda x, y: x.append(y), (getattr(mod, f"{oattr}_names") for mod in modalities.values()))
         ).all()
 
         # names along axis are unioned
         axisnames = reduce(
-            lambda x, y: x.union(y, sort=False),
-            (getattr(mod, f"{attr}_names") for mod in modalities.values()),
+            lambda x, y: x.union(y, sort=False), (getattr(mod, f"{attr}_names") for mod in modalities.values())
         )
         assert mdata.shape[axis] == axisnames.shape[0]
         assert (getattr(mdata, f"{attr}_names") == axisnames).all()
@@ -433,10 +406,7 @@ class TestMuDataLegacy:
         """
         # Replicate in-place filtering in muon:
         # mu.pp.filter_obs(mdata['mod1'], 'min_count', lambda x: (x < -2))
-        mdata_legacy.mod["mod1"] = mdata_legacy["mod1"][
-            mdata_legacy["mod1"].obs["min_count"] < -2
-        ].copy()
-        old_obsnames = mdata_legacy.obs_names
+        mdata_legacy.mod["mod1"] = mdata_legacy["mod1"][mdata_legacy["mod1"].obs["min_count"] < -2].copy()
         mdata_legacy.update()
         assert mdata_legacy.obs["batch"].isna().sum() == 0
 
@@ -460,13 +430,10 @@ class TestMuDataLegacy:
         mdata_legacy.update()
 
         test_obsm_values = [
-            mdata_legacy.obsm["test_obsm"][np.where(mdata_legacy.obs_names == name)[0][0]]
-            for name in some_obs_names
+            mdata_legacy.obsm["test_obsm"][np.where(mdata_legacy.obs_names == name)[0][0]] for name in some_obs_names
         ]
 
-        assert all(
-            [all(true_obsm_values[i] == test_obsm_values[i]) for i in range(len(true_obsm_values))]
-        )
+        assert all(all(true_obsm_values[i] == test_obsm_values[i]) for i in range(len(true_obsm_values)))
 
 
 # @pytest.mark.usefixtures("filepath_h5mu")

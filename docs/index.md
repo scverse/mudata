@@ -1,0 +1,66 @@
+# Say hello to MuData
+
+**MuData** is a format for annotated multimodal datasets. MuData is native to Python but provides cross-language functionality via HDF5-based `.h5mu` files.
+
+[website]: https://scverse.org/
+[governance]: https://scverse.org/about/roles/
+[numfocus]: https://numfocus.org/
+[donation]: https://numfocus.org/donate-to-scverse/
+
+MuData is part of the scverse® project ([website], [governance]) and is fiscally sponsored by [NumFOCUS].
+Please consider making a tax-deductible [donation] to help the project pay for developer time, professional services, travel, workshops, and a variety of other needs.
+
+<p align="center">
+    <a href="https://numfocus.org/project/scverse">
+        <img src="https://raw.githubusercontent.com/numfocus/templates/master/images/numfocus-logo.png" width="200">
+    </a>
+</p>
+
+
+## MuData objects as containers
+
+The `mudata` package introduces multimodal data objects ([MuData class](#mudata.MuData)) allowing Python users to work with increasigly complex datasets efficiently and to build new workflows and computational tools around it.
+
+```
+MuData object with n_obs × n_vars = 10110 × 110101
+  2 modalities
+  atac: 10110 x 100001
+  rna: 10110 x 10100
+```
+
+MuData objects enable multimodal information to be stored & accessed naturally, embrace [AnnData](https://github.com/theislab/anndata) for the individual modalities, and can be serialized to `.h5mu` files. [Learn more about multimodal objects](io/mudata.md) as well as [file formats for storing & sharing them](io/output.md).
+
+## Natural interface
+
+MuData objects feature an AnnData-like interface and familiar concepts such as *observations* and *variables* for the two data dimensions. Get familiar with MuData in the [Quickstart tutorial](notebooks/quickstart_mudata).
+
+## Handling MuData objects
+
+A flagship framework for multimodal omics analysis — `muon` — has been built around the MuData format. Find more information on it [in its documentation](https://muon.readthedocs.io/en/latest/) and [on the tutorials page](https://muon-tutorials.readthedocs.io/en/latest/) as well as in the corresponding publication{cite:p}`bredikhin_2022`.
+
+```{eval-rst}
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Getting started
+
+   notebooks/quickstart_mudata.ipynb
+   notebooks/nuances.ipynb
+   notebooks/axes.ipynb
+   notebooks/annotations_management.ipynb
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Documentation
+
+   install
+   io/input
+   io/mudata
+   io/output
+   io/spec
+   api
+   changelog
+   contributing
+   references
+```
