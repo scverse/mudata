@@ -23,6 +23,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
 dynamic = [ "version" ]
@@ -35,39 +36,42 @@ dependencies = [
   # for debug logging (referenced from the issue template)
   "session-info2",
 ]
-optional-dependencies.dev = [
+# https://docs.pypi.org/project_metadata/#project-urls
+urls.Documentation = "https://mudata.readthedocs.io/"
+urls.Homepage = "https://muons.scverse.org"
+urls.Source = "https://github.com/scverse/mudata"
+
+[dependency-groups]
+dev = [
   "fsspec",
   "hatch-vcs",    # for version handling in editable mode
   "pre-commit",
   "twine>=4.0.2",
   "zarr<3",
 ]
-optional-dependencies.doc = [
+
+test = [
+  "coverage>=7.10",
+  "pytest",
+  "zarr<3",
+]
+
+doc = [
   "docutils>=0.8,!=0.18.*,!=0.19.*",
   "ipykernel",
   "ipython",
   "myst-nb>=1.1",
   "pandas",
-  # Until pybtex >0.24.0 releases: https://bitbucket.org/pybtex-devs/pybtex/issues/169/
-  "setuptools",
   "sphinx>=8.1",
   "sphinx-autodoc-typehints",
   "sphinx-automodapi",
   "sphinx-book-theme>=1",
   "sphinx-copybutton",
-  "sphinx-tabs",
+  "sphinx-design",
   "sphinxcontrib-bibtex>=1",
+  "sphinxcontrib-katex",
   "sphinxext-opengraph",
 ]
-optional-dependencies.test = [
-  "coverage>=7.10",
-  "pytest",
-  "zarr<3",
-]
-# https://docs.pypi.org/project_metadata/#project-urls
-urls.Documentation = "https://mudata.readthedocs.io/"
-urls.Homepage = "https://muons.scverse.org"
-urls.Source = "https://github.com/scverse/mudata"
 
 [tool.hatch.version]
 source = "vcs"
@@ -77,10 +81,10 @@ version-file = "src/mudata/_version.py"
 
 [tool.hatch.envs.default]
 installer = "uv"
-features = [ "dev" ]
+dependency-groups = [ "dev" ]
 
 [tool.hatch.envs.docs]
-features = [ "doc" ]
+dependency-groups = [ "doc" ]
 scripts.build = "sphinx-build -M html docs docs/_build {args}"
 scripts.open = "python -m webbrowser -t docs/_build/html/index.html"
 scripts.clean = "git clean -fdX -- {args:docs}"
@@ -88,15 +92,15 @@ scripts.clean = "git clean -fdX -- {args:docs}"
 # Test the lowest and highest supported Python versions with normal deps
 [[tool.hatch.envs.hatch-test.matrix]]
 deps = [ "stable" ]
-python = [ "3.10", "3.13" ]
+python = [ "3.11", "3.14" ]
 
 # Test the newest supported Python version also with pre-release deps
 [[tool.hatch.envs.hatch-test.matrix]]
 deps = [ "pre" ]
-python = [ "3.13" ]
+python = [ "3.14" ]
 
 [tool.hatch.envs.hatch-test]
-features = [ "dev", "test" ]
+dependency-groups = [ "dev", "test" ]
 
 [tool.hatch.envs.hatch-test.overrides]
 # If the matrix variable `deps` is set to "pre",
@@ -149,9 +153,9 @@ lint.per-file-ignores."docs/notebooks/*" = [ "D", "F403", "F405" ]
 lint.per-file-ignores."tests/*" = [ "D" ]
 lint.pydocstyle.convention = "numpy"
 
-[tool.pytest.ini_options]
+[tool.pytest]
+strict = true
 testpaths = [ "tests" ]
-xfail_strict = true
 addopts = [
   "--import-mode=importlib", # allow using test files with same name
 ]
