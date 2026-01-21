@@ -40,7 +40,9 @@ from .views import DictView
 
 
 class MuAxisArraysView(AlignedView, AxisArraysBase):
-    def __init__(self, parent_mapping: AxisArraysBase, parent_view: "MuData", subset_idx: Any):
+    def __init__(
+        self, parent_mapping: AxisArraysBase, parent_view: "MuData", subset_idx: Any
+    ):
         self.parent_mapping = parent_mapping
         self._parent = parent_view
         self.subset_idx = subset_idx
@@ -60,7 +62,10 @@ class ModDict(dict):
         super().__init__(*args, **kwargs)
 
     def _repr_hierarchy(
-        self, nest_level: int = 0, is_last: bool = False, active_levels: list[int] | None = None
+        self,
+        nest_level: int = 0,
+        is_last: bool = False,
+        active_levels: list[int] | None = None,
     ) -> str:
         descr = ""
         active_levels = active_levels or []
@@ -82,20 +87,22 @@ class ModDict(dict):
                     (
                         " [shared obs] "
                         if v.axis == 0
-                        else " [shared var] " if v.axis == 1 else " [shared obs and var] "
+                        else " [shared var] "
+                        if v.axis == 1
+                        else " [shared obs and var] "
                     )
                     if hasattr(v, "axis")
                     else ""
                 )
-                descr += (
-                    f"\n{indent}{k} MuData{maybe_axis}({v.n_obs} × {v.n_vars}){backed_at}{is_view}"
-                )
+                descr += f"\n{indent}{k} MuData{maybe_axis}({v.n_obs} × {v.n_vars}){backed_at}{is_view}"
 
                 if i != len(self) - 1:
                     levels = [nest_level] + active_levels
                 else:
                     levels = [level for level in active_levels if level != nest_level]
-                descr += v.mod._repr_hierarchy(nest_level=nest_level + 1, active_levels=levels)
+                descr += v.mod._repr_hierarchy(
+                    nest_level=nest_level + 1, active_levels=levels
+                )
             elif isinstance(v, AnnData):
                 descr += f"\n{indent}{k} AnnData ({v.n_obs} x {v.n_vars}){backed_at}{is_view}"
             else:
@@ -160,7 +167,10 @@ class MuData:
             }
         ),
         as_view: bool = False,
-        index: tuple[slice | Integral, slice | Integral] | slice | Integral | None = None,
+        index: tuple[slice | Integral, slice | Integral]
+        | slice
+        | Integral
+        | None = None,
         **kwargs,
     ):
         self._init_common()
@@ -193,7 +203,9 @@ class MuData:
             else:
                 self.mod["data"] = data
         else:
-            raise TypeError("Expected AnnData object or dictionary with AnnData objects as values")
+            raise TypeError(
+                "Expected AnnData object or dictionary with AnnData objects as values"
+            )
 
         self._check_duplicated_names()
 
@@ -276,7 +288,9 @@ class MuData:
         from anndata._core.index import _normalize_indices
         from anndata._core.views import _resolve_idxs
 
-        obsidx, varidx = _normalize_indices(index, mudata_ref.obs.index, mudata_ref.var.index)
+        obsidx, varidx = _normalize_indices(
+            index, mudata_ref.obs.index, mudata_ref.var.index
+        )
 
         # to handle single-element subsets, otherwise when subsetting a Dataframe
         # we get a Series
@@ -287,7 +301,10 @@ class MuData:
 
         self.mod = ModDict()
         for m, a in mudata_ref.mod.items():
-            cobsidx, cvaridx = mudata_ref.obsmap[m][obsidx], mudata_ref.varmap[m][varidx]
+            cobsidx, cvaridx = (
+                mudata_ref.obsmap[m][obsidx],
+                mudata_ref.varmap[m][varidx],
+            )
             cobsidx, cvaridx = cobsidx[cobsidx > 0] - 1, cvaridx[cvaridx > 0] - 1
             if len(cobsidx) > 0 and len(cvaridx) > 0:
                 if np.all(np.diff(cobsidx) == 1):
@@ -315,19 +332,27 @@ class MuData:
             if a.is_view:
                 if isinstance(a, MuData):
                     self.mod[m] = a._mudata_ref[
-                        _resolve_idxs((a._oidx, a._vidx), (cobsidx, cvaridx), a._mudata_ref)
+                        _resolve_idxs(
+                            (a._oidx, a._vidx), (cobsidx, cvaridx), a._mudata_ref
+                        )
                     ]
                 else:
                     self.mod[m] = a._adata_ref[
-                        _resolve_idxs((a._oidx, a._vidx), (cobsidx, cvaridx), a._adata_ref)
+                        _resolve_idxs(
+                            (a._oidx, a._vidx), (cobsidx, cvaridx), a._adata_ref
+                        )
                     ]
             else:
                 self.mod[m] = a[cobsidx, cvaridx]
 
-        self._obs = DataFrameView(mudata_ref.obs.iloc[obsidx, :], view_args=(self, "obs"))
+        self._obs = DataFrameView(
+            mudata_ref.obs.iloc[obsidx, :], view_args=(self, "obs")
+        )
         self._obsm = mudata_ref.obsm._view(self, (obsidx,))
         self._obsp = mudata_ref.obsp._view(self, (obsidx, obsidx))
-        self._var = DataFrameView(mudata_ref.var.iloc[varidx, :], view_args=(self, "var"))
+        self._var = DataFrameView(
+            mudata_ref.var.iloc[varidx, :], view_args=(self, "var")
+        )
         self._varm = mudata_ref.varm._view(self, (varidx,))
         self._varp = mudata_ref.varp._view(self, (varidx, varidx))
 
@@ -387,7 +412,9 @@ class MuData:
                 k: (
                     v
                     if isinstance(v, AnnData) or isinstance(v, MuData)
-                    else MuData(**v) if "mod" in v else AnnData(**v)
+                    else MuData(**v)
+                    if "mod" in v
+                    else AnnData(**v)
                 )
                 for k, v in mod.items()
             },
@@ -413,7 +440,9 @@ class MuData:
             dups = [
                 np.unique(
                     getattr(self.mod[mod_i], attr + "_names")[
-                        getattr(self.mod[mod_i], attr + "_names").astype(str).duplicated()
+                        getattr(self.mod[mod_i], attr + "_names")
+                        .astype(str)
+                        .duplicated()
                     ]
                 )
                 for mod_i in self.mod
@@ -423,7 +452,8 @@ class MuData:
                     if j != i:
                         if any(
                             np.isin(
-                                mod_i_dup_attrs, getattr(self.mod[mod_j], attr + "_names").values
+                                mod_i_dup_attrs,
+                                getattr(self.mod[mod_j], attr + "_names").values,
                             )
                         ):
                             warnings.warn(
@@ -460,10 +490,14 @@ class MuData:
                     cached_hash = getattr(self, attrhash)[m]
                     new_hash = (
                         sha1(
-                            np.ascontiguousarray(getattr(self.mod[m], attr).index.values)
+                            np.ascontiguousarray(
+                                getattr(self.mod[m], attr).index.values
+                            )
                         ).hexdigest(),
                         sha1(
-                            np.ascontiguousarray(getattr(self.mod[m], attr).columns.values)
+                            np.ascontiguousarray(
+                                getattr(self.mod[m], attr).columns.values
+                            )
                         ).hexdigest(),
                     )
                     if cached_hash[0] != new_hash[0]:
@@ -560,7 +594,10 @@ class MuData:
         if axis == (1 - self._axis):
             # Shared indices
             modindices = [getattr(self.mod[m], attr).index for m in self.mod]
-            if all(modindices[i].equals(modindices[i + 1]) for i in range(len(modindices) - 1)):
+            if all(
+                modindices[i].equals(modindices[i + 1])
+                for i in range(len(modindices) - 1)
+            ):
                 attrindex = modindices[0].copy()
             attrindex = reduce(
                 pd.Index.union, [getattr(self.mod[m], attr).index for m in self.mod]
@@ -613,7 +650,9 @@ class MuData:
         data_global = getattr(self, attr)
         prev_index = data_global.index
 
-        attr_duplicated = not data_global.index.is_unique or self._check_duplicated_attr_names(attr)
+        attr_duplicated = (
+            not data_global.index.is_unique or self._check_duplicated_attr_names(attr)
+        )
         attr_intersecting = self._check_intersecting_attr_names(attr)
 
         # Generate unique colnames
@@ -664,7 +703,9 @@ class MuData:
                     0
                 ]  # renamed (since new_idx.shape[0] > 0 and kept_idx.shape[0] < data_global.shape[0])
                 or (
-                    axis == self.axis and axis != -1 and data_mod.shape[0] > data_global.shape[0]
+                    axis == self.axis
+                    and axis != -1
+                    and data_mod.shape[0] > data_global.shape[0]
                 )  # new modality added and concacenated
             )
 
@@ -718,11 +759,14 @@ class MuData:
                     if (
                         modmask.sum() == getattr(amod, attr).shape[0]
                         and (
-                            getattr(amod, attr).index[modmap[modmask] - 1] == prev_index[modmask]
+                            getattr(amod, attr).index[modmap[modmask] - 1]
+                            == prev_index[modmask]
                         ).all()
                     ):
                         data_mod.set_index(colname, append=True, inplace=True)
-                        data_global.set_index(attrmap[mod].reshape(-1), append=True, inplace=True)
+                        data_global.set_index(
+                            attrmap[mod].reshape(-1), append=True, inplace=True
+                        )
                         data_global.index.set_names(colname, level=-1, inplace=True)
 
             if data_global.shape[0] > 0:
@@ -732,7 +776,8 @@ class MuData:
                         stacklevel=2,
                     )
                     data_mod.reset_index(
-                        data_mod.index.names.difference(data_global.index.names), inplace=True
+                        data_mod.index.names.difference(data_global.index.names),
+                        inplace=True,
                     )
                 # after inserting a new modality with duplicates, but no duplicates before:
                 # data_mod.index is not unique
@@ -750,8 +795,12 @@ class MuData:
                     data_mod = _restore_index(data_mod)
                     data_global = _restore_index(data_global)
 
-            data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
-            data_global.reset_index(level=list(range(1, data_global.index.nlevels)), inplace=True)
+            data_mod.reset_index(
+                level=list(range(1, data_mod.index.nlevels)), inplace=True
+            )
+            data_global.reset_index(
+                level=list(range(1, data_global.index.nlevels)), inplace=True
+            )
             data_mod.index.set_names(None, inplace=True)
             data_global.index.set_names(None, inplace=True)
 
@@ -816,8 +865,12 @@ class MuData:
                 setattr(self, _attrhash, {})
             for m, mod in self.mod.items():
                 getattr(self, _attrhash)[m] = (
-                    sha1(np.ascontiguousarray(getattr(mod, attr).index.values)).hexdigest(),
-                    sha1(np.ascontiguousarray(getattr(mod, attr).columns.values)).hexdigest(),
+                    sha1(
+                        np.ascontiguousarray(getattr(mod, attr).index.values)
+                    ).hexdigest(),
+                    sha1(
+                        np.ascontiguousarray(getattr(mod, attr).columns.values)
+                    ).hexdigest(),
                 )
 
         if OPTIONS["pull_on_update"]:
@@ -907,7 +960,9 @@ class MuData:
                 lambda a, b: a.intersection(b),
                 [getattr(self.mod[mod], attr).columns for mod in self.mod],
             )
-            data_global = data_global.loc[:, [c not in columns_common for c in data_global.columns]]
+            data_global = data_global.loc[
+                :, [c not in columns_common for c in data_global.columns]
+            ]
 
         # TODO: take advantage when attr_changed[0] == False — only new columns to be added
 
@@ -925,7 +980,9 @@ class MuData:
                         [
                             _maybe_coerce_to_boolean(
                                 getattr(a, attr)
-                                .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                                .assign(
+                                    **{rowcol: np.arange(getattr(a, attr).shape[0])}
+                                )
                                 .add_prefix(m + ":")
                             )
                             for m, a in self.mod.items()
@@ -943,7 +1000,9 @@ class MuData:
                             _maybe_coerce_to_boolean(
                                 getattr(a, attr)
                                 .drop(columns_common, axis=1)
-                                .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                                .assign(
+                                    **{rowcol: np.arange(getattr(a, attr).shape[0])}
+                                )
                                 .add_prefix(m + ":")
                             )
                             for m, a in self.mod.items()
@@ -970,7 +1029,8 @@ class MuData:
                     # this occurs when join_common=True and we already have a global data frame, e.g. after reading from H5MU
                     sharedcols = data_mod.columns.intersection(data_global.columns)
                     data_global.rename(
-                        columns={col: f"global:{col}" for col in sharedcols}, inplace=True
+                        columns={col: f"global:{col}" for col in sharedcols},
+                        inplace=True,
                     )
                 else:
                     data_mod = _maybe_coerce_to_bool(
@@ -978,7 +1038,9 @@ class MuData:
                             [
                                 _maybe_coerce_to_boolean(
                                     getattr(a, attr)
-                                    .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                                    .assign(
+                                        **{rowcol: np.arange(getattr(a, attr).shape[0])}
+                                    )
                                     .add_prefix(m + ":")
                                 )
                                 for m, a in self.mod.items()
@@ -1011,17 +1073,24 @@ class MuData:
                     col_index, col_cumcount = self._find_unique_colnames(attr, 2)
                     data_mod = data_mod.rename_axis(col_index, axis=0).reset_index()
                     data_mod[col_cumcount] = data_mod.groupby(col_index).cumcount()
-                    data_global = data_global.rename_axis(col_index, axis=0).reset_index()
+                    data_global = data_global.rename_axis(
+                        col_index, axis=0
+                    ).reset_index()
                     data_global[col_cumcount] = (
                         data_global.reset_index().groupby(col_index).cumcount()
                     )
                     data_mod = data_mod.merge(
-                        data_global, on=[col_index, col_cumcount], how="left", sort=False
+                        data_global,
+                        on=[col_index, col_cumcount],
+                        how="left",
+                        sort=False,
                     )
                     # Restore the index and remove the helper column
                     data_mod = data_mod.set_index(col_index).rename_axis(None, axis=0)
                     del data_mod[col_cumcount]
-                    data_global = data_global.set_index(col_index).rename_axis(None, axis=0)
+                    data_global = data_global.set_index(col_index).rename_axis(
+                        None, axis=0
+                    )
                     del data_global[col_cumcount]
 
         #
@@ -1053,7 +1122,9 @@ class MuData:
                 data_common = pd.concat(
                     [
                         _maybe_coerce_to_boolean(
-                            _make_index_unique(getattr(a, attr)[columns_common], force=True)
+                            _make_index_unique(
+                                getattr(a, attr)[columns_common], force=True
+                            )
                         )
                         for m, a in self.mod.items()
                     ],
@@ -1062,7 +1133,9 @@ class MuData:
                     sort=False,
                 )
 
-                data_mod = _maybe_coerce_to_bool(data_mod.join(data_common, how="left", sort=False))
+                data_mod = _maybe_coerce_to_bool(
+                    data_mod.join(data_common, how="left", sort=False)
+                )
                 data_common = _maybe_coerce_to_bool(data_common)
             else:
                 dfs = [
@@ -1084,7 +1157,9 @@ class MuData:
             # pd.concat wrecks the ordering when doing an outer join with a MultiIndex and different data frame shapes
             if axis == 1:
                 newidx = (
-                    reduce(lambda x, y: x.union(y, sort=False), (df.index for df in dfs))
+                    reduce(
+                        lambda x, y: x.union(y, sort=False), (df.index for df in dfs)
+                    )
                     .to_frame()
                     .reset_index(level=1, drop=True)
                 )
@@ -1094,7 +1169,11 @@ class MuData:
                     negativemask = ~newidx.index.get_level_values(0).isin(globalidx)
                     newidx = pd.MultiIndex.from_frame(
                         pd.concat(
-                            [newidx.loc[globalidx[mask], :], newidx.iloc[negativemask, :]], axis=0
+                            [
+                                newidx.loc[globalidx[mask], :],
+                                newidx.iloc[negativemask, :],
+                            ],
+                            axis=0,
                         )
                     )
                 data_mod = data_mod.reindex(newidx, copy=False)
@@ -1119,8 +1198,13 @@ class MuData:
                 col = col.astype(np.uint32)
                 data_mod.loc[:, colname] = col
                 data_mod.set_index(colname, append=True, inplace=True)
-                if mod in attrmap and np.sum(attrmap[mod] > 0) == getattr(amod, attr).shape[0]:
-                    data_global.set_index(attrmap[mod].ravel(), append=True, inplace=True)
+                if (
+                    mod in attrmap
+                    and np.sum(attrmap[mod] > 0) == getattr(amod, attr).shape[0]
+                ):
+                    data_global.set_index(
+                        attrmap[mod].ravel(), append=True, inplace=True
+                    )
                     data_global.index.set_names(colname, level=-1, inplace=True)
 
             if len(data_global) > 0:
@@ -1130,12 +1214,15 @@ class MuData:
                         stacklevel=2,
                     )
                     data_mod.reset_index(
-                        data_mod.index.names.difference(data_global.index.names), inplace=True
+                        data_mod.index.names.difference(data_global.index.names),
+                        inplace=True,
                     )
                     data_mod = _make_index_unique(data_mod, force=True)
                     data_global = _make_index_unique(data_global, force=True)
                 data_mod = data_mod.join(data_global, how="left", sort=False)
-            data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
+            data_mod.reset_index(
+                level=list(range(1, data_mod.index.nlevels)), inplace=True
+            )
             data_mod.index.set_names(None, inplace=True)
 
         if join_common:
@@ -1241,8 +1328,12 @@ class MuData:
                 setattr(self, _attrhash, {})
             for m, mod in self.mod.items():
                 getattr(self, _attrhash)[m] = (
-                    sha1(np.ascontiguousarray(getattr(mod, attr).index.values)).hexdigest(),
-                    sha1(np.ascontiguousarray(getattr(mod, attr).columns.values)).hexdigest(),
+                    sha1(
+                        np.ascontiguousarray(getattr(mod, attr).index.values)
+                    ).hexdigest(),
+                    sha1(
+                        np.ascontiguousarray(getattr(mod, attr).columns.values)
+                    ).hexdigest(),
                 )
 
     def _shrink_attr(self, attr: str, inplace=True) -> pd.DataFrame:
@@ -1253,7 +1344,10 @@ class MuData:
                 all,
                 zip(
                     *(
-                        [not col.startswith(mod + ":") for col in getattr(self, attr).columns]
+                        [
+                            not col.startswith(mod + ":")
+                            for col in getattr(self, attr).columns
+                        ]
                         for mod in self.mod
                     ),
                     strict=False,
@@ -1352,7 +1446,9 @@ class MuData:
                     raise KeyError(
                         f"There is no {key} in MuData .obs but there is one in {m} .obs. Consider running `mu.update_obs()` to update global .obs."
                     )
-            raise KeyError(f"There is no key {key} in MuData .obs or in .obs of any modalities.")
+            raise KeyError(
+                f"There is no key {key} in MuData .obs or in .obs of any modalities."
+            )
         return self.obs[key].values
 
     def update_obs(self):
@@ -1375,7 +1471,9 @@ class MuData:
             if isinstance(self.mod[k], AnnData):
                 self.mod[k].obs_names_make_unique()
             # Only propagate to individual modalities with shared vars
-            elif isinstance(self.mod[k], MuData) and getattr(self.mod[k], "axis", 1) == 1:
+            elif (
+                isinstance(self.mod[k], MuData) and getattr(self.mod[k], "axis", 1) == 1
+            ):
                 self.mod[k].obs_names_make_unique()
 
         # Check if there are observations with the same name in different modalities
@@ -1433,8 +1531,13 @@ class MuData:
 
         self._obs.index = names
         for mod in self.mod.keys():
-            indices = self.obsmap[mod]
-            self.mod[mod].obs_names = names[indices[indices != 0] - 1]
+            indices = self.obsmap[mod].flatten()
+            mask = indices != 0
+            global_positions = np.where(mask)[0]
+            modality_positions = indices[global_positions] - 1
+            new_names = np.empty(len(global_positions), dtype=object)
+            new_names[modality_positions] = names[global_positions]
+            self.mod[mod].obs_names = new_names
 
         self.update_obs()
 
@@ -1476,7 +1579,9 @@ class MuData:
                     raise KeyError(
                         f"There is no {key} in MuData .var but there is one in {m} .var. Consider running `mu.update_var()` to update global .var."
                     )
-            raise KeyError(f"There is no key {key} in MuData .var or in .var of any modalities.")
+            raise KeyError(
+                f"There is no key {key} in MuData .var or in .var of any modalities."
+            )
         return self.var[key].values
 
     def update_var(self):
@@ -1499,7 +1604,9 @@ class MuData:
             if isinstance(self.mod[k], AnnData):
                 self.mod[k].var_names_make_unique()
             # Only propagate to individual modalities with shared obs
-            elif isinstance(self.mod[k], MuData) and getattr(self.mod[k], "axis", 0) == 0:
+            elif (
+                isinstance(self.mod[k], MuData) and getattr(self.mod[k], "axis", 0) == 0
+            ):
                 self.mod[k].var_names_make_unique()
 
         # Check if there are variables with the same name in different modalities
@@ -1510,7 +1617,9 @@ class MuData:
             for j in range(i + 1, len(self.mod)):
                 kj = mods[j]
                 common_vars.append(
-                    np.intersect1d(self.mod[ki].var_names.values, self.mod[kj].var_names.values)
+                    np.intersect1d(
+                        self.mod[ki].var_names.values, self.mod[kj].var_names.values
+                    )
                 )
         if any(len(x) > 0 for x in common_vars):
             warnings.warn(
@@ -1557,8 +1666,13 @@ class MuData:
 
         self._var.index = names
         for mod in self.mod.keys():
-            indices = self.varmap[mod]
-            self.mod[mod].var_names = names[indices[indices != 0] - 1]
+            indices = self.varmap[mod].flatten()
+            mask = indices != 0
+            global_positions = np.where(mask)[0]
+            modality_positions = indices[global_positions] - 1
+            new_names = np.empty(len(global_positions), dtype=object)
+            new_names[modality_positions] = names[global_positions]
+            self.mod[mod].var_names = new_names
 
         self.update_var()
 
@@ -1660,7 +1774,9 @@ class MuData:
     @uns.setter
     def uns(self, value: MutableMapping):
         if not isinstance(value, MutableMapping):
-            raise ValueError("Only mutable mapping types (e.g. dict) are allowed for `.uns`.")
+            raise ValueError(
+                "Only mutable mapping types (e.g. dict) are allowed for `.uns`."
+            )
         if isinstance(value, DictView):
             value = value.copy()
         if self.is_view:
@@ -1820,7 +1936,11 @@ class MuData:
                 col.count = count  # this is important to classify columns
 
         if columns is not None:
-            for k, v in {"common": common, "nonunique": nonunique, "unique": unique}.items():
+            for k, v in {
+                "common": common,
+                "nonunique": nonunique,
+                "unique": unique,
+            }.items():
                 if v is not None:
                     warnings.warn(
                         f"Both columns and {k} given. Columns take precedence, {k} will be ignored",
@@ -1831,7 +1951,9 @@ class MuData:
             # keep only requested columns
             cols = {
                 prefix: [
-                    col for col in modcols if col.name in columns or col.derived_name in columns
+                    col
+                    for col in modcols
+                    if col.name in columns or col.derived_name in columns
                 ]
                 for prefix, modcols in cols.items()
             }
@@ -1871,7 +1993,9 @@ class MuData:
 
         if axis == self.axis or self.axis == -1:
             if join_common or join_nonunique:
-                raise ValueError(f"Cannot join columns with the same name for shared {attr}_names.")
+                raise ValueError(
+                    f"Cannot join columns with the same name for shared {attr}_names."
+                )
 
         if join_common is None:
             if attr == "obs":
@@ -1935,7 +2059,9 @@ class MuData:
         if only_drop:
             return
 
-        global_df = _maybe_coerce_to_boolean(getattr(self, attr).set_index(np.arange(n_attr)))
+        global_df = _maybe_coerce_to_boolean(
+            getattr(self, attr).set_index(np.arange(n_attr))
+        )
         df = reduce(_update_and_concat, [global_df, *dfs])
         df = _maybe_coerce_to_bool(df)
         df = _maybe_coerce_to_int(df)
@@ -2350,7 +2476,9 @@ class MuData:
 
         return to_anndata(self, **kwargs)
 
-    def _gen_repr(self, n_obs, n_vars, extensive: bool = False, nest_level: int = 0) -> str:
+    def _gen_repr(
+        self, n_obs, n_vars, extensive: bool = False, nest_level: int = 0
+    ) -> str:
         indent = "    " * nest_level
         backed_at = f" backed at {str(self.filename)!r}" if self.isbacked else ""
         view_of = "View of " if self.is_view else ""
@@ -2358,7 +2486,9 @@ class MuData:
             (
                 ""
                 if self.axis == 0
-                else " (shared var) " if self.axis == 1 else " (shared obs and var) "
+                else " (shared var) "
+                if self.axis == 1
+                else " (shared obs and var) "
             )
             if hasattr(self, "axis")
             else ""
@@ -2368,7 +2498,9 @@ class MuData:
             if hasattr(self, attr) and getattr(self, attr) is not None:
                 keys = list(getattr(self, attr).keys())
                 if len(keys) > 0:
-                    mod_sep = ":" if isinstance(getattr(self, attr), pd.DataFrame) else ""
+                    mod_sep = (
+                        ":" if isinstance(getattr(self, attr), pd.DataFrame) else ""
+                    )
                     global_keys = list(
                         map(
                             all,
@@ -2386,7 +2518,9 @@ class MuData:
                     )
                     if any(global_keys):
                         descr += f"\n{indent}  {attr}:\t{str([keys[i] for i in range(len(keys)) if global_keys[i]])[1:-1]}"
-        descr += f"\n{indent}  {len(self.mod)} modalit{'y' if len(self.mod) == 1 else 'ies'}"
+        descr += (
+            f"\n{indent}  {len(self.mod)} modalit{'y' if len(self.mod) == 1 else 'ies'}"
+        )
         for k, v in self.mod.items():
             mod_indent = "    " * (nest_level + 1)
             if isinstance(v, MuData):
@@ -2462,10 +2596,8 @@ class MuData:
             )
 
             # General object properties
-            mods += (
-                "<span>{} object <span class='hl-dim'>{} obs &times; {} var</span></span>".format(
-                    type(dat).__name__, *(dat.shape)
-                )
+            mods += "<span>{} object <span class='hl-dim'>{} obs &times; {} var</span></span>".format(
+                type(dat).__name__, *(dat.shape)
             )
             if dat.isbacked:
                 mods += f"<br>&#8627; <span>backed at <span class='hl-file'>{self.file.filename}</span></span>"
@@ -2475,27 +2607,35 @@ class MuData:
             # X
             mods += block_matrix(dat, "X", "Matrix")
             # Layers
-            mods += details_block_table(dat, "layers", "Layers", expand & 0b001, dims=False)
+            mods += details_block_table(
+                dat, "layers", "Layers", expand & 0b001, dims=False
+            )
             # Metadata
             mods += details_block_table(dat, "obs", "Metadata", expand & 0b001)
             # Embeddings
             mods += details_block_table(dat, "obsm", "Embeddings", expand & 0b001)
             # Distances
-            mods += details_block_table(dat, "obsp", "Distances", expand & 0b001, square=True)
+            mods += details_block_table(
+                dat, "obsp", "Distances", expand & 0b001, square=True
+            )
             # Miscellaneous (unstructured)
             mods += details_block_table(dat, "uns", "Miscellaneous", expand & 0b001)
 
             mods += "</details>"
             mods += "</div></div>"
         mods += "<br/>"
-        full = "".join((MUDATA_CSS, "<div class='scv-mudata-repr-html'>", header, mods, "</div>"))
+        full = "".join(
+            (MUDATA_CSS, "<div class='scv-mudata-repr-html'>", header, mods, "</div>")
+        )
         return full
 
     def _find_unique_colnames(self, attr: str, ncols: int):
         nchars = 16
         allunique = False
         while not allunique:
-            colnames = ["".join(choices(ascii_letters + digits, k=nchars)) for _ in range(ncols)]
+            colnames = [
+                "".join(choices(ascii_letters + digits, k=nchars)) for _ in range(ncols)
+            ]
             allunique = len(set(colnames)) == ncols
             nchars *= 2
 
