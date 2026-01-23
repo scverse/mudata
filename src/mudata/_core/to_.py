@@ -31,7 +31,7 @@ def to_anndata(mdata: MuData, **kwargs) -> AnnData:
         df = getattr(adata, attr)
         if hasattr(df, "combine_first") and callable(df.combine_first):
             setattr(adata, attr, df.combine_first(getattr(mdata, attr)))
-    for attr in ["obs", "obsm", "obsp", "var", "varm", "varp", "uns"]:
+    for attr in ["obsm", "obsp", "varm", "varp", "uns"]:
         getattr(adata, attr).update(getattr(mdata, attr))
     return adata
 
