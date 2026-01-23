@@ -97,7 +97,6 @@ def concat(
 
     Examples
     --------
-
     Preparing example objects
 
     >>> import mudata as md, anndata as ad, pandas as pd, numpy as np
@@ -130,10 +129,7 @@ def concat(
 
     if isinstance(mdatas, Mapping):
         if keys is not None:
-            raise TypeError(
-                "Cannot specify categories in both mapping keys and using `keys`. "
-                "Only specify this once."
-            )
+            raise TypeError("Cannot specify categories in both mapping keys and using `keys`. Only specify this once.")
         keys, mdatas = list(mdatas.keys()), list(mdatas.values())
     else:
         mdatas = list(mdatas)
@@ -141,23 +137,19 @@ def concat(
     if keys is None:
         keys = np.arange(len(mdatas)).astype(str)
 
-    assert all(
-        [isinstance(m, MuData) for m in mdatas]
-    ), "For concatenation to work, all objects should be of type MuData"
+    assert all(isinstance(m, MuData) for m in mdatas), "For concatenation to work, all objects should be of type MuData"
     assert len(mdatas) > 1, "mdatas collection should have more than one MuData object"
-    if len(set(m.axis for m in mdatas)) != 1:
+    if len({m.axis for m in mdatas}) != 1:
         "All MuData objects in mdatas should have the same axis."
 
     axis = mdatas[0].axis
 
     # Modalities intersection
-    common_mods = reduce(
-        np.intersect1d, [np.array(list(m.mod.keys())).astype("object") for m in mdatas]
-    )
+    common_mods = reduce(np.intersect1d, [np.array(list(m.mod.keys())).astype("object") for m in mdatas])
     assert len(common_mods) > 0, "There should be at least one common modality across all mdatas"
 
     # Concatenate all the modalities
-    modalities: dict[str, AnnData] = dict()
+    modalities: dict[str, AnnData] = {}
     for m in common_mods:
         modalities[m] = ad_concat(
             [mdata[m] for mdata in mdatas],
@@ -178,14 +170,11 @@ def concat(
 
     # Label column
     label_col = pd.Categorical.from_codes(
-        np.repeat(np.arange(len(mdatas)), [m.shape[axis] for m in mdatas]),
-        categories=keys,
+        np.repeat(np.arange(len(mdatas)), [m.shape[axis] for m in mdatas]), categories=keys
     )
 
     # Combining indexes
-    concat_indices = pd.concat(
-        [pd.Series(axis_indices(m, axis=axis)) for m in mdatas], ignore_index=True
-    )
+    concat_indices = pd.concat([pd.Series(axis_indices(m, axis=axis)) for m in mdatas], ignore_index=True)
     if index_unique is not None:
         concat_indices = concat_indices.str.cat(label_col.map(str), sep=index_unique)
     concat_indices = pd.Index(concat_indices)
@@ -195,11 +184,7 @@ def concat(
 
     # Annotation for concatenation axis
     check_combinable_cols([getattr(m, dim).columns for m in mdatas], join=join)
-    concat_annot = pd.concat(
-        unify_dtypes([getattr(m, dim) for m in mdatas]),
-        join=join,
-        ignore_index=True,
-    )
+    concat_annot = pd.concat(unify_dtypes([getattr(m, dim) for m in mdatas]), join=join, ignore_index=True)
     concat_annot.index = concat_indices
     if label is not None:
         concat_annot[label] = label_col
@@ -223,10 +208,7 @@ def concat(
         patch_alt_dim.append(elems_alt_dim)
 
     if join == "inner":
-        concat_mapping = inner_concat_aligned_mapping(
-            [getattr(m, f"{dim}m") for m in mdatas],
-            index=concat_indices,
-        )
+        concat_mapping = inner_concat_aligned_mapping([getattr(m, f"{dim}m") for m in mdatas], index=concat_indices)
         if pairwise:
             concat_pairwise = concat_pairwise_mapping(
                 mappings=[getattr(m, f"{dim}p") for m in mdatas],
@@ -237,9 +219,7 @@ def concat(
             concat_pairwise = {}
     elif join == "outer":
         concat_mapping = outer_concat_aligned_mapping(
-            [getattr(m, f"{dim}m") for m in mdatas],
-            index=concat_indices,
-            fill_value=fill_value,
+            [getattr(m, f"{dim}m") for m in mdatas], index=concat_indices, fill_value=fill_value
         )
         if pairwise:
             concat_pairwise = concat_pairwise_mapping(
@@ -271,13 +251,13 @@ def concat(
     alt_mapping = merge(
         [
             {k: r(v, axis=0) for k, v in getattr(a, f"{alt_dim}m").items()}
-            for r, a in zip(reindexers, mdatas)
-        ],
+            for r, a in zip(reindexers, mdatas, strict=False)
+        ]
     )
     alt_pairwise = merge(
         [
             {k: r(r(v, axis=0), axis=1) for k, v in getattr(a, f"{alt_dim}p").items()}
-            for r, a in zip(reindexers, mdatas)
+            for r, a in zip(reindexers, mdatas, strict=False)
         ]
     )
     uns = uns_merge([m.uns for m in mdatas])

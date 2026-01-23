@@ -1,0 +1,43 @@
+{
+  "template": "https://github.com/scverse/cookiecutter-scverse",
+  "commit": "77339226581ec535e1972984083ae70b702e7bec",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "project_name": "mudata",
+      "package_name": "mudata",
+      "project_description": "Multimodal data",
+      "author_full_name": "Danila Bredikhin",
+      "author_email": "danila@stanford.edu",
+      "github_user": "scverse",
+      "github_repo": "mudata",
+      "license": "BSD 3-Clause License",
+      "ide_integration": false,
+      "_copy_without_render": [
+        ".github/workflows/build.yaml",
+        ".github/workflows/test.yaml",
+        "docs/_templates/autosummary/**.rst"
+      ],
+      "_exclude_on_template_update": [
+        "CHANGELOG.md",
+        "LICENSE",
+        "README.md",
+        "docs/api.md",
+        "docs/index.md",
+        "docs/notebooks/example.ipynb",
+        "docs/references.bib",
+        "docs/references.md",
+        "src/**",
+        "tests/**"
+      ],
+      "_render_devdocs": false,
+      "_jinja2_env_vars": {
+        "lstrip_blocks": true,
+        "trim_blocks": true
+      },
+      "_template": "https://github.com/scverse/cookiecutter-scverse",
+      "_commit": "77339226581ec535e1972984083ae70b702e7bec"
+    }
+  },
+  "directory": null
+}

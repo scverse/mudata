@@ -12,35 +12,17 @@ try:
     from anndata._core.aligned_mapping import AlignedView, AxisArrays, PairwiseArrays
 except ImportError:
     # anndata < 0.10.9
-    from anndata._core.aligned_mapping import (
-        AlignedViewMixin as AlignedView,
-    )
-    from anndata._core.aligned_mapping import (
-        AxisArrays as AxisArraysLegacy,
-    )
-    from anndata._core.aligned_mapping import (
-        AxisArraysBase,
-    )
-    from anndata._core.aligned_mapping import (
-        PairwiseArrays as PairwiseArraysLegacy,
-    )
+    from anndata._core.aligned_mapping import AlignedViewMixin as AlignedView
+    from anndata._core.aligned_mapping import AxisArrays as AxisArraysLegacy
+    from anndata._core.aligned_mapping import AxisArraysBase
+    from anndata._core.aligned_mapping import PairwiseArrays as PairwiseArraysLegacy
 
     class AxisArrays(AxisArraysLegacy):
-        def __init__(
-            self,
-            parent: AnnData | Raw,
-            axis: int,
-            store: Mapping | AxisArraysBase | None = None,
-        ):
+        def __init__(self, parent: AnnData | Raw, axis: int, store: Mapping | AxisArraysBase | None = None):
             super().__init__(parent, axis=axis, vals=store)
 
     class PairwiseArrays(PairwiseArraysLegacy):
-        def __init__(
-            self,
-            parent: AnnData,
-            axis: int,
-            store: Mapping | None = None,
-        ):
+        def __init__(self, parent: AnnData, axis: int, store: Mapping | None = None):
             super().__init__(parent, axis=axis, vals=store)
 
 

@@ -103,9 +103,7 @@ def _update_and_concat(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
     # df.update(df2)
     common_cols = df1.columns.intersection(df2.columns)
     for col in common_cols:
-        if isinstance(df[col].values, pd.Categorical) and isinstance(
-            df2[col].values, pd.Categorical
-        ):
+        if isinstance(df[col].values, pd.Categorical) and isinstance(df2[col].values, pd.Categorical):
             common_cats = pd.api.types.union_categoricals([df[col], df2[col]]).categories
             df[col] = df[col].cat.set_categories(common_cats)
             df2[col] = df2[col].cat.set_categories(common_cats)

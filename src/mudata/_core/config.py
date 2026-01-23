@@ -1,10 +1,6 @@
 import logging as log
 
-OPTIONS = {
-    "display_style": "text",
-    "display_html_expand": 0b010,
-    "pull_on_update": None,
-}
+OPTIONS = {"display_style": "text", "display_html_expand": 0b010, "pull_on_update": None}
 
 _VALID_OPTIONS = {
     "display_style": lambda x: x in ("text", "html"),
@@ -25,12 +21,12 @@ class set_options:
 
     Options can be set in the context:
 
-    >>> with mudata.set_options(display_style='html'):
+    >>> with mudata.set_options(display_style="html"):
     ...     print("Options are applied here")
 
     ... or globally:
 
-    >>> mudata.set_options(display_style='html')
+    >>> mudata.set_options(display_style="html")
     """
 
     def __init__(self, **kwargs):

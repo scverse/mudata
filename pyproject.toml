@@ -1,65 +1,77 @@
 [build-system]
 build-backend = "hatchling.build"
-requires = ["hatchling", "hatch-vcs"]
+requires = [ "hatch-vcs", "hatchling" ]
 
 [project]
 name = "mudata"
 description = "Multimodal data"
-requires-python = ">= 3.10"
-license = "BSD-3-Clause"
-authors = [
-    { name = "Danila Bredikhin" },
-]
-maintainers = [
-    { name = "Danila Bredikhin", email = "danila@stanford.edu" },
-]
 readme = "README.md"
+license = { file = "LICENSE" }
+maintainers = [
+  { name = "Danila Bredikhin", email = "danila@stanford.edu" },
+]
+authors = [
+  { name = "Danila Bredikhin" },
+]
+requires-python = ">=3.10"
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: BSD License",
-    "Operating System :: OS Independent",
-    "Development Status :: 3 - Alpha",
-    "Topic :: Scientific/Engineering :: Bio-Informatics",
-    "Intended Audience :: Science/Research"
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: BSD License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
+dynamic = [ "version" ]
+
 dependencies = [
-    "anndata >= 0.10.8",
-    "pandas >= 1.4.0"
+  "anndata>=0.10.8",
+  "numpy",
+  "pandas>=1.4",
+  "scipy",
+  # for debug logging (referenced from the issue template)
+  "session-info2",
 ]
-dynamic = ["version"]
+# https://docs.pypi.org/project_metadata/#project-urls
+urls.Documentation = "https://mudata.readthedocs.io/"
+urls.Homepage = "https://muons.scverse.org"
+urls.Source = "https://github.com/scverse/mudata"
 
-[project.urls]
-Documentation = "https://mudata.readthedocs.io/en/latest/"
-Source = "https://github.com/scverse/mudata"
-Home-page = "https://muon.scverse.org/"
-
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
-    "setuptools_scm",
+  "fsspec",
+  "hatch-vcs",    # for version handling in editable mode
+  "pre-commit",
+  "twine>=4.0.2",
+  "zarr<3",
 ]
-docs = [
-    "sphinx",
-    "sphinx-book-theme",
-    "pydata-sphinx-theme",
-    "readthedocs-sphinx-search",
-    "nbsphinx",
-    "sphinx_automodapi",
-    "recommonmark"
-]
+
 test = [
-    "zarr<3",
-    "pytest"
+  "coverage>=7.10",
+  "pytest",
+  "zarr<3",
 ]
 
-[tool.pytest.ini_options]
-python_files = "test_*.py"
-testpaths = [
-    "./tests", # unit tests
+doc = [
+  "docutils>=0.8,!=0.18.*,!=0.19.*",
+  "ipykernel",
+  "ipython",
+  "myst-nb>=1.1",
+  "pandas",
+  "sphinx>=8.1",
+  "sphinx-autodoc-typehints",
+  "sphinx-automodapi",
+  "sphinx-book-theme>=1",
+  "sphinx-copybutton",
+  "sphinx-design",
+  "sphinxcontrib-bibtex>=1",
+  "sphinxcontrib-katex",
+  "sphinxext-opengraph",
 ]
-
-[tool.black]
-line-length = 100
-target-version = ['py39']
 
 [tool.hatch.version]
 source = "vcs"
@@ -67,38 +79,102 @@ source = "vcs"
 [tool.hatch.build.hooks.vcs]
 version-file = "src/mudata/_version.py"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/mudata"]
+[tool.hatch.envs.default]
+installer = "uv"
+dependency-groups = [ "dev" ]
 
-[tool.hatch.build.targets.sdist]
-exclude = [
-  "/.github",
-  "/docs",
+[tool.hatch.envs.docs]
+dependency-groups = [ "doc" ]
+scripts.build = "sphinx-build -M html docs docs/_build {args}"
+scripts.open = "python -m webbrowser -t docs/_build/html/index.html"
+scripts.clean = "git clean -fdX -- {args:docs}"
+
+# Test the lowest and highest supported Python versions with normal deps
+[[tool.hatch.envs.hatch-test.matrix]]
+deps = [ "stable" ]
+python = [ "3.11", "3.14" ]
+
+# Test the newest supported Python version also with pre-release deps
+[[tool.hatch.envs.hatch-test.matrix]]
+deps = [ "pre" ]
+python = [ "3.14" ]
+
+[tool.hatch.envs.hatch-test]
+dependency-groups = [ "dev", "test" ]
+
+[tool.hatch.envs.hatch-test.overrides]
+# If the matrix variable `deps` is set to "pre",
+# set the environment variable `UV_PRERELEASE` to "allow".
+matrix.deps.env-vars = [
+  { key = "UV_PRERELEASE", value = "allow", if = [ "pre" ] },
 ]
 
 [tool.ruff]
-src = ["src"]
+line-length = 120
+src = [ "src" ]
+extend-include = [ "*.ipynb" ]
 
-[tool.ruff.format]
-docstring-code-format = true
+format.skip-magic-trailing-comma = true
+format.exclude = [ "*.ipynb" ]
+format.docstring-code-format = true
 
-[tool.ruff.lint]
-select = [
-    "E",   # Error detected by Pycodestyle
-    "F",   # Errors detected by Pyflakes
-    "W",   # Warning detected by Pycodestyle
-    "UP",  # pyupgrade
-    "I",   # isort
-    "TCH", # manage type checking blocks
-    "ICN", # Follow import conventions
-    "PTH", # Pathlib instead of os.path
-    "PT",  # Pytest conventions
+lint.select = [
+  "B",      # flake8-bugbear
+  "BLE",    # flake8-blind-except
+  "C4",     # flake8-comprehensions
+  "D",      # pydocstyle
+  "E",      # Error detected by Pycodestyle
+  "F",      # Errors detected by Pyflakes
+  "I",      # isort
+  "RUF100", # Report unused noqa directives
+  "TID",    # flake8-tidy-imports
+  "UP",     # pyupgrade
+  "W",      # Warning detected by Pycodestyle
 ]
-ignore = [
-    # line too long -> we accept long comment lines; formatter gets rid of long code lines
-    "E501",
-    # Do not assign a lambda expression, use a def -> AnnData allows lambda expression assignments,
-    "E731",
-    # allow I, O, l as variable names -> I is the identity matrix, i, j, k, l is reasonable indexing notation
-    "E741",
+lint.ignore = [
+  "B008", # Errors from function calls in argument defaults. These are fine when the result is immutable.
+  "D100", # Missing docstring in public module
+  "D104", # Missing docstring in public package
+  "D105", # __magic__ methods are often self-explanatory, allow missing docstrings
+  "D107", # Missing docstring in __init__
+  # Disable one in each pair of mutually incompatible rules
+  "D203",   # We don’t want a blank line before a class docstring
+  "D213",   # <> We want docstrings to start immediately after the opening triple quote
+  "D400",   # first line should end with a period [Bug: doesn’t work with single-line docstrings]
+  "D401",   # First line should be in imperative mood; try rephrasing
+  "E501",   # line too long -> we accept long comment lines; formatter gets rid of long code lines
+  "E731",   # Do not assign a lambda expression, use a def -> lambda expression assignments are convenient
+  "E741",   # allow I, O, l as variable names -> I is the identity matrix
+  "TID252", # allow relative imports
+]
+lint.per-file-ignores."*/__init__.py" = [ "F401" ]
+lint.per-file-ignores."docs/*" = [ "I" ]
+lint.per-file-ignores."docs/notebooks/*" = [ "D", "F403", "F405" ]
+lint.per-file-ignores."tests/*" = [ "D" ]
+lint.pydocstyle.convention = "numpy"
+
+[tool.pytest]
+strict = true
+testpaths = [ "tests" ]
+addopts = [
+  "--import-mode=importlib", # allow using test files with same name
+]
+
+[tool.coverage.run]
+source = [ "mudata" ]
+patch = [ "subprocess" ]
+omit = [
+  "**/test_*.py",
+]
+
+[tool.cruft]
+skip = [
+  "tests",
+  "src/**/__init__.py",
+  "src/**/basic.py",
+  "docs/api.md",
+  "docs/changelog.md",
+  "docs/references.bib",
+  "docs/references.md",
+  "docs/notebooks/example.ipynb",
 ]

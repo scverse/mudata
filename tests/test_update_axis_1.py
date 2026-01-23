@@ -51,7 +51,7 @@ def mdata(request, var_n, var_across, var_mod):
 @pytest.fixture()
 def datasets(request, var_n, var_across, var_mod):
     n_sets = 3
-    datasets = dict()
+    datasets = {}
     np.random.seed(100)
     for i in range(n_sets):
         i1 = i + 1
@@ -177,21 +177,15 @@ class TestMuData:
         some_var_names = mdata.var_names.values[:2]
 
         true_varm_values = [
-            mdata.varm["test_varm"][np.where(mdata.var_names.values == name)[0][0]]
-            for name in some_var_names
+            mdata.varm["test_varm"][np.where(mdata.var_names.values == name)[0][0]] for name in some_var_names
         ]
 
         mdata.mod["set1"] = mdata["set1"][:, ::-1].copy()
         mdata.update()
 
-        test_varm_values = [
-            mdata.varm["test_varm"][np.where(mdata.var_names == name)[0][0]]
-            for name in some_var_names
-        ]
+        test_varm_values = [mdata.varm["test_varm"][np.where(mdata.var_names == name)[0][0]] for name in some_var_names]
 
-        assert all(
-            [all(true_varm_values[i] == test_varm_values[i]) for i in range(len(true_varm_values))]
-        )
+        assert all(all(true_varm_values[i] == test_varm_values[i]) for i in range(len(true_varm_values)))
 
 
 # @pytest.mark.usefixtures("filepath_h5mu")
