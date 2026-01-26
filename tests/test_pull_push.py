@@ -199,12 +199,12 @@ class TestMultiModal:
 
             map = mdata.varmap[modname].ravel()
             mask = map > 0
-            assert (mdata.var["pushed"][mask] == mod.var["pushed"][map[mask] - 1]).all()
+            assert (mdata.var["pushed"][mask] == mod.var["pushed"].iloc[map[mask] - 1]).all()
 
         assert "mod2_pushed" in mdata["mod2"].var.columns
         map = mdata.varmap["mod2"].ravel()
         mask = map > 0
-        assert (mdata.var["mod2:mod2_pushed"][mask] == mdata["mod2"].var["mod2_pushed"][map[mask] - 1]).all()
+        assert (mdata.var["mod2:mod2_pushed"][mask] == mdata["mod2"].var["mod2_pushed"].iloc[map[mask] - 1]).all()
 
     @pytest.mark.parametrize("var_unique", [True, False])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
@@ -225,12 +225,12 @@ class TestMultiModal:
 
             map = mdata.obsmap[modname].ravel()
             mask = map > 0
-            assert (mdata.obs["pushed"][mask] == mod.obs["pushed"][map[mask] - 1]).all()
+            assert (mdata.obs["pushed"][mask] == mod.obs["pushed"].iloc[map[mask] - 1]).all()
 
         assert "mod2_pushed" in mdata["mod2"].obs.columns
         map = mdata.obsmap["mod2"].ravel()
         mask = map > 0
-        assert (mdata.obs["mod2:mod2_pushed"][mask] == mdata["mod2"].obs["mod2_pushed"][map[mask] - 1]).all()
+        assert (mdata.obs["mod2:mod2_pushed"][mask] == mdata["mod2"].obs["mod2_pushed"].iloc[map[mask] - 1]).all()
 
 
 @pytest.mark.usefixtures("filepath_h5mu")
