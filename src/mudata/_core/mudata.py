@@ -1312,18 +1312,11 @@ class MuData:
         obs_names = [obs for a in self.mod.values() for obs in a.obs_names.values]
         self._obs.index = obs_names
 
-    @property
-    def obs_names(self) -> pd.Index:
-        """Names of variables (alias for `.obs.index`)."""
-        return self.obs.index
-
-    @obs_names.setter
-    def obs_names(self, names: Sequence[str]):
-        """Set the observation names for all the nested AnnData/MuData objects."""
+    def _set_names(self, attr: str, axis: int, names: Sequence[str]):
         if isinstance(names, pd.Index):
             if not isinstance(names.name, str | type(None)):
                 raise ValueError(
-                    f"MuData expects .obs.index.name to be a string or None, "
+                    f"MuData expects .{attr}.index.name to be a string or None, "
                     f"but you passed a name of type {type(names.name).__name__!r}"
                 )
         else:
@@ -1331,24 +1324,37 @@ class MuData:
             if not isinstance(names.name, str | type(None)):
                 names.name = None
 
-        mod_obs_sum = np.sum([a.n_obs for a in self.mod.values()])
-        if mod_obs_sum != self.n_obs:
-            self.update_obs()
+        mod_shape_sum = np.sum([a.shape[axis] for a in self.mod.values()])
+        if mod_shape_sum != self.shape[axis]:
+            self._update_attr(attr, axis=1 - axis)
 
-        if len(names) != self.n_obs:
+        if len(names) != self.shape[axis]:
             raise ValueError(
-                f"The length of provided observation names {len(names)} does not match the length {self.shape[0]} of MuData.obs."
+                f"The length of provided observation names {len(names)} does not match the length {self.shape[axis]} of MuData.{attr}."
             )
 
         if self.is_view:
             self._init_as_actual(self.copy())
 
-        self._obs.index = names
-        for mod in self.mod.keys():
-            indices = self.obsmap[mod]
-            self.mod[mod].obs_names = names[indices[indices != 0] - 1]
+        getattr(self, attr).index = names
+        map = getattr(self, f"{attr}map")
+        for modname, mod in self.mod.items():
+            newnames = np.empty(mod.shape[axis], dtype=object)
+            modmap = map[modname].ravel()
+            mask = modmap > 0
+            newnames[modmap[mask] - 1] = names[mask]
+            setattr(mod, f"{attr}_names", newnames)
 
-        self.update_obs()
+        self._update_attr(attr, axis=1 - axis)
+
+    @property
+    def obs_names(self) -> pd.Index:
+        """Names of variables (alias for `.obs.index`)."""
+        return self.obs.index
+
+    @obs_names.setter
+    def obs_names(self, names: Sequence[str]):
+        self._set_names("obs", 0, names)
 
     @property
     def var(self) -> pd.DataFrame:
@@ -1442,35 +1448,7 @@ class MuData:
     @var_names.setter
     def var_names(self, names: Sequence[str]):
         """Set the variable names for all the nested AnnData/MuData objects."""
-        if isinstance(names, pd.Index):
-            if not isinstance(names.name, str | type(None)):
-                raise ValueError(
-                    f"MuData expects .var.index.name to be a string or None, "
-                    f"but you passed a name of type {type(names.name).__name__!r}"
-                )
-        else:
-            names = pd.Index(names)
-            if not isinstance(names.name, str | type(None)):
-                names.name = None
-
-        mod_var_sum = np.sum([a.n_vars for a in self.mod.values()])
-        if mod_var_sum != self.n_vars:
-            self.update_var()
-
-        if len(names) != self.n_vars:
-            raise ValueError(
-                f"The length of provided variable names {len(names)} does not match the length {self.shape[0]} of MuData.var."
-            )
-
-        if self.is_view:
-            self._init_as_actual(self.copy())
-
-        self._var.index = names
-        for mod in self.mod.keys():
-            indices = self.varmap[mod]
-            self.mod[mod].var_names = names[indices[indices != 0] - 1]
-
-        self.update_var()
+        self._set_names("var", 1, names)
 
     # Multi-dimensional annotations (.obsm and .varm)
 
