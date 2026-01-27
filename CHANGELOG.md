@@ -10,8 +10,13 @@ and this project adheres to [Semantic Versioning][].
 
 ## [0.3.3]
 
-- Fixed an [issue](https://github.com/scverse/mudata/issues/103) in `update()`
-- Fixed an [issue](https://github.com/scverse/mudata/issues/109) in `push_obs()`
+### Fixed
+
+- Fixed an [issue](https://github.com/scverse/mudata/issues/103) in `update()` with duplicate obs_names and dataframes in obsm.
+- Fixed an [issue](https://github.com/scverse/mudata/issues/109) with column ordering in `push_obs()`.
+- Fixed an [issue](https://github.com/scverse/mudata/issues/107) in `update()` when there are more than 255 duplicates of an obs_name or var_name.
+- Fixed an [issue](https://github.com/scverse/mudata/issues/112) where setting global `obs_names` or `var_names` would reorder modality-specific names
+- Pandas 3 compatibility.
 
 ## [0.3.2]
 
