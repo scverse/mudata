@@ -1,6 +1,6 @@
 ![mudata header](./docs/_static/img/mudata.svg)
 
-[![PyPI][badge-pypi][pypi]]
+[![PyPI][badge-pypi]][pypi]
 [![Tests][badge-tests]][tests]
 [![Documentation][badge-docs]][documentation]
 [![Powered by scverse][badge-scverse]][scverse]
