@@ -31,12 +31,15 @@ dynamic = [ "version" ]
 
 dependencies = [
   "anndata>=0.10.8",
+  "h5py",
   "numpy",
   "pandas>=1.4",
   "scipy",
   # for debug logging (referenced from the issue template)
   "session-info2",
 ]
+
+optional-dependencies.io = [ "fsspec", "zarr" ]
 # https://docs.pypi.org/project_metadata/#project-urls
 urls.Documentation = "https://mudata.readthedocs.io/"
 urls.Homepage = "https://muons.scverse.org"
@@ -44,11 +47,10 @@ urls.Source = "https://github.com/scverse/mudata"
 
 [dependency-groups]
 dev = [
-  "fsspec",
   "hatch-vcs",    # for version handling in editable mode
+  "mudata[io]",
   "pre-commit",
   "twine>=4.0.2",
-  "zarr",
 ]
 
 test = [
