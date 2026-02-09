@@ -24,6 +24,10 @@ from ._core.to_ import to_anndata, to_mudata
 
 __version__ = version("mudata")
 
+# file format versions
+__anndataversion__ = "0.1.0"
+__mudataversion__ = "0.1.0"
+
 __all__ = [
     "__version__",
     "MuData",
