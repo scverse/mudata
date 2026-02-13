@@ -19,8 +19,9 @@ from ._core.io import (
 from ._core.merge import concat
 from ._core.mudata import MuData
 from ._core.to_ import to_anndata, to_mudata
-from .version import __version__, __version_tuple__
+from ._version import __version__, __version_tuple__
 
+# file format versions
 __anndataversion__ = "0.1.0"
 __mudataversion__ = "0.1.0"
 
