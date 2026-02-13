@@ -1,7 +1,5 @@
 """Multimodal datasets"""
 
-from importlib.metadata import version
-
 from anndata import AnnData
 
 from ._core import utils
@@ -21,8 +19,7 @@ from ._core.io import (
 from ._core.merge import concat
 from ._core.mudata import MuData
 from ._core.to_ import to_anndata, to_mudata
-
-__version__ = version("mudata")
+from ._version import __version__, __version_tuple__
 
 # file format versions
 __anndataversion__ = "0.1.0"
