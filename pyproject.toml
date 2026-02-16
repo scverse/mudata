@@ -142,11 +142,11 @@ addopts = [
 ]
 
 [tool.coverage]
-run.source = [ "mudata" ]
-run.patch = [ "subprocess" ]
 run.omit = [
   "**/test_*.py",
 ]
+run.patch = [ "subprocess" ]
+run.source = [ "mudata" ]
 
 [tool.cruft]
 skip = [
