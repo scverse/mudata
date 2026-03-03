@@ -4,6 +4,7 @@ from anndata import AnnData
 
 from ._core import utils
 from ._core.config import set_options
+from ._core.extensions import ExtensionNamespace, register_mudata_namespace
 from ._core.io import (
     read,
     read_anndata,
