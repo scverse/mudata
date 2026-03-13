@@ -30,3 +30,12 @@
    :functions-only:
    :toctree: generated
 ```
+
+## Extensions
+```{eval-rst}
+.. module::mudata
+.. autosummary::
+   :toctree: generated
+
+   register_mudata_namespace
+```
