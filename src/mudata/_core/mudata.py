@@ -27,11 +27,9 @@ from .repr import MUDATA_CSS, block_matrix, details_block_table
 from .utils import (
     MetadataColumn,
     _make_index_unique,
-    _maybe_coerce_to_bool,
-    _maybe_coerce_to_boolean,
-    _maybe_coerce_to_int,
     _restore_index,
     _update_and_concat,
+    try_convert_dataframe_to_numpy_dtypes,
 )
 from .views import DictView
 
@@ -656,7 +654,9 @@ class MuData:
             data_mod = _make_index_unique(data_mod, force=attr_intersecting)
             data_global = _make_index_unique(data_global, force=attr_intersecting)
             if data_global.shape[1] > 0:
-                data_mod = data_mod.join(data_global, how="left", sort=False)
+                data_mod = try_convert_dataframe_to_numpy_dtypes(
+                    data_mod.join(data_global.convert_dtypes(), how="left", sort=False)
+                )
 
             if data_global.shape[0] > 0:
                 reorder_data_mod()
@@ -704,7 +704,9 @@ class MuData:
                 need_unique = data_mod.index.is_unique | data_global.index.is_unique
                 data_global = _make_index_unique(data_global, force=need_unique)
                 data_mod = _make_index_unique(data_mod, force=need_unique)
-                data_mod = data_mod.join(data_global, how="left", sort=False)
+                data_mod = try_convert_dataframe_to_numpy_dtypes(
+                    data_mod.join(data_global.convert_dtypes(), how="left", sort=False)
+                )
 
                 reorder_data_mod()
                 calc_attrm_update()
@@ -874,14 +876,13 @@ class MuData:
             # Shared axis
             if axis == (1 - self._axis) or self._axis == -1:
                 # We assume attr_intersecting and can't join_common
-                data_mod = _maybe_coerce_to_bool(
+                data_mod = try_convert_dataframe_to_numpy_dtypes(
                     pd.concat(
                         [
-                            _maybe_coerce_to_boolean(
-                                getattr(a, attr)
-                                .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                                .add_prefix(m + ":")
-                            )
+                            getattr(a, attr)
+                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                            .add_prefix(m + ":")
+                            .convert_dtypes()
                             for m, a in self._mod.items()
                         ],
                         join="outer",
@@ -894,12 +895,11 @@ class MuData:
                     # We checked above that attr_names are guaranteed to be unique and thus are safe to be used for joins
                     data_mod = pd.concat(
                         [
-                            _maybe_coerce_to_boolean(
-                                getattr(a, attr)
-                                .drop(columns_common, axis=1)
-                                .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                                .add_prefix(m + ":")
-                            )
+                            getattr(a, attr)
+                            .drop(columns_common, axis=1)
+                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                            .add_prefix(m + ":")
+                            .convert_dtypes()
                             for m, a in self._mod.items()
                         ],
                         join="outer",
@@ -907,27 +907,26 @@ class MuData:
                         sort=False,
                     )
                     data_common = pd.concat(
-                        [_maybe_coerce_to_boolean(getattr(a, attr)[columns_common]) for m, a in self._mod.items()],
+                        [getattr(a, attr)[columns_common].convert_dtypes() for m, a in self._mod.items()],
                         join="outer",
                         axis=0,
                         sort=False,
                     )
 
-                    data_mod = _maybe_coerce_to_bool(data_mod.join(data_common, how="left", sort=False))
-                    data_common = _maybe_coerce_to_bool(data_common)
+                    data_mod = try_convert_dataframe_to_numpy_dtypes(data_mod.join(data_common, how="left", sort=False))
+                    data_common = try_convert_dataframe_to_numpy_dtypes(data_common)
 
                     # this occurs when join_common=True and we already have a global data frame, e.g. after reading from H5MU
                     sharedcols = data_mod.columns.intersection(data_global.columns)
                     data_global.rename(columns={col: f"global:{col}" for col in sharedcols}, inplace=True)
                 else:
-                    data_mod = _maybe_coerce_to_bool(
+                    data_mod = try_convert_dataframe_to_numpy_dtypes(
                         pd.concat(
                             [
-                                _maybe_coerce_to_boolean(
-                                    getattr(a, attr)
-                                    .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                                    .add_prefix(m + ":")
-                                )
+                                getattr(a, attr)
+                                .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                                .add_prefix(m + ":")
+                                .convert_dtypes()
                                 for m, a in self._mod.items()
                             ],
                             join="outer",
@@ -973,15 +972,13 @@ class MuData:
         else:
             if join_common:
                 dfs = [
-                    _maybe_coerce_to_boolean(
-                        _make_index_unique(
-                            getattr(a, attr)
-                            .drop(columns_common, axis=1)
-                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                            .add_prefix(m + ":"),
-                            force=True,
-                        )
-                    )
+                    _make_index_unique(
+                        getattr(a, attr)
+                        .drop(columns_common, axis=1)
+                        .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                        .add_prefix(m + ":"),
+                        force=True,
+                    ).convert_dtypes()
                     for m, a in self._mod.items()
                 ]
 
@@ -990,7 +987,7 @@ class MuData:
 
                 data_common = pd.concat(
                     [
-                        _maybe_coerce_to_boolean(_make_index_unique(getattr(a, attr)[columns_common], force=True))
+                        _make_index_unique(getattr(a, attr)[columns_common], force=True).convert_dtypes()
                         for m, a in self._mod.items()
                     ],
                     join="outer",
@@ -998,8 +995,8 @@ class MuData:
                     sort=False,
                 )
 
-                data_mod = _maybe_coerce_to_bool(data_mod.join(data_common, how="left", sort=False))
-                data_common = _maybe_coerce_to_bool(data_common)
+                data_mod = try_convert_dataframe_to_numpy_dtypes(data_mod.join(data_common, how="left", sort=False))
+                data_common = try_convert_dataframe_to_numpy_dtypes(data_common)
             else:
                 dfs = [
                     _make_index_unique(
@@ -1806,21 +1803,20 @@ class MuData:
 
             # reorder modality DF to conform to global order
             mod_df = (
-                _maybe_coerce_to_boolean(mod_df)
-                .iloc[mod_map[mask] - 1]
+                mod_df.iloc[mod_map[mask] - 1]
                 .set_index(np.arange(n_attr)[mask])
                 .reindex(np.arange(n_attr))
+                .convert_dtypes()
             )
             dfs.append(mod_df)
 
         if only_drop:
             return
 
-        global_df = _maybe_coerce_to_boolean(getattr(self, attr).set_index(np.arange(n_attr)))
-        df = reduce(_update_and_concat, [global_df, *dfs])
-        df = _maybe_coerce_to_bool(df)
-        df = _maybe_coerce_to_int(df)
-        df = df.set_index(getattr(self, f"{attr}_names"))
+        global_df = getattr(self, attr).set_index(np.arange(n_attr)).convert_dtypes()
+        df = try_convert_dataframe_to_numpy_dtypes(reduce(_update_and_concat, [global_df, *dfs])).set_index(
+            getattr(self, f"{attr}_names")
+        )
         setattr(self, attr, df)
 
     def pull_obs(

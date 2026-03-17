@@ -21,15 +21,39 @@ def modalities(rng, obs_n, var_unique):
         mods[m].var["highly_variable"] = rng.choice([False, True], size=mods[m].n_vars)
         mods[m].obs["common_obs_col"] = rng.integers(0, int(1e6), size=mods[m].n_obs)
 
+        mods[m].obs["dtype-int-common"] = np.arange(mods[m].shape[0])
+        mods[m].obs["dtype-float-common"] = np.linspace(0, 1, mods[m].shape[0], dtype=np.float32)
+        mods[m].obs["dtype-bool-common"] = rng.choice(1, mods[m].shape[0]).astype(bool)
+        mods[m].obs["dtype-categorical-common"] = pd.Categorical(rng.choice(["a", "b", "c"], size=mods[m].shape[0]))
+        mods[m].obs["dtype-string-common"] = rng.choice(["a", "b", "c"], size=mods[m].shape[0])
+
+        mods[m].var["dtype-int-common"] = np.arange(mods[m].shape[1])
+        mods[m].var["dtype-float-common"] = np.linspace(0, 1, mods[m].shape[1], dtype=np.float32)
+        mods[m].var["dtype-bool-common"] = rng.choice(1, mods[m].shape[1]).astype(bool)
+        mods[m].var["dtype-categorical-common"] = pd.Categorical(rng.choice(["a", "b", "c"], size=mods[m].shape[1]))
+        mods[m].var["dtype-string-common"] = rng.choice(["a", "b", "c"], size=mods[m].shape[1])
+
         if var_unique:
             mods[m].var_names = [f"mod{m}_var{j}" for j in range(mods[m].n_vars)]
 
         if i != 0:
             # non-unique column missing from mod1
             mods[m].var["arange"] = np.arange(mods[m].n_vars)
+            mods[m].var["dtype-int-nonunique"] = np.arange(mods[m].shape[1])
+            mods[m].var["dtype-float-nonunique"] = np.linspace(0, 1, mods[m].shape[1], dtype=np.float32)
+            mods[m].var["dtype-bool-nonunique"] = rng.choice(1, mods[m].shape[1]).astype(bool)
+            mods[m].var["dtype-categorical-nonunique"] = pd.Categorical(
+                rng.choice(["a", "b", "c"], size=mods[m].shape[1])
+            )
+            mods[m].var["dtype-string-nonunique"] = rng.choice(["a", "b", "c"], size=mods[m].shape[1])
         else:
             # mod1-specific column
             mods[m].var["unique"] = True
+            mods[m].var["dtype-int-unique"] = np.arange(mods[m].shape[1])
+            mods[m].var["dtype-float-unique"] = np.linspace(0, 1, mods[m].shape[1], dtype=np.float32)
+            mods[m].var["dtype-bool-unique"] = rng.choice(1, mods[m].shape[1]).astype(bool)
+            mods[m].var["dtype-categorical-unique"] = pd.Categorical(rng.choice(["a", "b", "c"], size=mods[m].shape[1]))
+            mods[m].var["dtype-string-unique"] = rng.choice(["a", "b", "c"], size=mods[m].shape[1])
 
     if obs_n:
         if obs_n == "disjoint":
@@ -72,6 +96,17 @@ def datasets(rng, var_n, obs_unique):
 
 
 class TestMultiModal:
+    @staticmethod
+    def assert_dtypes(df, suffix, prefix=""):
+        assert pd.api.types.is_integer_dtype(df[f"{prefix}dtype-int-{suffix}"])
+        assert pd.api.types.is_float_dtype(df[f"{prefix}dtype-float-{suffix}"])
+        assert pd.api.types.is_bool_dtype(df[f"{prefix}dtype-bool-{suffix}"])
+        assert pd.api.types.is_categorical_dtype(df[f"{prefix}dtype-categorical-{suffix}"])
+        assert (
+            pd.api.types.is_string_dtype(df[f"{prefix}dtype-string-{suffix}"])
+            or df[f"{prefix}dtype-string-{suffix}"].dtype == object
+        )
+
     @pytest.mark.parametrize("var_unique", [True, False])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
     def test_pull_var(self, modalities):
@@ -83,9 +118,12 @@ class TestMultiModal:
         mdata.pull_var()
 
         assert "mod" in mdata.var.columns
-        assert "highly_variable" in mdata.var.columns
-        assert "arange" not in mdata.var.columns
-        assert "unique" not in mdata.var.columns
+        for dtype in ("int", "float", "bool", "categorical", "string"):
+            assert f"dtype-{dtype}-common" in mdata.var.columns
+
+            assert f"dtype-{dtype}-nonunique" not in mdata.var.columns
+            assert f"dtype-{dtype}-unique" not in mdata.var.columns
+        self.assert_dtypes(mdata.var, "common")
 
         for m, mod in modalities.items():
             # Annotations are correct
@@ -114,31 +152,40 @@ class TestMultiModal:
         assert "mod1:unique" not in mdata.var.columns
         assert "highly_variable" in mdata.var.columns
         assert "arange" not in mdata.var.columns
+
+        self.assert_dtypes(mdata.var, "common")
+        self.assert_dtypes(mdata.var, "nonunique", "mod2:")
+        self.assert_dtypes(mdata.var, "nonunique", "mod3:")
         mdata.var = mdata.var.loc[:, []]
 
         # only pull a unique column
         mdata.pull_var(common=False, nonunique=False, unique=True)
         assert "mod1:unique" in mdata.var.columns
-        assert len(mdata.var.columns) == 1
+        assert len(mdata.var.columns) == 6
+        self.assert_dtypes(mdata.var, "unique", "mod1:")
         mdata.var = mdata.var.loc[:, []]
 
         # pull non-unique but do not join
         mdata.pull_var(common=False, unique=False)
         assert "arange" not in mdata.var.columns
-        assert len(mdata.var.columns) == mdata.n_mod - 1
+        assert len(mdata.var.columns) == (mdata.n_mod - 1) * 6
+        self.assert_dtypes(mdata.var, "nonunique", "mod2:")
+        self.assert_dtypes(mdata.var, "nonunique", "mod3:")
         mdata.var = mdata.var.loc[:, []]
 
         # pull non-unique and join them
         mdata.pull_var(common=False, unique=False, join_nonunique=True)
         assert "arange" in mdata.var.columns
-        assert len(mdata.var.columns) == 1
+        assert len(mdata.var.columns) == 6
+        self.assert_dtypes(mdata.var, "nonunique")
         mdata.var = mdata.var.loc[:, []]
 
         # pull unique and do not prefix
         mdata.pull_var(common=False, nonunique=False, unique=True, prefix_unique=False)
         assert "mod1:unique" not in mdata.var.columns
         assert "unique" in mdata.var.columns
-        assert len(mdata.var.columns) == 1
+        self.assert_dtypes(mdata.var, "unique")
+        assert len(mdata.var.columns) == 6
         mdata.var = mdata.var.loc[:, []]
 
     @pytest.mark.parametrize("var_unique", [True, False])
@@ -155,8 +202,12 @@ class TestMultiModal:
         # pulling should work
         for m in mdata.mod.keys():
             assert f"{m}:mod" in mdata.obs.columns
-
             assert f"{m}:common_obs_col" in mdata.obs.columns
+
+            for dtype in ("int", "float", "bool", "categorical", "string"):
+                assert f"{m}:dtype-{dtype}-common" in mdata.obs.columns
+
+            self.assert_dtypes(mdata.obs, "common", f"{m}:")
 
             modmap = mdata.obsmap[m].ravel()
             mask = modmap > 0
@@ -182,22 +233,35 @@ class TestMultiModal:
         mdata = MuData(modalities)
         mdata.update()
 
-        mdata.var["pushed"] = rng.integers(0, int(1e6), size=mdata.n_var)
-        mdata.var["mod2:mod2_pushed"] = rng.integers(0, int(1e6), size=mdata.n_var)
+        mdata.var["dtype-int-pushed"] = np.arange(mdata.shape[1])
+        mdata.var["dtype-float-pushed"] = np.linspace(0, 1, mdata.shape[1], dtype=np.float32)
+        mdata.var["dtype-bool-pushed"] = rng.choice(1, mdata.shape[1]).astype(bool)
+        mdata.var["dtype-categorical-pushed"] = pd.Categorical(rng.choice(["a", "b", "c"], size=mdata.shape[1]))
+        mdata.var["dtype-string-pushed"] = rng.choice(["a", "b", "c"], size=mdata.shape[1])
+        mdata.var["mod2:mod2_dtype-int-pushed"] = np.arange(mdata.shape[1])
+        mdata.var["mod2:mod2_dtype-float-pushed"] = np.linspace(0, 1, mdata.shape[1], dtype=np.float32)
+        mdata.var["mod2:mod2_dtype-bool-pushed"] = rng.choice(1, mdata.shape[1]).astype(bool)
+        mdata.var["mod2:mod2_dtype-categorical-pushed"] = pd.Categorical(
+            rng.choice(["a", "b", "c"], size=mdata.shape[1])
+        )
+        mdata.var["mod2:mod2_dtype-string-pushed"] = rng.choice(["a", "b", "c"], size=mdata.shape[1])
         mdata.push_var()
 
         # pushing should work
         for modname, mod in mdata.mod.items():
-            assert "pushed" in mod.var.columns
+            self.assert_dtypes(mod.var, "pushed")
 
             map = mdata.varmap[modname].ravel()
             mask = map > 0
-            assert (mdata.var["pushed"][mask] == mod.var["pushed"].iloc[map[mask] - 1]).all()
+            assert (mdata.var["dtype-int-pushed"][mask] == mod.var["dtype-int-pushed"].iloc[map[mask] - 1]).all()
 
-        assert "mod2_pushed" in mdata["mod2"].var.columns
+        self.assert_dtypes(mdata["mod2"].var, "pushed", "mod2_")
         map = mdata.varmap["mod2"].ravel()
         mask = map > 0
-        assert (mdata.var["mod2:mod2_pushed"][mask] == mdata["mod2"].var["mod2_pushed"].iloc[map[mask] - 1]).all()
+        assert (
+            mdata.var["mod2:mod2_dtype-int-pushed"][mask]
+            == mdata["mod2"].var["mod2_dtype-int-pushed"].iloc[map[mask] - 1]
+        ).all()
 
     @pytest.mark.parametrize("var_unique", [True, False])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])

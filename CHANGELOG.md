@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning][].
 
 - `mudata.register_mudata_namespace()` functionality for adding custom functionality to `MuData` objects.
 
+### Fixed
+
+- `update()`, `push_obs()`, `push_var()`, `pull_obs()`, and `pull_var()` now try harder to preserve the dtype of the dataframe columns
+
 ## [0.3.3]
 
 ### Fixed

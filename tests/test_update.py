@@ -1,6 +1,7 @@
 from functools import reduce
 
 import numpy as np
+import pandas as pd
 import pytest
 from anndata import AnnData
 
@@ -52,6 +53,28 @@ def modalities(rng, n, across, mod):
     return mods
 
 
+def add_mdata_global_columns(md, rng):
+    md.obs["batch"] = rng.choice(["a", "b", "c"], size=md.shape[0])
+    md.var["batch"] = rng.choice(["d", "e", "f"], size=md.shape[1])
+
+    md.obs["dtype-int"] = np.arange(md.shape[0])
+    md.var["dtype-int"] = np.arange(md.shape[1])
+
+    md.obs["dtype-float"] = np.linspace(0, 1, md.shape[0], dtype=np.float32)
+    md.var["dtype-float"] = np.linspace(0, 1, md.shape[1], dtype=np.float32)
+
+    md.obs["dtype-bool"] = rng.choice(1, md.shape[0]).astype(bool)
+    md.var["dtype-bool"] = rng.choice(1, md.shape[1]).astype(bool)
+
+    md.obs["dtype-categorical"] = pd.Categorical(rng.choice(["a", "b", "c"], size=md.shape[0]))
+    md.var["dtype-categorical"] = pd.Categorical(rng.choice(["a", "b", "c"], size=md.shape[1]))
+
+    md.obsm["test"] = rng.normal(size=(md.n_obs, 2))
+    md.varm["test"] = rng.normal(size=(md.n_var, 2))
+
+    return md
+
+
 @pytest.fixture
 def mdata_legacy(rng, modalities, axis):
     mdata = MuData(modalities, axis=axis)
@@ -67,13 +90,7 @@ def mdata_legacy(rng, modalities, axis):
 def mdata(rng, modalities, axis):
     md = MuData(modalities, axis=axis)
 
-    md.obs["batch"] = rng.choice(["a", "b", "c"], size=md.shape[0], replace=True)
-    md.var["batch"] = rng.choice(["d", "e", "f"], size=md.shape[1], replace=True)
-
-    md.obsm["test"] = rng.normal(size=(md.n_obs, 2))
-    md.varm["test"] = rng.normal(size=(md.n_var, 2))
-
-    return md
+    return add_mdata_global_columns(md, rng)
 
 
 @pytest.mark.parametrize("axis", [0, 1])
@@ -92,6 +109,14 @@ class TestMuData:
         attrm = getattr(mdata, f"{attr}m")
         index = getattr(mdata, f"{attr}_names")
         return np.concatenate([np.atleast_1d(attrm[key][np.nonzero(index == name)[0]]) for name in names])
+
+    @staticmethod
+    def assert_dtypes(df):
+        assert pd.api.types.is_integer_dtype(df["dtype-int"])
+        assert pd.api.types.is_float_dtype(df["dtype-float"])
+        assert pd.api.types.is_bool_dtype(df["dtype-bool"])
+        assert pd.api.types.is_categorical_dtype(df["dtype-categorical"])
+        assert pd.api.types.is_string_dtype(df["batch"]) or df["batch"].dtype == object
 
     def test_update_simple(self, mdata, axis):
         """
@@ -135,7 +160,9 @@ class TestMuData:
 
     def test_update_add_modality(self, rng, modalities, axis):
         modnames = list(modalities.keys())
-        mdata = MuData({modname: modalities[modname] for modname in modnames[:-2]}, axis=axis)
+        mdata = add_mdata_global_columns(
+            MuData({modname: modalities[modname] for modname in modnames[:-2]}, axis=axis), rng
+        )
 
         attr = "obs" if axis == 0 else "var"
         oattr = "var" if axis == 0 else "obs"
@@ -154,6 +181,9 @@ class TestMuData:
             for mod in mdata.mod.keys():
                 assert mdata.obsmap[mod].dtype.kind == "u"
                 assert mdata.varmap[mod].dtype.kind == "u"
+
+            self.assert_dtypes(mdata.obs)
+            self.assert_dtypes(mdata.var)
 
             test_obsm_values = self.get_attrm_values(mdata, "obs", "test", some_obs_names)
             if axis == 1:
@@ -199,6 +229,9 @@ class TestMuData:
             assert mdata.obsmap[mod].dtype.kind == "u"
             assert mdata.varmap[mod].dtype.kind == "u"
 
+        self.assert_dtypes(mdata.obs)
+        self.assert_dtypes(mdata.var)
+
         assert mdata.shape[1 - axis] == sum(mod.shape[1 - axis] for mod in mdata.mod.values())
         assert (getattr(mdata, attr)["batch"] == fullbatch[keptmask]).all()
         assert (getattr(mdata, oattr)["batch"] == fullobatch[keptomask]).all()
@@ -221,7 +254,7 @@ class TestMuData:
         assert (getattr(mdata, attrm)["test"] == fulltestm[keptmask, :]).all()
         assert (getattr(mdata, oattrm)["test"] == fullotestm[keptomask, :]).all()
 
-    def test_update_intersecting(self, modalities, axis):
+    def test_update_intersecting(self, rng, modalities, axis):
         """
         Update should work when
         - obs_names are the same across modalities,
@@ -237,11 +270,14 @@ class TestMuData:
                 [f"{m}_{oattr}{j}" if j != 0 else f"{oattr}_{j}" for j in range(mod.shape[1 - axis])],
             )
 
-        mdata = MuData(modalities, axis=axis)
+        mdata = add_mdata_global_columns(MuData(modalities, axis=axis), rng)
 
         for mod in mdata.mod.keys():
             assert mdata.obsmap[mod].dtype.kind == "u"
             assert mdata.varmap[mod].dtype.kind == "u"
+
+        self.assert_dtypes(mdata.obs)
+        self.assert_dtypes(mdata.var)
 
         # names along non-axis are concatenated
         assert mdata.shape[1 - axis] == sum(mod.shape[1 - axis] for mod in modalities.values())
@@ -282,6 +318,9 @@ class TestMuData:
             assert mdata.obsmap[mod].dtype.kind == "u"
             assert mdata.varmap[mod].dtype.kind == "u"
 
+        self.assert_dtypes(mdata.obs)
+        self.assert_dtypes(mdata.var)
+
         assert mdata.obs["batch"].isna().sum() == 0
 
         assert (mdata.var_names == old_varnames).all()
@@ -306,6 +345,9 @@ class TestMuData:
         for mod in mdata.mod.keys():
             assert mdata.obsmap[mod].dtype.kind == "u"
             assert mdata.varmap[mod].dtype.kind == "u"
+
+        self.assert_dtypes(mdata.obs)
+        self.assert_dtypes(mdata.var)
 
         test_obsm_values = self.get_attrm_values(mdata, "obs", "test", some_obs_names)
 
