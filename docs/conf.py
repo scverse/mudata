@@ -62,7 +62,6 @@ extensions = [
     "sphinx_design",
     "IPython.sphinxext.ipython_console_highlighting",
     "sphinxext.opengraph",
-    "sphinx_automodapi.automodapi",
     *[p.stem for p in (HERE / "extensions").glob("*.py")],
 ]
 

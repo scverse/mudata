@@ -48,4 +48,6 @@ __all__ = [
     "write_anndata",
     "write_h5mu",
     "write_zarr",
+    "register_mudata_namespace",
+    "ExtensionNamespace",
 ]

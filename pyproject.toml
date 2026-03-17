@@ -64,7 +64,6 @@ doc = [
   "pandas",
   "sphinx>=8.1",
   "sphinx-autodoc-typehints",
-  "sphinx-automodapi",
   "sphinx-book-theme>=1",
   "sphinx-copybutton",
   "sphinx-design",

@@ -26,9 +26,23 @@
 ## Input/Output
 
 ```{eval-rst}
-.. automodsumm:: mudata
-   :functions-only:
+.. module::mudata
+.. autosummary::
    :toctree: generated
+
+   to_anndata
+   to_mudata
+   concat
+   read
+   read_h5ad
+   read_anndata
+   read_h5mu
+   read_zarr
+   write
+   write_h5ad
+   write_anndata
+   write_h5mu
+   write_zarr
 ```
 
 ## Extensions
@@ -38,4 +52,13 @@
    :toctree: generated
 
    register_mudata_namespace
+```
+
+Types used by the former:
+```{eval-rst}
+.. module::mudata
+.. autosummary::
+   :toctree: generated
+
+   ExtensionNamespace
 ```
