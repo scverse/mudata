@@ -29,16 +29,16 @@ def mdata():
     return mdata
 
 
-class TestMuData:
-    def test_nested_mudata(self, mdata):
-        assert mdata.shape == (N, D)
-        assert mdata["mod1"].shape == (N, D1)
-        assert mdata["mod2"].shape == (N, D2)
-        assert mdata.axis == 0
-        assert mdata["mod2"].axis == -1
+def test_nested_mudata(mdata):
+    assert mdata.shape == (N, D)
+    assert mdata["mod1"].shape == (N, D1)
+    assert mdata["mod2"].shape == (N, D2)
+    assert mdata.axis == 0
+    assert mdata["mod2"].axis == -1
 
-    def test_mod_repr(self, mdata):
-        assert (
-            mdata.mod.__repr__()
-            == f"MuData\n├─ mod1 AnnData ({N} x {D1})\n└─ mod2 MuData [shared obs and var] ({N} × 20)\n   ├─ mod21 AnnData ({N} x {D2})\n   └─ mod22 AnnData ({N} x {D2})"
-        )
+
+def test_mod_repr(mdata):
+    assert (
+        mdata.mod.__repr__()
+        == f"MuData\n├─ mod1 AnnData ({N} x {D1})\n└─ mod2 MuData [shared obs and var] ({N} × 20)\n   ├─ mod21 AnnData ({N} x {D2})\n   └─ mod22 AnnData ({N} x {D2})"
+    )

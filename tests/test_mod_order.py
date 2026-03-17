@@ -34,22 +34,21 @@ def mdata():
     return mdata
 
 
-@pytest.mark.usefixtures("filepath_h5mu")
-class TestMuData:
-    def test_initial_order(self, mdata):
-        mods = list(mdata.mod.keys())
-        assert len(mods) == 3
-        assert mods == KEYS_ORDERED
+def test_initial_order(mdata):
+    mods = list(mdata.mod.keys())
+    assert len(mods) == 3
+    assert mods == KEYS_ORDERED
 
-    def test_order_on_read(self, mdata, filepath_h5mu):
-        mdata.write_h5mu(filepath_h5mu)
-        mdata_read = mudata.read_h5mu(filepath_h5mu)
 
-        mods = list(mdata_read.mod.keys())
-        assert len(mods) == 3
-        assert mods == KEYS_ORDERED
+def test_order_on_read(mdata, filepath_h5mu):
+    mdata.write_h5mu(filepath_h5mu)
+    mdata_read = mudata.read_h5mu(filepath_h5mu)
 
-        # Test implementation (storage) as well
-        with h5py.File(filepath_h5mu, "r") as f:
-            assert "mod-order" in f["mod"].attrs
-            assert list(f["mod"].attrs["mod-order"]) == KEYS_ORDERED
+    mods = list(mdata_read.mod.keys())
+    assert len(mods) == 3
+    assert mods == KEYS_ORDERED
+
+    # Test implementation (storage) as well
+    with h5py.File(filepath_h5mu, "r") as f:
+        assert "mod-order" in f["mod"].attrs
+        assert list(f["mod"].attrs["mod-order"]) == KEYS_ORDERED

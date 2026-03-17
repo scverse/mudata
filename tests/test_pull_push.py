@@ -1,5 +1,3 @@
-import unittest
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -77,7 +75,6 @@ def datasets(request, var_n, obs_unique):
     return datasets
 
 
-@pytest.mark.usefixtures("filepath_h5mu")
 class TestMultiModal:
     @pytest.mark.parametrize("var_unique", [True, False])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
@@ -233,7 +230,6 @@ class TestMultiModal:
         assert (mdata.obs["mod2:mod2_pushed"][mask] == mdata["mod2"].obs["mod2_pushed"].iloc[map[mask] - 1]).all()
 
 
-@pytest.mark.usefixtures("filepath_h5mu")
 class TestMultiDataset:
     @pytest.mark.parametrize("obs_unique", [True, False])
     @pytest.mark.parametrize("var_n", ["joint", "disjoint"])
@@ -327,7 +323,3 @@ class TestMultiDataset:
         # join_nonunique shouldn't work
         with pytest.raises(ValueError, match="shared var_names"):
             mdata.pull_var(join_nonunique=True)
-
-
-if __name__ == "__main__":
-    unittest.main()

@@ -1,4 +1,3 @@
-import unittest
 from functools import reduce
 
 import numpy as np
@@ -76,7 +75,6 @@ def mdata(modalities, axis):
     return md
 
 
-@pytest.mark.usefixtures("filepath_h5mu")
 @pytest.mark.parametrize("axis", [0, 1])
 @pytest.mark.parametrize("obs_mod", ["unique", "duplicated", "extreme_duplicated"])
 @pytest.mark.parametrize("obs_across", ["intersecting"])
@@ -434,31 +432,3 @@ class TestMuDataLegacy:
         ]
 
         assert all(all(true_obsm_values[i] == test_obsm_values[i]) for i in range(len(true_obsm_values)))
-
-
-# @pytest.mark.usefixtures("filepath_h5mu")
-# class TestMuDataSameVars:
-#     def test_update_simple(self, modalities):
-#         """
-#         Update should work when
-#         - obs_names are the same across modalities,
-#         - var_names are unique to each modality
-#         """
-#         for m, mod in modalities.items():
-#             mod.var_names = [f"{m}var_{j}" for j in range(mod.n_vars)]
-#         mdata = MuData(modalities, axis=0)
-#         mdata.update()
-
-#         # Observations are the same across modalities
-#         # hence /mod/mod1/obs/mod -> /obs/mod1:mod
-#         assert f"{m}:mod" in mdata.obs.columns
-#         # Variables are different across modalities
-#         assert "mod" in mdata.var.columns
-#         for m, mod in modalities.items():
-#             # Columns are intact in individual modalities
-#             assert "mod" in mod.obs.columns
-#             assert "mod" in mod.var.columns
-
-
-if __name__ == "__main__":
-    unittest.main()

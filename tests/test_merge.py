@@ -24,24 +24,23 @@ def mdata():
     return mdata
 
 
-@pytest.mark.usefixtures("filepath_h5mu", "filepath_zarr")
-class TestMuData:
-    def test_merge(self, mdata, filepath_h5mu):
-        mdata1, mdata2 = mdata[:N1, :].copy(), mdata[N1:, :].copy()
-        mdata_ = mudata.concat([mdata1, mdata2])
-        assert list(mdata_.mod.keys()) == ["mod1", "mod2"]
-        for m in mdata_.mod_names:
-            assert mdata_.mod[m].shape == mdata.mod[m].shape
-        assert np.array_equal(mdata_.mod["mod1"].X, mdata.mod["mod1"].X)
-        assert np.array_equal(mdata_.mod["mod2"].X, mdata.mod["mod2"].X)
+def test_merge(mdata, filepath_h5mu):
+    mdata1, mdata2 = mdata[:N1, :].copy(), mdata[N1:, :].copy()
+    mdata_ = mudata.concat([mdata1, mdata2])
+    assert list(mdata_.mod.keys()) == ["mod1", "mod2"]
+    for m in mdata_.mod_names:
+        assert mdata_.mod[m].shape == mdata.mod[m].shape
+    assert np.array_equal(mdata_.mod["mod1"].X, mdata.mod["mod1"].X)
+    assert np.array_equal(mdata_.mod["mod2"].X, mdata.mod["mod2"].X)
 
-    def test_merge_and_write(self, mdata, filepath_h5mu):
-        mdata1, mdata2 = mdata[:N1, :].copy(), mdata[N1:, :].copy()
-        mdata_merged = mudata.concat([mdata1, mdata2])
-        mdata_merged.write_h5mu(filepath_h5mu)
-        mdata_ = mudata.read_h5mu(filepath_h5mu)
-        assert list(mdata_.mod.keys()) == ["mod1", "mod2"]
-        for m in mdata_.mod_names:
-            assert mdata_.mod[m].shape == mdata.mod[m].shape
-        assert np.array_equal(mdata_.mod["mod1"].X, mdata.mod["mod1"].X)
-        assert np.array_equal(mdata_.mod["mod2"].X, mdata.mod["mod2"].X)
+
+def test_merge_and_write(mdata, filepath_h5mu):
+    mdata1, mdata2 = mdata[:N1, :].copy(), mdata[N1:, :].copy()
+    mdata_merged = mudata.concat([mdata1, mdata2])
+    mdata_merged.write_h5mu(filepath_h5mu)
+    mdata_ = mudata.read_h5mu(filepath_h5mu)
+    assert list(mdata_.mod.keys()) == ["mod1", "mod2"]
+    for m in mdata_.mod_names:
+        assert mdata_.mod[m].shape == mdata.mod[m].shape
+    assert np.array_equal(mdata_.mod["mod1"].X, mdata.mod["mod1"].X)
+    assert np.array_equal(mdata_.mod["mod2"].X, mdata.mod["mod2"].X)
