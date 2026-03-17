@@ -6,21 +6,20 @@ from anndata import AnnData
 from mudata import MuData
 
 
-@pytest.fixture()
-def modalities(request, obs_n, var_unique):
+@pytest.fixture
+def modalities(rng, obs_n, var_unique):
     n_mod = 3
     mods = {}
-    np.random.seed(100)
     for i in range(n_mod):
         i1 = i + 1
         m = f"mod{i1}"
-        mods[m] = AnnData(X=np.random.normal(size=1000 * i1).reshape(-1, 10 * i1))
+        mods[m] = AnnData(X=rng.normal(size=1000 * i1).reshape(-1, 10 * i1))
         mods[m].obs["mod"] = m
         mods[m].var["mod"] = m
 
         # common column
-        mods[m].var["highly_variable"] = np.random.choice([False, True], size=mods[m].n_vars)
-        mods[m].obs["common_obs_col"] = np.random.randint(0, int(1e6), size=mods[m].n_obs)
+        mods[m].var["highly_variable"] = rng.choice([False, True], size=mods[m].n_vars)
+        mods[m].obs["common_obs_col"] = rng.integers(0, int(1e6), size=mods[m].n_obs)
 
         if var_unique:
             mods[m].var_names = [f"mod{m}_var{j}" for j in range(mods[m].n_vars)]
@@ -34,21 +33,20 @@ def modalities(request, obs_n, var_unique):
 
     if obs_n:
         if obs_n == "disjoint":
-            mod2_which_obs = np.random.choice(mods["mod2"].obs_names, size=mods["mod2"].n_obs // 2, replace=False)
+            mod2_which_obs = rng.choice(mods["mod2"].obs_names, size=mods["mod2"].n_obs // 2, replace=False)
             mods["mod2"] = mods["mod2"][mod2_which_obs].copy()
 
     return mods
 
 
-@pytest.fixture()
-def datasets(request, var_n, obs_unique):
+@pytest.fixture
+def datasets(rng, var_n, obs_unique):
     n_datasets = 3
     datasets = {}
-    np.random.seed(100)
     for i in range(n_datasets):
         i1 = i + 1
         d = f"dat{i1}"
-        datasets[d] = AnnData(X=np.random.normal(size=1000 * i1).reshape(10 * i1, -1))
+        datasets[d] = AnnData(X=rng.normal(size=1000 * i1).reshape(10 * i1, -1))
         datasets[d].obs["dataset"] = d
         datasets[d].var["dataset"] = d
 
@@ -67,9 +65,7 @@ def datasets(request, var_n, obs_unique):
 
     if var_n:
         if var_n == "disjoint":
-            dataset2_which_var = np.random.choice(
-                datasets["dat2"].var_names, size=datasets["dat2"].n_obs // 2, replace=False
-            )
+            dataset2_which_var = rng.choice(datasets["dat2"].var_names, size=datasets["dat2"].n_obs // 2, replace=False)
             datasets["dat2"] = datasets["dat2"][:, dataset2_which_var].copy()
 
     return datasets
@@ -179,15 +175,15 @@ class TestMultiModal:
 
     @pytest.mark.parametrize("var_unique", [True, False])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
-    def test_push_var_simple(self, modalities):
+    def test_push_var_simple(self, rng, modalities):
         """
         Pushing var annotations.
         """
         mdata = MuData(modalities)
         mdata.update()
 
-        mdata.var["pushed"] = np.random.randint(0, int(1e6), size=mdata.n_var)
-        mdata.var["mod2:mod2_pushed"] = np.random.randint(0, int(1e6), size=mdata.n_var)
+        mdata.var["pushed"] = rng.integers(0, int(1e6), size=mdata.n_var)
+        mdata.var["mod2:mod2_pushed"] = rng.integers(0, int(1e6), size=mdata.n_var)
         mdata.push_var()
 
         # pushing should work
@@ -205,15 +201,15 @@ class TestMultiModal:
 
     @pytest.mark.parametrize("var_unique", [True, False])
     @pytest.mark.parametrize("obs_n", ["joint", "disjoint"])
-    def test_push_obs_simple(self, modalities):
+    def test_push_obs_simple(self, rng, modalities):
         """
         Pushing obs annotations.
         """
         mdata = MuData(modalities)
         mdata.update()
 
-        mdata.obs["pushed"] = np.random.randint(0, int(1e6), size=mdata.n_obs)
-        mdata.obs["mod2:mod2_pushed"] = np.random.randint(0, int(1e6), size=mdata.n_obs)
+        mdata.obs["pushed"] = rng.integers(0, int(1e6), size=mdata.n_obs)
+        mdata.obs["mod2:mod2_pushed"] = rng.integers(0, int(1e6), size=mdata.n_obs)
         mdata.push_obs()
 
         # pushing should work

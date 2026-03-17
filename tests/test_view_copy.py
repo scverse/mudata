@@ -1,68 +1,26 @@
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import pytest
-from anndata import AnnData
 from scipy import sparse
 
 import mudata
-from mudata import MuData
 
 
 @pytest.fixture()
-def mdata():
-    rng = np.random.default_rng(42)
-    mod1 = AnnData(
-        np.arange(0, 100, 0.1).reshape(-1, 10), obs=pd.DataFrame(index=rng.choice(150, size=100, replace=False))
-    )
-    mod2 = AnnData(
-        np.arange(101, 2101, 1).reshape(-1, 20), obs=pd.DataFrame(index=rng.choice(150, size=100, replace=False))
-    )
-    mods = {"mod1": mod1, "mod2": mod2}
-    # Make var_names different in different modalities
-    for m in ["mod1", "mod2"]:
-        mods[m].var_names = [f"{m}_var{i}" for i in range(mods[m].n_vars)]
-    mdata = MuData(mods)
-    return mdata
-
-
-@pytest.fixture()
-def mdata_with_obsp():
-    """Create a MuData object with populated obsp and varp fields."""
-    rng = np.random.default_rng(42)
-    mod1 = AnnData(
-        np.arange(0, 100, 0.1).reshape(-1, 10), obs=pd.DataFrame(index=rng.choice(150, size=100, replace=False))
-    )
-    mod2 = AnnData(
-        np.arange(101, 2101, 1).reshape(-1, 20), obs=pd.DataFrame(index=rng.choice(150, size=100, replace=False))
-    )
-    mods = {"mod1": mod1, "mod2": mod2}
-    # Make var_names different in different modalities
-    for m in ["mod1", "mod2"]:
-        mods[m].var_names = [f"{m}_var{i}" for i in range(mods[m].n_vars)]
-    mdata = MuData(mods)
-
-    # Create and add sparse matrices to obsp
-    n_obs = mdata.n_obs
-    n_var = mdata.n_var
-
-    # Create sparse distances matrix (symmetric)
-    distances = sparse.random(n_obs, n_obs, density=0.2, random_state=42)
+def mdata_with_obsp(mdata):
+    distances = sparse.random(mdata.n_obs, mdata.n_obs, density=0.2, random_state=42)
     distances = sparse.triu(distances)
     distances = distances + distances.T
 
-    # Create sparse connectivities matrix (symmetric)
-    connectivities = sparse.random(n_obs, n_obs, density=0.1, random_state=42)
+    connectivities = sparse.random(mdata.n_obs, mdata.n_obs, density=0.1, random_state=42)
     connectivities = sparse.triu(connectivities)
     connectivities = connectivities + connectivities.T
 
-    # Add to obsp
     mdata.obsp["distances"] = distances
     mdata.obsp["connectivities"] = connectivities
 
-    # Create and add a sparse matrix to varp
-    varp_matrix = sparse.random(n_var, n_var, density=0.05, random_state=42)
+    varp_matrix = sparse.random(mdata.n_var, mdata.n_var, density=0.05, random_state=42)
     varp_matrix = sparse.triu(varp_matrix)
     varp_matrix = varp_matrix + varp_matrix.T
 

@@ -1,33 +1,14 @@
 import numpy as np
 import pytest
-from anndata import AnnData
 
 import mudata
-from mudata import MuData
 
 
-@pytest.fixture(params=(0, 1))
-def mdata(rng, request):
-    axis = request.param
-    attr = "obs" if axis == 0 else "var"
-    oattr = "var" if axis == 0 else "obs"
-
-    mod1 = AnnData(np.arange(0, 100, 0.1).reshape(-1, 10))
-    mod2 = AnnData(np.arange(101, 2101, 1).reshape(-1, 20))
-    mods = {"mod1": mod1, "mod2": mod2}
-    for modname, mod in mods.items():
-        setattr(
-            mod,
-            f"{attr}_names",
-            [f"{attr}_{i}" for i in rng.choice(mod.shape[axis], size=mod.shape[axis], replace=False)],
-        )
-        setattr(mod, f"{oattr}_names", [f"{modname}_{oattr}_{i}" for i in range(mod.shape[1 - axis])])
-    mdata = MuData(mods, axis=axis)
-    return mdata
-
-
+@pytest.mark.parametrize("mdata", (0, 1), indirect=True)
 def test_obs_global_columns(mdata, filepath_h5mu):
+    mdata.obs.drop(columns=mdata.obs.columns, inplace=True)
     for m, mod in mdata.mod.items():
+        mod.obs.drop(columns=mod.obs.columns, inplace=True)
         mod.obs["demo"] = m
     mdata.obs["demo"] = "global"
     mdata.update()
@@ -40,6 +21,7 @@ def test_obs_global_columns(mdata, filepath_h5mu):
     assert list(mdata_.obs.columns.values) == list(mdata.obs.columns.values)
 
 
+@pytest.mark.parametrize("mdata", (0, 1), indirect=True)
 def test_set_obs_names(mdata):  # https://github.com/scverse/mudata/issues/112
     names = {m: mod.obs_names for m, mod in mdata.mod.items()}
     mdata.obs_names = mdata.obs_names
@@ -47,10 +29,12 @@ def test_set_obs_names(mdata):  # https://github.com/scverse/mudata/issues/112
         assert np.all(mod.obs_names == names[m])
 
 
+@pytest.mark.parametrize("mdata", (0, 1), indirect=True)
 def test_var_global_columns(mdata, filepath_h5mu):
+    mdata.var.drop(columns=mdata.var.columns, inplace=True)
     for m, mod in mdata.mod.items():
+        mod.var.drop(columns=mod.var.columns, inplace=True)
         mod.var["demo"] = m
-    mdata.update()
     mdata.var["global"] = "global_var"
     mdata.update()
     if mdata.axis == 0:
@@ -68,6 +52,7 @@ def test_var_global_columns(mdata, filepath_h5mu):
     assert list(mdata_.var.columns.values) == list(mdata.var.columns.values)
 
 
+@pytest.mark.parametrize("mdata", (0, 1), indirect=True)
 def test_set_var_names(mdata):  # https://github.com/scverse/mudata/issues/112
     names = {m: mod.var_names for m, mod in mdata.mod.items()}
     mdata.var_names = mdata.var_names
