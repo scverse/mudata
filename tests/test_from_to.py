@@ -18,3 +18,13 @@ def test_to_mudata_simple(mdata):
     assert isinstance(mdata_from_adata, MuData)
     assert mdata_from_adata.shape == adata.shape
     assert mdata_from_adata.shape == mdata.shape
+
+
+def test_from_anndata(rng):
+    adata = AnnData(np.arange(0, 300, 0.1).reshape(-1, 30))
+    adata.var["feature_types"] = rng.choice(["mod1", "mod2", "mod3"], size=adata.n_vars)
+    mdata = MuData(adata)
+    assert mdata.n_mod == 3
+    assert sorted(mdata.mod_names) == ["mod1", "mod2", "mod3"]
+    for m, mod in mdata.mod.items():
+        assert (mod.var_names == adata.var_names[adata.var.feature_types == m]).all()
