@@ -1,6 +1,8 @@
 """Multimodal datasets"""
 
 from anndata import AnnData
+from scverse_misc import ExtensionNamespace
+from scverse_misc import make_register_namespace_decorator as _make_register_namespace_decorator
 
 from ._core import utils
 from ._core.config import set_options
@@ -25,6 +27,8 @@ from ._version import __version__, __version_tuple__
 __anndataversion__ = "0.1.0"
 __mudataversion__ = "0.1.0"
 
+register_mudata_namespace = _make_register_namespace_decorator(MuData, "mdata", "register_mudata_namespace", "numpy")
+
 __all__ = [
     "__version__",
     "MuData",
@@ -44,4 +48,6 @@ __all__ = [
     "write_anndata",
     "write_h5mu",
     "write_zarr",
+    "register_mudata_namespace",
+    "ExtensionNamespace",
 ]

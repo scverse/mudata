@@ -34,6 +34,7 @@ dependencies = [
   "numpy",
   "pandas>=1.4",
   "scipy",
+  "scverse-misc",
   # for debug logging (referenced from the issue template)
   "session-info2",
 ]
@@ -63,7 +64,6 @@ doc = [
   "pandas",
   "sphinx>=8.1",
   "sphinx-autodoc-typehints",
-  "sphinx-automodapi",
   "sphinx-book-theme>=1",
   "sphinx-copybutton",
   "sphinx-design",
