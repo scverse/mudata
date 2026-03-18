@@ -12,7 +12,7 @@ def test_initial_order(mdata):
     assert mods == ["mod2", "mod1"]
 
 
-def test_write_read_h5mu_basic(mdata, filepath_h5mu):
+def test_write_read_h5mu_basic(mdata, filepath_h5mu, filepath2_h5mu):
     mdata.write(filepath_h5mu)
     mdata_ = mudata.read(filepath_h5mu)
     assert list(mdata_.mod.keys()) == ["mod2", "mod1"]
@@ -23,6 +23,10 @@ def test_write_read_h5mu_basic(mdata, filepath_h5mu):
     with h5py.File(filepath_h5mu, "r") as f:
         assert "mod-order" in f["mod"].attrs
         assert list(f["mod"].attrs["mod-order"]) == ["mod2", "mod1"]
+
+    mdata.filename = filepath2_h5mu
+    assert mdata.isbacked
+    assert mdata.filename == filepath2_h5mu
 
 
 def test_write_read_zarr_basic(mdata, filepath_zarr):
@@ -64,7 +68,7 @@ def test_write_read_zarr_mod_obs_colname(mdata, filepath_zarr):
     assert mdata_.obs["mod1:column"].values[0] == 2
 
 
-def test_h5mu_mod_backed(mdata, filepath_h5mu):
+def test_h5mu_mod_backed(mdata, filepath_h5mu, filepath2_h5mu):
     mdata.write(filepath_h5mu)
     mdata_ = mudata.read_h5mu(filepath_h5mu, backed="r")
     assert list(mdata_.mod.keys()) == ["mod2", "mod1"]
@@ -72,3 +76,10 @@ def test_h5mu_mod_backed(mdata, filepath_h5mu):
     # When backed, the matrix is read-only
     with pytest.raises(OSError):
         mdata_.mod["mod1"].X[10, 5] = 0
+
+    mdata_.filename = filepath2_h5mu
+    assert mdata_.isbacked
+
+    assert mdata_.filename == filepath2_h5mu
+    mdata_.filename = None
+    assert not mdata_.isbacked
