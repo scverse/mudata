@@ -1240,16 +1240,28 @@ class MuData:
         """Total number of observations"""
         return self._obs.shape[0]
 
-    def obs_vector(self, key: str, layer: str | None = None) -> np.ndarray:
-        """Return an array of values for the requested key of length n_obs"""
-        if key not in self.obs.columns:
+    def _attr_vector(self, key: str, attr: str) -> np.ndarray:
+        df = getattr(self, attr)
+        if key not in df.columns:
             for m, a in self._mod.items():
-                if key in a.obs.columns:
+                if key in getattr(a, attr).columns:
                     raise KeyError(
-                        f"There is no {key} in MuData .obs but there is one in {m} .obs. Consider running `mu.update_obs()` to update global .obs."
+                        f"There is no key {key} in MuData .{attr} but there is one in {m} .{attr}. Consider running `update_{attr}()` to update global .{attr}."
                     )
-            raise KeyError(f"There is no key {key} in MuData .obs or in .obs of any modalities.")
-        return self.obs[key].values
+            raise KeyError(f"There is no key {key} in MuData .{attr} or in .{attr} of any modalities.")
+        return df[key].to_numpy()
+
+    def obs_vector(self, key: str, layer: str | None = None) -> np.ndarray:
+        """Return an array of values for the requested key of length n_obs.
+
+        Parameters
+        ----------
+        key
+            The key to use. Must be in `.obs.columns`.
+        layer
+            Ignored, only for compatibility with AnnData.
+        """
+        return self._attr_vector(key, "obs")
 
     def update_obs(self):
         """Update global .obs_names according to the .obs_names of all the modalities."""
@@ -1320,7 +1332,7 @@ class MuData:
 
         if len(names) != self.shape[axis]:
             raise ValueError(
-                f"The length of provided observation names {len(names)} does not match the length {self.shape[axis]} of MuData.{attr}."
+                f"The length of provided {attr}_names {len(names)} does not match the length {self.shape[axis]} of MuData.{attr}."
             )
 
         if self.is_view:
@@ -1377,15 +1389,16 @@ class MuData:
         return self._var.shape[0]
 
     def var_vector(self, key: str, layer: str | None = None) -> np.ndarray:
-        """Return an array of values for the requested key of length n_var."""
-        if key not in self.var.columns:
-            for m, a in self._mod.items():
-                if key in a.var.columns:
-                    raise KeyError(
-                        f"There is no {key} in MuData .var but there is one in {m} .var. Consider running `mu.update_var()` to update global .var."
-                    )
-            raise KeyError(f"There is no key {key} in MuData .var or in .var of any modalities.")
-        return self.var[key].values
+        """Return an array of values for the requested key of length n_var.
+
+        Parameters
+        ----------
+        key
+            The key to use. Must be in `.obs.columns`.
+        layer
+            Ignored, only for compatibility with AnnData.
+        """
+        return self._attr_vector(key, "var")
 
     def update_var(self):
         """Update global .var_names according to the .var_names of all the modalities."""

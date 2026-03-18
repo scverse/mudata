@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import pytest
 
 import mudata
@@ -27,6 +28,18 @@ def test_set_obs_names(mdata):  # https://github.com/scverse/mudata/issues/112
     mdata.obs_names = mdata.obs_names
     for m, mod in mdata.mod.items():
         assert np.all(mod.obs_names == names[m])
+
+    with pytest.raises(ValueError, match="length of provided obs_names"):
+        mdata.obs_names = ["a", "b", "c"]
+
+    with pytest.raises(ValueError, match="length of provided annotation"):
+        mdata.obs = pd.DataFrame()
+
+
+def test_obs_vector(mdata):
+    assert (mdata.obs["arange"] == mdata.obs_vector("arange")).all()
+    with pytest.raises(KeyError, match="There is no key foo in MuData"):
+        mdata.obs_vector("foo")
 
 
 @pytest.mark.parametrize("mdata", (0, 1), indirect=True)
@@ -58,6 +71,20 @@ def test_set_var_names(mdata):  # https://github.com/scverse/mudata/issues/112
     mdata.var_names = mdata.var_names
     for m, mod in mdata.mod.items():
         assert np.all(mod.var_names == names[m])
+
+    with pytest.raises(ValueError, match="length of provided var_names"):
+        mdata.var_names = ["a", "b", "c"]
+    with pytest.raises(ValueError, match="length of provided annotation"):
+        mdata.var = pd.DataFrame()
+
+
+def test_var_vector(rng, mdata):
+    mdata.var["test"] = rng.uniform(size=mdata.n_vars)
+    assert (mdata.var["test"] == mdata.var_vector("test")).all()
+    with pytest.raises(KeyError, match="There is no key foo in MuData"):
+        mdata.var_vector("foo")
+    with pytest.raises(KeyError, match="There is no key assert-boolean-1 in MuData .var but there is one in"):
+        mdata.var_vector("assert-boolean-1")
 
 
 @pytest.mark.parametrize("mdata", (0, 1), indirect=True)
