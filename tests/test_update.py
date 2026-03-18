@@ -368,13 +368,19 @@ class TestMuDataLegacy:
         attr = "obs" if axis == 0 else "var"
         oattr = "var" if axis == 0 else "obs"
         for m, mod in modalities.items():
+            mod.obs["assert-bool"] = True
+            mod.obs[f"assert-boolean-{m}"] = False
+            mod.var["assert-bool"] = True
+            mod.var[f"assert-boolean-{m}"] = False
             setattr(mod, f"{oattr}_names", [f"{m}_{oattr}{j}" for j in range(mod.shape[1 - axis])])
         mdata = MuData(modalities, axis=axis)
         mdata.update()
 
         # Variables are different across modalities
         assert "mod" in getattr(mdata, oattr).columns
+        assert getattr(mdata, oattr)["assert-bool"].dtype == bool
         for m, mod in modalities.items():
+            assert getattr(mdata, oattr)[f"{m}:assert-boolean-{m}"].dtype == "boolean"
             # Observations are the same across modalities
             # hence /mod/mod1/obs/mod -> /obs/mod1:mod
             assert f"{m}:mod" in getattr(mdata, attr).columns

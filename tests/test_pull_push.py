@@ -41,6 +41,11 @@ def modalities(rng, axis, attr, n, unique):
         mods[m] = AnnData(X=rng.normal(size=1000 * i1).reshape(-1, 10 * i1))
         mods[m].obs["mod"] = m
         mods[m].var["mod"] = m
+        mods[m].obs["assert-bool"] = True
+        mods[m].obs[f"assert-boolean-{m}"] = False
+        mods[m].var["assert-bool"] = True
+        mods[m].var[f"assert-boolean-{m}"] = False
+        mods[m].obs["min_count"] = mods[m].X.min(axis=1)
 
         if unique:
             setattr(mods[m], f"{attr}_names", [f"{m}_{attr}{j}" for j in range(mods[m].shape[axis])])
@@ -98,6 +103,8 @@ def test_pull_oattr(modalities, axis, oattr):
 
     df = pull_func()
     assert "mod" in df.columns
+    assert "assert-bool" in df.columns
+    assert df["assert-bool"].dtype == bool
     for dtype in ("int", "float", "bool", "string"):
         assert f"dtype-{dtype}-common" in df.columns
 
@@ -106,6 +113,7 @@ def test_pull_oattr(modalities, axis, oattr):
     assert_dtypes(df, "common")
 
     for m, mod in modalities.items():
+        assert df[f"{m}:assert-boolean-{m}"].dtype == "boolean"
         # Annotations are correct
         assert all(df.loc[getattr(mdata, f"{oattr}map")[m] > 0, "mod"] == m)
         # Columns are intact in individual modalities
@@ -141,7 +149,7 @@ def test_pull_oattr(modalities, axis, oattr):
     # only pull a unique column
     df = pull_func(common=False, nonunique=False, unique=True)
     assert "mod1:unique_col" in df.columns
-    assert len(df.columns) == 5
+    assert len(df.columns) == 8
     assert_dtypes(df, "unique", "mod1:")
     reset_df()
 
@@ -164,7 +172,7 @@ def test_pull_oattr(modalities, axis, oattr):
     df = pull_func(common=False, nonunique=False, unique=True, prefix_unique=False)
     assert "mod1:unique_col" not in df.columns
     assert "unique_col" in df.columns
-    assert len(df.columns) == 5
+    assert len(df.columns) == 8
     assert_dtypes(df, "unique")
 
 
