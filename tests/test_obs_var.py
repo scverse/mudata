@@ -62,6 +62,7 @@ def test_set_var_names(mdata):  # https://github.com/scverse/mudata/issues/112
 
 @pytest.mark.parametrize("mdata", (0, 1), indirect=True)
 def test_names_make_unique(mdata):
+    attr = "obs" if mdata.axis == 0 else "var"
     oattr = "var" if mdata.axis == 0 else "obs"
     namesattr = f"{oattr}_names"
     namesfun = getattr(mdata, f"{oattr}_names_make_unique")
@@ -85,3 +86,6 @@ def test_names_make_unique(mdata):
     for m, mod in mdata.mod.items():
         assert getattr(mod, namesattr).is_unique
         assert (getattr(mod, namesattr).str[: len(m) + 1] == f"{m}:").all()
+
+    with pytest.raises(TypeError, match="axis="):
+        getattr(mdata, f"{attr}_names_make_unique")()

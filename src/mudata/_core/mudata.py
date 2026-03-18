@@ -1,6 +1,7 @@
 import warnings
 from collections import Counter, abc
 from collections.abc import Iterable, Mapping, MutableMapping, Sequence
+from contextlib import suppress
 from copy import deepcopy
 from functools import reduce
 from hashlib import sha1
@@ -1255,6 +1256,43 @@ class MuData:
         join_common = self.axis == 1
         self._update_attr("obs", axis=1, join_common=join_common)
 
+    def _names_make_unique(self, attr: Literal["obs", "var"]):
+        axis = 0 if attr == "obs" else 1
+        if self.axis != 1 - axis:
+            raise TypeError(
+                f"This operation is only supported on MuData objects with `axis={1 - axis}`. This MuData has `axis={self.axis}`."
+            )
+        namesattr = f"{attr}_names"
+        mod_sum = np.sum([a.shape[axis] for a in self._mod.values()])
+        if mod_sum != self.shape[axis]:
+            self._update_attr(attr, axis=1 - axis)
+
+        for mod in self._mod.values():
+            mod_make_unique = getattr(mod, f"{attr}_names_make_unique")
+            if isinstance(mod, AnnData):
+                mod_make_unique()
+            # Only propagate to individual modalities with shared vars
+            elif isinstance(mod, MuData) and mod.axis == axis:
+                mod_make_unique()
+
+        # Check if there are observations with the same name in different modalities
+        mods = list(self._mod.keys())
+        with suppress(StopIteration):
+            for i in range(len(self._mod) - 1):
+                ki = mods[i]
+                for j in range(i + 1, len(self._mod)):
+                    kj = mods[j]
+                    if len(getattr(self._mod[ki], namesattr).intersection(getattr(self._mod[kj], namesattr))) > 0:
+                        warnings.warn(
+                            "Modality names will be prepended to obs_names since there are identical obs_names in different modalities.",
+                            stacklevel=1,
+                        )
+                        for m, mod in self._mod.items():
+                            setattr(mod, namesattr, m + ":" + getattr(mod, namesattr).astype(str))
+                        raise StopIteration()  # break out of both loops
+
+        setattr(self, namesattr, pd.Index([]).append([getattr(mod, namesattr) for mod in self._mod.values()]))
+
     def obs_names_make_unique(self):
         """
         Call .obs_names_make_unique() method on each AnnData object.
@@ -1262,36 +1300,7 @@ class MuData:
         If there are obs_names, which are the same for multiple modalities,
         append modality name to all obs_names.
         """
-        mod_obs_sum = np.sum([a.n_obs for a in self._mod.values()])
-        if mod_obs_sum != self.n_obs:
-            self.update_obs()
-
-        for k in self._mod:
-            if isinstance(self._mod[k], AnnData):
-                self._mod[k].obs_names_make_unique()
-            # Only propagate to individual modalities with shared vars
-            elif isinstance(self._mod[k], MuData) and getattr(self._mod[k], "axis", 1) == 1:
-                self._mod[k].obs_names_make_unique()
-
-        # Check if there are observations with the same name in different modalities
-        common_obs = []
-        mods = list(self._mod.keys())
-        for i in range(len(self._mod) - 1):
-            ki = mods[i]
-            for j in range(i + 1, len(self._mod)):
-                kj = mods[j]
-                common_obs.append(self._mod[ki].obs_names.intersection(self._mod[kj].obs_names.values))
-        if any(len(x) > 0 for x in common_obs):
-            warnings.warn(
-                "Modality names will be prepended to obs_names since there are identical obs_names in different modalities.",
-                stacklevel=1,
-            )
-            for k in self._mod:
-                self._mod[k].obs_names = k + ":" + self._mod[k].obs_names.astype(str)
-
-        # Update .obs.index in the MuData
-        obs_names = [obs for a in self._mod.values() for obs in a.obs_names.values]
-        self._obs.index = obs_names
+        self._names_make_unique("obs")
 
     def _set_names(self, attr: str, axis: int, names: Sequence[str]):
         if isinstance(names, pd.Index):
@@ -1390,36 +1399,7 @@ class MuData:
         If there are var_names, which are the same for multiple modalities,
         append modality name to all var_names.
         """
-        mod_var_sum = np.sum([a.n_vars for a in self._mod.values()])
-        if mod_var_sum != self.n_vars:
-            self.update_var()
-
-        for k in self._mod:
-            if isinstance(self._mod[k], AnnData):
-                self._mod[k].var_names_make_unique()
-            # Only propagate to individual modalities with shared obs
-            elif isinstance(self._mod[k], MuData) and getattr(self._mod[k], "axis", 0) == 0:
-                self._mod[k].var_names_make_unique()
-
-        # Check if there are variables with the same name in different modalities
-        common_vars = []
-        mods = list(self._mod.keys())
-        for i in range(len(self._mod) - 1):
-            ki = mods[i]
-            for j in range(i + 1, len(self._mod)):
-                kj = mods[j]
-                common_vars.append(np.intersect1d(self._mod[ki].var_names.values, self._mod[kj].var_names.values))
-        if any(len(x) > 0 for x in common_vars):
-            warnings.warn(
-                "Modality names will be prepended to var_names since there are identical var_names in different modalities.",
-                stacklevel=1,
-            )
-            for k in self._mod:
-                self._mod[k].var_names = k + ":" + self._mod[k].var_names.astype(str)
-
-        # Update .var.index in the MuData
-        var_names = [var for a in self._mod.values() for var in a.var_names.values]
-        self._var.index = var_names
+        self._names_make_unique("var")
 
     @property
     def var_names(self) -> pd.Index:
