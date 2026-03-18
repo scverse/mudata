@@ -58,3 +58,30 @@ def test_set_var_names(mdata):  # https://github.com/scverse/mudata/issues/112
     mdata.var_names = mdata.var_names
     for m, mod in mdata.mod.items():
         assert np.all(mod.var_names == names[m])
+
+
+@pytest.mark.parametrize("mdata", (0, 1), indirect=True)
+def test_names_make_unique(mdata):
+    oattr = "var" if mdata.axis == 0 else "obs"
+    namesattr = f"{oattr}_names"
+    namesfun = getattr(mdata, f"{oattr}_names_make_unique")
+
+    mods = mdata.mod_names
+    names = getattr(mdata.mod[mods[0]], namesattr).to_list()
+    names[1] = names[0]
+    setattr(mdata.mod[mods[0]], namesattr, names)
+    namesfun()
+    assert mdata.shape[1 - mdata.axis] == sum(mod.shape[1 - mdata.axis] for mod in mdata.mod.values())
+    assert getattr(mdata, namesattr).is_unique
+
+    for mod in mods[:2]:
+        names = getattr(mdata.mod[mod], namesattr).to_list()
+        names[1] = names[0] = "testname"
+        setattr(mdata.mod[mod], namesattr, names)
+    with pytest.warns(UserWarning, match="Modality names will be prepended"):
+        namesfun()
+    assert mdata.shape[1 - mdata.axis] == sum(mod.shape[1 - mdata.axis] for mod in mdata.mod.values())
+    assert getattr(mdata, namesattr).is_unique
+    for m, mod in mdata.mod.items():
+        assert getattr(mod, namesattr).is_unique
+        assert (getattr(mod, namesattr).str[: len(m) + 1] == f"{m}:").all()
