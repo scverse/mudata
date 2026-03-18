@@ -524,27 +524,6 @@ class MuData:
         """Length defined as a total number of observations (:attr:`n_obs`)."""
         return self.n_obs
 
-    # # Currently rely on AnnData's interface for setting .obs / .var
-    # # This code implements AnnData._set_dim_df for another namespace
-    # def _set_dim_df(self, value: pd.DataFrame, attr: str):
-    #     if not isinstance(value, pd.DataFrame):
-    #         raise ValueError(f"Can only assign pd.DataFrame to {attr}.")
-    #     value_idx = AnnData._prep_dim_index(self, value.index, attr)
-    #     setattr(self, f"_{attr}", value)
-    #     AnnData._set_dim_index(self, value_idx, attr)
-
-    def _create_global_attr_index(self, attr: str, axis: int):
-        if axis == (1 - self._axis):
-            # Shared indices
-            modindices = [getattr(self._mod[m], attr).index for m in self._mod]
-            if all(modindices[i].equals(modindices[i + 1]) for i in range(len(modindices) - 1)):
-                attrindex = modindices[0].copy()
-            attrindex = reduce(pd.Index.union, [getattr(self._mod[m], attr).index for m in self._mod]).values
-        else:
-            # Modality-specific indices
-            attrindex = np.concatenate([getattr(self._mod[m], attr).index.values for m in self._mod], axis=0)
-        return attrindex
-
     def _update_attr(
         self,
         attr: str,
