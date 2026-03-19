@@ -1,13 +1,14 @@
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 from scipy import sparse
 
 import mudata
 
 
-@pytest.fixture()
+@pytest.fixture
 def mdata_with_obsp(mdata):
     distances = sparse.random(mdata.n_obs, mdata.n_obs, density=0.2, random_state=42)
     distances = sparse.triu(distances)
@@ -39,29 +40,28 @@ def test_copy(mdata):
 
 
 def test_view_attributes(mdata):
-    mdata_copy = mdata.copy()
     n, d = mdata.n_obs, mdata.n_var
     # Populate attributes
-    mdata_copy.uns["uns_key"] = {"key": "value"}
-    mdata_copy.obs["obs_column"] = False
-    mdata_copy.var["var_column"] = False
-    mdata_copy.obsm["obsm_key"] = np.arange(n).reshape(-1, 1)
-    mdata_copy.varm["varm_key"] = np.arange(d).reshape(-1, 1)
-    mdata_copy.obsp["obsp_key"] = np.arange(n * n).reshape(n, n)
-    mdata_copy.varp["varp_key"] = np.arange(d * d).reshape(d, d)
+    mdata.uns["uns_key"] = {"key": "value"}
+    mdata.obs["obs_column"] = False
+    mdata.var["var_column"] = False
+    mdata.obsm["obsm_key"] = np.arange(n).reshape(-1, 1)
+    mdata.varm["varm_key"] = np.arange(d).reshape(-1, 1)
+    mdata.obsp["obsp_key"] = np.arange(n * n).reshape(n, n)
+    mdata.varp["varp_key"] = np.arange(d * d).reshape(d, d)
 
     view_n_obs = 7
-    mdata_view = mdata_copy[list(range(view_n_obs)), :]
+    mdata_view = mdata[list(range(view_n_obs)), :]
     assert mdata_view.shape == (view_n_obs, mdata.n_var)
-    assert len(mdata_view.mod) == len(mdata_copy.mod)
+    assert len(mdata_view.mod) == len(mdata.mod)
     # AnnData/MuData interface
     for attr in "obs", "var", "obsm", "varm", "obsp", "varp", "uns":
         assert hasattr(mdata_view, attr)
-        assert list(getattr(mdata_view, attr).keys()) == list(getattr(mdata_copy, attr).keys())
+        assert list(getattr(mdata_view, attr).keys()) == list(getattr(mdata, attr).keys())
     # MuData-specific interface
     for attr in "mod", "axis", "obsmap", "varmap":
         assert hasattr(mdata_view, attr)
-    assert mdata_view.axis == mdata_copy.axis
+    assert mdata_view.axis == mdata.axis
 
 
 def test_view_copy(mdata):
@@ -171,3 +171,69 @@ def test_varp_slicing(mdata_with_obsp):
     assert mdata_copy.varp["correlations"].shape == (n_var_subset, n_var_subset), (
         f"Expected shape after copy: {(n_var_subset, n_var_subset)}, got: {mdata_copy.varp['correlations'].shape}"
     )
+
+
+def _test_view_after_setattr(mdata, mdata_ref, skip=()):
+    if isinstance(skip, str):
+        skip = (skip,)
+
+    assert not mdata.is_view
+    assert mdata.mod.keys() == mdata_ref.mod.keys()
+    for attr in ("obsm", "varm", "obsp", "varp", "obsmap", "varmap", "uns"):
+        if attr not in skip:
+            assert getattr(mdata, attr).keys() == getattr(mdata_ref, attr).keys()
+    for attr in ("obs", "var"):
+        if attr not in skip:
+            assert (getattr(mdata, attr).columns == getattr(mdata_ref, attr).columns).all()
+    for mod in mdata.mod.values():
+        assert not mod.is_view
+
+    for k, v in mdata.obsm.items():
+        if k in mdata_ref.obsm:
+            assert v.shape[1] == mdata_ref.obsm[k].shape[1]
+            if isinstance(v, pd.DataFrame):
+                assert (v.columns == mdata_ref.obsm[k].columns).all()
+    for k, v in mdata.varm.items():
+        if k in mdata_ref.varm:
+            assert v.shape[1] == mdata_ref.obsm[k].shape[1]
+            if isinstance(v, pd.DataFrame):
+                assert (v.columns == mdata_ref.varm[k].columns).all()
+
+
+def test_view_setattr(mdata_with_obsp):
+    view = mdata_with_obsp[:42, :]
+    view.obs_names = [f"foo_{i}" for i in range(len(view))]
+    _test_view_after_setattr(view, mdata_with_obsp)
+
+    view = mdata_with_obsp[:42, :]
+    view.uns["foo"] = 42
+    _test_view_after_setattr(view, mdata_with_obsp, "uns")
+
+    view = mdata_with_obsp[:42, :]
+    view.obsp["distances"][1, 2] = 42
+    _test_view_after_setattr(view, mdata_with_obsp)
+
+    view = mdata_with_obsp[:42, :]
+    view.varp["correlations"][1, 2] = 42
+    _test_view_after_setattr(view, mdata_with_obsp)
+
+    view = mdata_with_obsp[:42, :]
+    view.obs["foo"] = 42
+    _test_view_after_setattr(view, mdata_with_obsp, "obs")
+
+    view = mdata_with_obsp[:42, :]
+    view.var = pd.DataFrame(index=[f"foo_{i}" for i in range(view.shape[1])])
+    _test_view_after_setattr(view, mdata_with_obsp, "var")
+
+    view = mdata_with_obsp[:42, :]
+    view.obsm["foo"] = np.arange(2 * len(view)).reshape(-1, 2)
+    _test_view_after_setattr(view, mdata_with_obsp, "obsm")
+
+    view = mdata_with_obsp[:42, :]
+    view.varm["foo"] = np.arange(2 * view.shape[1]).reshape(-1, 2)
+    _test_view_after_setattr(view, mdata_with_obsp, "varm")
+
+    for attr in ("obsm", "varm", "obsp", "varp", "uns"):
+        view = mdata_with_obsp[:42, :]
+        delattr(view, attr)
+        _test_view_after_setattr(view, mdata_with_obsp, attr)

@@ -247,8 +247,6 @@ class MuData:
         self._mudata_ref = None
 
         # Unstructured annotations
-        # NOTE: this is dict in contract to OrderedDict in anndata
-        #       due to favourable performance and lack of need to preserve the insertion order
         self._uns = {}
 
         # For compatibility with calls requiring AnnData slots
@@ -256,7 +254,7 @@ class MuData:
         self.X = None
         self.layers = None
         self.file = MuDataFileManager()
-        self.is_view = False
+        self._is_view = False
 
     def _init_as_view(self, mudata_ref: "MuData", index):
         from anndata._core.index import _normalize_indices
@@ -323,7 +321,7 @@ class MuData:
                 posmap[mod] = cposmap
             setattr(self, "_" + attr + "map", posmap)
 
-        self.is_view = True
+        self._is_view = True
         self.file = mudata_ref.file
         self._axis = mudata_ref._axis
         self._uns = mudata_ref._uns
@@ -515,6 +513,11 @@ class MuData:
     def mod(self) -> Mapping[str, "AnnData | MuData"]:
         """Dictionary of modalities."""
         return self._mod
+
+    @property
+    def is_view(self) -> bool:
+        """Whether the object is a view of another `MuData` object."""
+        return self._is_view
 
     @property
     def shape(self) -> tuple[int, int]:
@@ -1326,7 +1329,10 @@ class MuData:
             if not isinstance(names.name, str | type(None)):
                 names.name = None
 
-        mod_shape_sum = np.sum([a.shape[axis] for a in self._mod.values()])
+        if axis != self.axis and self.axis != -1:
+            mod_shape_sum = np.sum([a.shape[axis] for a in self._mod.values()])
+        else:
+            mod_shape_sum = reduce(lambda x, y: x.union(y), (getattr(a, attr).index for a in self._mod.values())).size
         if mod_shape_sum != self.shape[axis]:
             self._update_attr(attr, axis=1 - axis)
 
