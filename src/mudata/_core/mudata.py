@@ -1965,7 +1965,6 @@ class MuData:
             Cannot be used with columns. True by default.
         prefixed
             If True, push columns that have a modality prefix.
-            which are prefixed by modality names.
             Only push to the respective modality names.
             Cannot be used with columns. True by default.
         drop
@@ -1980,8 +1979,7 @@ class MuData:
 
         if mods is not None:
             if isinstance(mods, str):
-                mods = [mods]
-            mods = list(dict.fromkeys(mods))
+                mods = (mods,)
             if not all(m in self._mod for m in mods):
                 raise ValueError("All mods should be present in mdata.mod")
             elif len(mods) == self.n_mod:
@@ -2055,8 +2053,6 @@ class MuData:
             df = df.iloc[idx].set_index(np.arange(mod_n_attr, dtype=mod_map.dtype))
 
             if not only_drop:
-                # TODO: _maybe_coerce_to_bool
-                # TODO: _maybe_coerce_to_int
                 # TODO: _prune_unused_categories
                 mod_df = getattr(mod, attr).set_index(np.arange(mod_n_attr))
                 mod_df = _update_and_concat(mod_df, df)
