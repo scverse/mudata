@@ -1596,7 +1596,7 @@ class MuData:
         nonunique: bool | None = None,
         join_nonunique: bool | None = None,
         unique: bool | None = None,
-        prefix_unique: bool | None = True,
+        prefix_unique: bool = True,
         drop: bool = False,
         only_drop: bool = False,
     ):
@@ -1738,9 +1738,6 @@ class MuData:
         if join_nonunique is None:
             join_nonunique = False
 
-        if prefix_unique is None:
-            prefix_unique = True
-
         # Below we will rely on attrmap that has been calculated during .update()
         # and use it to create an index without duplicates
         # for faster concatenation and to reduce the amount of code
@@ -1806,7 +1803,7 @@ class MuData:
         nonunique: bool | None = None,
         join_nonunique: bool | None = None,
         unique: bool | None = None,
-        prefix_unique: bool | None = True,
+        prefix_unique: bool = True,
         drop: bool = False,
         only_drop: bool = False,
     ):
@@ -1876,7 +1873,7 @@ class MuData:
         nonunique: bool | None = None,
         join_nonunique: bool | None = None,
         unique: bool | None = None,
-        prefix_unique: bool | None = True,
+        prefix_unique: bool = True,
         drop: bool = False,
         only_drop: bool = False,
     ):

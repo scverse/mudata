@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 from anndata import AnnData
 
-from mudata import MuData
+from mudata import MuData, set_options
 
 
 @pytest.fixture(params=(0, 1))
@@ -32,7 +32,14 @@ def unique(request):
 
 
 @pytest.fixture
-def mdata(rng, axis, attr, n, unique):
+def new_update():
+    set_options(pull_on_update=False)
+    yield
+    set_options(pull_on_update=None)
+
+
+@pytest.fixture
+def mdata(rng, axis, attr, n, unique, new_update):
     n_mod = 3
     mods = {}
     for i in range(n_mod):
@@ -87,7 +94,7 @@ def mdata(rng, axis, attr, n, unique):
 
 
 @pytest.fixture
-def mdata_for_push(rng, mdata):
+def mdata_for_push(rng, mdata, new_update):
     for axis, attr in enumerate(("obs", "var")):
         df = getattr(mdata, attr)
 
@@ -101,6 +108,26 @@ def mdata_for_push(rng, mdata):
         df["mod2:mod2_dtype-string-pushed"] = rng.choice(["a", "b", "c"], size=mdata.shape[axis])
 
     return mdata
+
+
+@pytest.fixture(params=("obs", "var"))
+def cattr(request):
+    return request.param
+
+
+@pytest.fixture
+def push_func(mdata_for_push, cattr):
+    return getattr(mdata_for_push, f"push_{cattr}")
+
+
+@pytest.fixture
+def push_df(mdata_for_push, cattr):
+    return getattr(mdata_for_push, cattr)
+
+
+@pytest.fixture
+def pull_func_oattr(mdata, oattr):
+    return lambda *args, **kwargs: getattr(mdata, f"pull_{oattr}")(*args, **kwargs) or getattr(mdata, oattr)
 
 
 def assert_dtypes(df, suffix, prefix=""):
@@ -124,12 +151,11 @@ def test_raises_on_view(mdata, attr):
         getattr(view, f"push_{attr}")("foo")
 
 
-def test_pull_oattr(mdata, oattr):
-    pull_func = lambda *args, **kwargs: getattr(mdata, f"pull_{oattr}")(*args, **kwargs) or getattr(mdata, oattr)
-    reset_df = lambda: setattr(mdata, oattr, getattr(mdata, oattr).iloc[:, []])
-
-    df = pull_func()
+@pytest.mark.parametrize("drop", (True, False))
+def test_pull_oattr_simple(mdata, oattr, pull_func_oattr, drop):
+    df = pull_func_oattr(drop=drop)
     assert "mod" in df.columns
+    assert "common_col" in df.columns
     assert "assert-bool" in df.columns
     assert df["assert-bool"].dtype == bool
     for dtype in ("int", "float", "bool", "string"):
@@ -140,30 +166,79 @@ def test_pull_oattr(mdata, oattr):
     assert_dtypes(df, "common")
 
     for m, mod in mdata.mod.items():
+        assert f"{m}:assert-boolean-{m}" in df.columns
         assert df[f"{m}:assert-boolean-{m}"].dtype == "boolean"
         # Annotations are correct
         assert all(df.loc[getattr(mdata, f"{oattr}map")[m] > 0, "mod"] == m)
-        # Columns are intact in individual modalities
+
         mdf = getattr(mod, oattr)
-        assert "mod" in mdf.columns
-        assert all(mdf["mod"] == m)
+        if drop:
+            assert "mod" not in mdf.columns
+            assert "common_col" not in mdf.columns
+        else:
+            assert "mod" in mdf.columns
+            assert "common_col" in mdf.columns
+            assert all(mdf["mod"] == m)
+        for dtype in ("int", "float", "bool", "string"):
+            if drop:
+                assert f"dtype-{dtype}-common" not in mdf.columns
+            else:
+                assert f"dtype-{dtype}-common" in mdf.columns
 
-    reset_df()
 
-    # Pull a common column
-    df = pull_func(columns=["common_col"])
+def test_pull_oattr_onlydrop(mdata, oattr, pull_func_oattr):
+    df = pull_func_oattr(only_drop=True)
+    assert "mod" not in df.columns
+    assert "common_col" not in df.columns
+    assert "assert-bool" not in df.columns
+    assert "assert-boolean" not in df.columns
+    for dtype in ("int", "float", "bool", "string"):
+        assert f"dtype-{dtype}-common" not in df.columns
+        assert f"dtype-{dtype}-nonunique" not in df.columns
+        assert f"dtype-{dtype}-unique" not in df.columns
+
+    for m, mod in mdata.mod.items():
+        assert f"{m}:assert-boolean-{m}" not in df.columns
+        mdf = getattr(mod, oattr)
+        assert "mod" not in mdf.columns
+        assert "common_col" not in mdf.columns
+
+        for dtype in ("int", "float", "bool", "string"):
+            assert f"dtype-{dtype}-common" not in mdf.columns
+            assert f"dtype-{dtype}-nonunique" not in mdf.columns
+            assert f"dtype-{dtype}-unique" not in mdf.columns
+
+
+@pytest.mark.parametrize("drop", (True, False))
+def test_pull_oattr_common(mdata, oattr, pull_func_oattr, drop):
+    df = pull_func_oattr(columns=["common_col"], drop=drop)
     assert "common_col" in df.columns
     assert (~pd.isnull(df.common_col)).sum() == mdata.shape[1 - mdata.axis]
-    reset_df()
 
-    # Pull a common column from one modality
-    df = pull_func(columns=["common_col"], mods=["mod2"])
+    if drop:
+        for mod in mdata.mod.values():
+            assert "common_col" not in getattr(mod, oattr).columns
+
+
+@pytest.mark.parametrize("drop", (True, False))
+def test_pull_oattr_common_mods(mdata, oattr, pull_func_oattr, drop):
+    df = pull_func_oattr(columns=["common_col"], mods="mod2", drop=drop)
     assert "mod2:common_col" in df.columns
     assert (~pd.isnull(df["mod2:common_col"])).sum() == mdata["mod2"].shape[1 - mdata.axis]
-    reset_df()
 
-    # do not pull unique columns
-    df = pull_func(common=True, nonunique=True, unique=False)
+    for modname, mod in mdata.mod.items():
+        if drop and modname == "mod2":
+            assert "common_col" not in getattr(mod, oattr).columns
+        else:
+            assert "common_col" in getattr(mod, oattr).columns
+
+    with pytest.raises(ValueError, match="All mods should be present"):
+        pull_func_oattr(columns=["common_col"], mods="foo", drop=drop)
+
+
+@pytest.mark.parametrize("drop", (True, False))
+def test_pull_oattr_nounique(mdata, oattr, pull_func_oattr, drop):
+    df = pull_func_oattr(common=True, nonunique=True, unique=False, drop=drop)
     assert "mod1:unique_col" not in df.columns
     assert "common_col" in df.columns
     assert "nonunique_col" not in df.columns
@@ -171,36 +246,74 @@ def test_pull_oattr(mdata, oattr):
     assert_dtypes(df, "common")
     assert_dtypes(df, "nonunique", "mod2:")
     assert_dtypes(df, "nonunique", "mod3:")
-    reset_df()
 
-    # only pull a unique column
-    df = pull_func(common=False, nonunique=False, unique=True)
+    for modname, mod in mdata.mod.items():
+        mdf = getattr(mod, oattr)
+        if drop:
+            assert "common_col" not in mdf.columns
+            assert "nonunique_col" not in mdf.columns
+        else:
+            assert "common_col" in mdf.columns
+            if modname != "mod1":
+                assert "nonunique_col" in mdf.columns
+
+
+@pytest.mark.parametrize("drop", (True, False))
+def test_pull_oattr_unique(mdata, oattr, pull_func_oattr, drop):
+    df = pull_func_oattr(common=False, nonunique=False, unique=True, drop=drop)
     assert "mod1:unique_col" in df.columns
     assert len(df.columns) == 8
     assert_dtypes(df, "unique", "mod1:")
-    reset_df()
 
-    # pull non-unique but do not join
-    df = pull_func(common=False, unique=False)
+    if drop:
+        assert "unique_col" not in getattr(mdata["mod1"], oattr)
+
+
+@pytest.mark.parametrize("drop", (True, False))
+def test_pull_oattr_nocommon_nounique(mdata, oattr, pull_func_oattr, drop):
+    df = pull_func_oattr(common=False, unique=False, drop=drop)
     assert "nonunique_col" not in df.columns
     assert len(df.columns) == (mdata.n_mod - 1) * 5
     assert_dtypes(df, "nonunique", "mod2:")
     assert_dtypes(df, "nonunique", "mod3:")
-    reset_df()
 
-    # pull non-unique and join them
-    df = pull_func(common=False, unique=False, join_nonunique=True)
+    for modname, mod in mdata.mod.items():
+        mdf = getattr(mod, oattr)
+        if drop:
+            assert "nonunique_col" not in mdf.columns
+        else:
+            if modname != "mod1":
+                assert "nonunique_col" in mdf.columns
+
+
+@pytest.mark.parametrize("drop", (True, False))
+def test_pull_oattr_nocommon_nounique_join(mdata, oattr, pull_func_oattr, drop):
+    df = pull_func_oattr(common=False, unique=False, join_nonunique=True, drop=drop)
     assert "nonunique_col" in df.columns
     assert len(df.columns) == 5
     assert_dtypes(df, "nonunique")
-    reset_df()
 
-    # pull unique and do not prefix
-    df = pull_func(common=False, nonunique=False, unique=True, prefix_unique=False)
+    for modname, mod in mdata.mod.items():
+        mdf = getattr(mod, oattr)
+        if drop:
+            assert "nonunique_col" not in mdf.columns
+        else:
+            if modname != "mod1":
+                assert "nonunique_col" in mdf.columns
+
+
+@pytest.mark.parametrize("drop", (True, False))
+def test_pull_oattr_unique_noprefix(mdata, oattr, pull_func_oattr, drop):
+    df = pull_func_oattr(common=False, nonunique=False, unique=True, prefix_unique=False, drop=drop)
     assert "mod1:unique_col" not in df.columns
     assert "unique_col" in df.columns
     assert len(df.columns) == 8
     assert_dtypes(df, "unique")
+
+    if drop:
+        assert "unique_col" not in getattr(mdata["mod1"], oattr).columns
+    else:
+        assert "unique_col" in getattr(mdata["mod1"], oattr).columns
 
 
 def test_pull_attr_simple(mdata, attr):
@@ -234,12 +347,7 @@ def test_pull_attr_simple(mdata, attr):
         pull_func(join_nonunique=True)
 
 
-@pytest.mark.parametrize("cattr", ["obs", "var"])
-def test_push_simple(mdata_for_push, cattr):
-    push_func = getattr(mdata_for_push, f"push_{cattr}")
-    df = getattr(mdata_for_push, cattr)
-
-    # pushing should work
+def test_push_simple(mdata_for_push, push_func, push_df, cattr):
     push_func()
     for modname, mod in mdata_for_push.mod.items():
         mdf = getattr(mod, cattr)
@@ -247,34 +355,30 @@ def test_push_simple(mdata_for_push, cattr):
 
         map = getattr(mdata_for_push, f"{cattr}map")[modname].ravel()
         mask = map > 0
-        assert (df["dtype-int-pushed"][mask] == mdf["dtype-int-pushed"].iloc[map[mask] - 1]).all()
+        assert (push_df["dtype-int-pushed"][mask] == mdf["dtype-int-pushed"].iloc[map[mask] - 1]).all()
 
     assert_dtypes(getattr(mdata_for_push["mod2"], cattr), "pushed", "mod2_")
     map = getattr(mdata_for_push, f"{cattr}map")["mod2"].ravel()
     mask = map > 0
     assert (
-        df["mod2:mod2_dtype-int-pushed"][mask]
+        push_df["mod2:mod2_dtype-int-pushed"][mask]
         == getattr(mdata_for_push["mod2"], cattr)["mod2_dtype-int-pushed"].iloc[map[mask] - 1]
     ).all()
 
     push_func(drop=True)
-    assert df.shape[1] == 0
+    assert push_df.shape[1] == 0
 
 
-@pytest.mark.parametrize("drop", [True, False])
-@pytest.mark.parametrize("cattr", ["obs", "var"])
-def test_push_columns(mdata_for_push, cattr, drop):
-    push_func = getattr(mdata_for_push, f"push_{cattr}")
-    df = getattr(mdata_for_push, cattr)
-
+@pytest.mark.parametrize("drop", (True, False))
+def test_push_columns(mdata_for_push, push_func, push_df, cattr, drop):
     push_func(columns=["dtype-int-pushed", "mod2:mod2_dtype-bool-pushed"], drop=drop)
     for mod in mdata_for_push.mod.values():
         mdf = getattr(mod, cattr)
         assert "dtype-int-pushed" in mdf.columns
         assert "mod2_dtype-bool-pushed" not in mdf.columns
     if drop:
-        assert "dtype-int-pushed" not in df.columns
-        assert "mod2:mod2_dtype-bool-pushed" in df.columns
+        assert "dtype-int-pushed" not in push_df.columns
+        assert "mod2:mod2_dtype-bool-pushed" in push_df.columns
 
     push_func(columns=["mod2:mod2_dtype-bool-pushed"], mods=["mod2"], drop=drop)
     for modname, mod in mdata_for_push.mod.items():
@@ -290,11 +394,9 @@ def test_push_columns(mdata_for_push, cattr, drop):
         push_func(columns=["dtype-int-pushed"], mods=["foo"])
 
 
-@pytest.mark.parametrize("drop", [True, False])
-@pytest.mark.parametrize("cattr", ["obs", "var"])
-def test_push_mods(mdata_for_push, cattr, drop):
-    getattr(mdata_for_push, f"push_{cattr}")(mods="mod2", drop=drop)
-    df = getattr(mdata_for_push, cattr)
+@pytest.mark.parametrize("drop", (True, False))
+def test_push_mods(mdata_for_push, push_func, push_df, cattr, drop):
+    push_func(mods="mod2", drop=drop)
     for dtype in ("int", "float", "bool", "string"):
         for modname, mod in mdata_for_push.mod.items():
             mdf = getattr(mod, cattr)
@@ -304,15 +406,13 @@ def test_push_mods(mdata_for_push, cattr, drop):
             else:
                 assert f"mod2_dtype-{dtype}-pushed" not in mdf.columns
         if drop:
-            assert f"dtype-{dtype}-pushed" not in df.columns
-            assert f"mod2:mod2_dtype-{dtype}-pushed" not in df.columns
+            assert f"dtype-{dtype}-pushed" not in push_df.columns
+            assert f"mod2:mod2_dtype-{dtype}-pushed" not in push_df.columns
 
 
-@pytest.mark.parametrize("drop", [True, False])
-@pytest.mark.parametrize("cattr", ["obs", "var"])
-def test_push_nocommon(mdata_for_push, cattr, drop):
-    getattr(mdata_for_push, f"push_{cattr}")(common=False, drop=drop)
-    df = getattr(mdata_for_push, cattr)
+@pytest.mark.parametrize("drop", (True, False))
+def test_push_nocommon(mdata_for_push, push_func, push_df, cattr, drop):
+    push_func(common=False, drop=drop)
     for dtype in ("int", "float", "bool", "string"):
         for modname, mod in mdata_for_push.mod.items():
             mdf = getattr(mod, cattr)
@@ -322,28 +422,25 @@ def test_push_nocommon(mdata_for_push, cattr, drop):
             else:
                 assert f"mod2_dtype-{dtype}-pushed" not in mdf.columns
         if drop:
-            assert f"dtype-{dtype}-pushed" in df.columns
-            assert f"mod2:mod2_dtype-{dtype}-pushed" not in df.columns
+            assert f"dtype-{dtype}-pushed" in push_df.columns
+            assert f"mod2:mod2_dtype-{dtype}-pushed" not in push_df.columns
 
 
-@pytest.mark.parametrize("drop", [True, False])
-@pytest.mark.parametrize("cattr", ["obs", "var"])
-def test_push_noprefix(mdata_for_push, cattr, drop):
-    getattr(mdata_for_push, f"push_{cattr}")(prefixed=False, drop=drop)
-    df = getattr(mdata_for_push, cattr)
+@pytest.mark.parametrize("drop", (True, False))
+def test_push_noprefix(mdata_for_push, push_func, push_df, cattr, drop):
+    push_func(prefixed=False, drop=drop)
     for dtype in ("int", "float", "bool", "string"):
         for mod in mdata_for_push.mod.values():
             mdf = getattr(mod, cattr)
             assert f"dtype-{dtype}-pushed" in mdf.columns
             assert f"mod2_dtype-{dtype}-pushed" not in mdf.columns
         if drop:
-            assert f"dtype-{dtype}-pushed" not in df.columns
+            assert f"dtype-{dtype}-pushed" not in push_df.columns
 
 
-@pytest.mark.parametrize("cattr", ["obs", "var"])
-def test_push_drop(mdata_for_push, cattr):
-    getattr(mdata_for_push, f"push_{cattr}")(only_drop=True)
-    assert getattr(mdata_for_push, cattr).shape[1] == 0
+def test_push_drop(mdata_for_push, push_func, push_df, cattr):
+    push_func(only_drop=True)
+    assert push_df.shape[1] == 0
 
     for mod in mdata_for_push.mod.values():
         mdf = getattr(mod, cattr)
