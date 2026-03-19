@@ -735,6 +735,7 @@ class MuData:
                         if isinstance(mx, pd.DataFrame):
                             mx = mx.iloc[index_order, :]
                             mx.iloc[index_order == -1, :] = pd.NA
+                            mx.index = data_mod.index
                         else:
                             mx = mx[index_order]
                             mx[index_order == -1] = np.nan
@@ -742,7 +743,7 @@ class MuData:
 
                 # Update .obsp/.varp (size might have changed)
                 for mx_key, mx in attrp.items():
-                    mx = mx[mx_key][index_order, index_order]
+                    mx = mx[index_order[:, None], index_order[None, :]]
                     mx[index_order == -1, :] = -1
                     mx[:, index_order == -1] = -1
                     attrp[mx_key] = mx

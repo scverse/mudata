@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from anndata import AnnData
+from scipy.sparse import csc_array, csr_array
 
 from mudata import MuData, set_options
 
@@ -70,7 +71,15 @@ def add_mdata_global_columns(md, rng):
     md.var["dtype-categorical"] = pd.Categorical(rng.choice(["a", "b", "c"], size=md.shape[1]))
 
     md.obsm["test"] = rng.normal(size=(md.n_obs, 2))
-    md.varm["test"] = rng.normal(size=(md.n_var, 2))
+    md.varm["test"] = rng.normal(size=(md.n_vars, 2))
+
+    md.obsm["test_df"] = pd.DataFrame(rng.normal(size=(md.n_obs, 2)), columns=["col1", "col2"], index=md.obs_names)
+    md.varm["test_df"] = pd.DataFrame(rng.normal(size=(md.n_vars, 2)), columns=["col1", "col2"], index=md.var_names)
+
+    md.obsp["dense"] = rng.poisson(size=(md.n_obs, md.n_obs))
+    md.varp["dense"] = rng.poisson(size=(md.n_vars, md.n_vars))
+    md.obsp["sparse"] = csr_array(rng.poisson(size=(md.n_obs, md.n_obs)))
+    md.varp["sparse"] = csc_array(rng.poisson(size=(md.n_vars, md.n_vars)))
 
     return md
 
