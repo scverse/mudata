@@ -19,6 +19,12 @@ from warnings import warn
 import anndata as ad
 import h5py
 from anndata import AnnData
+from anndata._io.h5ad import _read_raw
+from anndata._io.h5ad import read_dataframe as read_h5ad_dataframe
+from anndata._io.specs.registry import read_elem, write_elem
+from anndata._io.zarr import _read_legacy_raw
+from anndata._io.zarr import read_dataframe as read_zarr_dataframe
+from anndata._io.zarr import write_zarr as anndata_write_zarr
 from anndata.compat import _read_attr
 from scipy import sparse
 
@@ -38,8 +44,6 @@ def _is_openfile(obj):
 
 
 def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
-    from anndata._io.specs.registry import write_elem
-
     from .. import __anndataversion__, __mudataversion__, __version__
 
     write_elem(
@@ -119,15 +123,10 @@ def write_zarr(store: MutableMapping | str | PathLike, data: MuData | AnnData, c
     Matrices - sparse or dense - are currently stored as they are.
     """
     import zarr
-    from anndata import settings
-    from anndata._io.specs.registry import write_elem
-    from anndata._io.zarr import write_zarr as anndata_write_zarr
 
     from .. import __anndataversion__, __mudataversion__, __version__
 
-    zarr_format = 2
-    if hasattr(settings, "zarr_write_format"):
-        zarr_format = settings.zarr_write_format
+    zarr_format = getattr(ad.settings, "zarr_write_format", 2)
 
     if isinstance(data, AnnData):
         adata = data
@@ -247,8 +246,6 @@ def write_h5ad(filename: str | PathLike, mod: str, data: MuData | AnnData):
 
     Ideally this is merged later to anndata._io.h5ad.write_h5ad.
     """
-    from anndata._io.specs.registry import write_elem
-
     from .. import __anndataversion__, __version__
 
     if isinstance(data, AnnData):
@@ -358,9 +355,6 @@ def read_h5mu(filename: str | PathLike | io.IOBase | fsspec.OpenFile, backed: st
     """Read MuData object from HDF5 file."""
     assert backed in [None, True, False, "r", "r+"], "Argument `backed` should be boolean, or r/r+, or None"
 
-    from anndata._io.h5ad import read_dataframe
-    from anndata._io.specs.registry import read_elem
-
     if backed is True or not backed:
         mode = "r"
     else:
@@ -385,7 +379,7 @@ def read_h5mu(filename: str | PathLike | io.IOBase | fsspec.OpenFile, backed: st
                 d = {}
                 for k in f.keys():
                     if k in ["obs", "var"]:
-                        d[k] = read_dataframe(f[k])
+                        d[k] = read_h5ad_dataframe(f[k])
                     if k == "mod":
                         mods = ModDict()
                         gmods = f[k]
@@ -425,9 +419,6 @@ def read_zarr(store: str | PathLike | MutableMapping | zarr.Group):
         The filename, a :class:`~typing.MutableMapping`, or a Zarr storage class.
     """
     import zarr
-    from anndata._io.specs.registry import read_elem
-    from anndata._io.zarr import read_dataframe
-    from anndata._io.zarr import read_zarr as anndata_read_zarr
 
     if isinstance(store, Path):
         store = str(store)
@@ -435,18 +426,17 @@ def read_zarr(store: str | PathLike | MutableMapping | zarr.Group):
     f = zarr.open(store, mode="r")
     d = {}
     if "mod" not in f.keys():
-        return anndata_read_zarr(store)
+        return ad.read_zarr(store)
 
     manager = MuDataFileManager()
     for k in f.keys():
         if k in {"obs", "var"}:
-            d[k] = read_dataframe(f[k])
+            d[k] = read_zarr_dataframe(f[k])
         if k == "mod":
             mods = {}
             gmods = f[k]
             for m in gmods.keys():
-                ad = _read_zarr_mod(gmods[m], manager)
-                mods[m] = ad
+                mods[m] = _read_zarr_mod(gmods[m], manager)
 
             mod_order = None
             if "mod-order" in gmods.attrs:
@@ -465,15 +455,11 @@ def read_zarr(store: str | PathLike | MutableMapping | zarr.Group):
 
 
 def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: bool = False) -> dict:
-    from anndata import Raw
-    from anndata._io.specs.registry import read_elem
-    from anndata._io.zarr import _read_legacy_raw, read_dataframe
-
     d = {}
 
     for k in g.keys():
         if k in ("obs", "var"):
-            d[k] = read_dataframe(g[k])
+            d[k] = read_zarr_dataframe(g[k])
         elif k == "X":
             X = g["X"]
             if not backed:
@@ -485,23 +471,19 @@ def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: boo
         ad.file = AnnDataFileManager(ad, Path(g.name).name, manager)
 
     raw = _read_legacy_raw(
-        g, d.get("raw"), read_dataframe, read_elem, attrs=("var", "varm") if backed else ("var", "varm", "X")
+        g, d.get("raw"), read_zarr_dataframe, read_elem, attrs=("var", "varm") if backed else ("var", "varm", "X")
     )
     if raw:
-        ad._raw = Raw(ad, **raw)
+        ad._raw = ad.Raw(ad, **raw)
     return ad
 
 
 def _read_h5mu_mod(g: h5py.Group, manager: MuDataFileManager = None, backed: bool = False) -> dict:
-    from anndata import Raw
-    from anndata._io.h5ad import _read_raw, read_dataframe
-    from anndata._io.specs.registry import read_elem
-
     d = {}
 
     for k in g.keys():
         if k in ("obs", "var"):
-            d[k] = read_dataframe(g[k])
+            d[k] = read_h5ad_dataframe(g[k])
         elif k == "X":
             X = g["X"]
             if not backed:
@@ -514,7 +496,7 @@ def _read_h5mu_mod(g: h5py.Group, manager: MuDataFileManager = None, backed: boo
 
     raw = _read_raw(g, attrs=("var", "varm") if backed else ("var", "varm", "X"))
     if raw:
-        ad._raw = Raw(ad, **raw)
+        ad._raw = ad.Raw(ad, **raw)
     return ad
 
 
