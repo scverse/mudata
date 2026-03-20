@@ -1,5 +1,4 @@
 import contextlib
-from io import BufferedReader
 
 import anndata as ad
 import fsspec
@@ -191,7 +190,7 @@ def test_fsspec(mdata, filepath_h5mu, filepath_h5ad):
     assert (mdata.var_names == mdata_.var_names).all()
 
     with f as ff:
-        mdata_ = md.read_h5mu(BufferedReader(ff))
+        mdata_ = md.read_h5mu(ff)
     assert mdata.shape == mdata_.shape
     assert list(mdata.mod.keys()) == list(mdata_.mod.keys())
     assert (mdata.obs_names == mdata_.obs_names).all()
