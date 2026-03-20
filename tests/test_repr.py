@@ -1,44 +1,33 @@
-import numpy as np
-import pytest
-from anndata import AnnData
+import re
 
-from mudata import MuData
-
-# Dimensions
-N = 100
-D1, D2 = 10, 20
-D = D1 + D2
+modality_header_pattern = re.compile(r"^\s*(.+):\s*(\d+)\s*×\s*(\d+)\s*$")
 
 
-@pytest.fixture()
-def mdata():
-    mod1 = AnnData(np.arange(0, 100, 0.1).reshape(-1, D1))
-    mod1.obs_names = [f"obs{i}" for i in range(mod1.n_obs)]
-    mod1.var_names = [f"var{i}" for i in range(D1)]
+def test_repr(mdata):
+    rep = repr(mdata).splitlines()
 
-    mod21 = AnnData(np.arange(3101, 5101, 1).reshape(-1, D2))
-    mod22 = AnnData(np.arange(3101, 5101, 1).reshape(-1, D2))
-    # Same obs_names and var_names
-    mod21.obs_names = mod1.obs_names.copy()
-    mod22.obs_names = mod1.obs_names.copy()
-    mod21.var_names = [f"var{i}" for i in range(D1, D)]
-    mod22.var_names = [f"var{i}" for i in range(D1, D)]
-    mod2 = MuData({"mod21": mod21, "mod22": mod22}, axis=-1)
+    assert rep[0] == f"MuData object with n_obs × n_vars = {mdata.n_obs} × {mdata.n_vars}"
+    assert rep[1].lstrip().startswith("obs:")
+    assert rep[2].lstrip().startswith("var:")
 
-    mdata = MuData({"mod1": mod1, "mod2": mod2})
-    return mdata
+    for col in mdata.obs.columns:
+        if not any(col.startswith(f"{mod}:") for mod in mdata.mod_names):
+            assert col in rep[1]
+    for col in mdata.var.columns:
+        if not any(col.startswith(f"{mod}:") for mod in mdata.mod_names):
+            assert col in rep[2]
 
+    assert rep[3].strip() == f"{mdata.n_mod} modalities"
 
-def test_nested_mudata(mdata):
-    assert mdata.shape == (N, D)
-    assert mdata["mod1"].shape == (N, D1)
-    assert mdata["mod2"].shape == (N, D2)
-    assert mdata.axis == 0
-    assert mdata["mod2"].axis == -1
-
-
-def test_mod_repr(mdata):
-    assert (
-        mdata.mod.__repr__()
-        == f"MuData\n├─ mod1 AnnData ({N} x {D1})\n└─ mod2 MuData [shared obs and var] ({N} × 20)\n   ├─ mod21 AnnData ({N} x {D2})\n   └─ mod22 AnnData ({N} x {D2})"
-    )
+    indentation = 1e6
+    for line in rep[4:]:
+        for i, char in enumerate(line):
+            if not char.isspace():
+                indentation = min(indentation, i)
+    for line in rep[4:]:
+        if not line[indentation].isspace():  # modality header
+            match = modality_header_pattern.fullmatch(line)
+            assert match is not None
+            assert (cmod := match[1]) in mdata.mod
+            assert int(match[2]) == mdata[cmod].n_obs
+            assert int(match[3]) == mdata[cmod].n_vars

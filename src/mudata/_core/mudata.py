@@ -2221,7 +2221,7 @@ class MuData:
             if isinstance(v, MuData):
                 descr += f"\n{mod_indent}{k}:\t" + v._gen_repr(v.n_obs, v.n_vars, extensive, nest_level + 1)
                 continue
-            descr += f"\n{mod_indent}{k}:\t{v.n_obs} x {v.n_vars}"
+            descr += f"\n{mod_indent}{k}:\t{v.n_obs} × {v.n_vars}"
             for attr in ["obs", "var", "uns", "obsm", "varm", "layers", "obsp", "varp"]:
                 try:
                     keys = getattr(v, attr).keys()
