@@ -46,16 +46,11 @@ urls.Source = "https://github.com/scverse/mudata"
 
 [dependency-groups]
 dev = [
-  "hatch-vcs",    # for version handling in editable mode
   "mudata[io]",
   "pre-commit",
   "twine>=4.0.2",
 ]
-test = [
-  "coverage>=7.10",
-  "pytest",
-  "zarr",
-]
+test = [ "coverage>=7.10", "mudata[io]", "pytest" ]
 doc = [
   "docutils>=0.8,!=0.18.*,!=0.19.*",
   "ipykernel",

@@ -1,4 +1,8 @@
+import contextlib
+from io import BufferedReader
+
 import anndata as ad
+import fsspec
 import h5py
 import numpy as np
 import pytest
@@ -172,3 +176,44 @@ def test_write_read(mdata, tmp_path, filepath_h5mu, filepath_h5ad):
     assert "foo" in adata_.obs.columns
     assert (adata.obs["foo"] == adata_.obs["foo"]).all()
     assert (adata.X == adata_.X).all()
+
+
+def test_fsspec(mdata, filepath_h5mu, filepath_h5ad):
+    mdata.write(filepath_h5mu)
+
+    f = fsspec.open(filepath_h5mu)
+    f.open()
+    mdata_ = md.read(f)
+    f.close()
+    assert mdata.shape == mdata_.shape
+    assert list(mdata.mod.keys()) == list(mdata_.mod.keys())
+    assert (mdata.obs_names == mdata_.obs_names).all()
+    assert (mdata.var_names == mdata_.var_names).all()
+
+    with f as ff:
+        mdata_ = md.read_h5mu(BufferedReader(ff))
+    assert mdata.shape == mdata_.shape
+    assert list(mdata.mod.keys()) == list(mdata_.mod.keys())
+    assert (mdata.obs_names == mdata_.obs_names).all()
+    assert (mdata.var_names == mdata_.var_names).all()
+
+    adata = mdata["mod1"]
+    adata.write(filepath_h5ad)
+    f = fsspec.open(filepath_h5ad)
+    f.open()
+    adata_ = md.read(f)
+    f.close()
+    assert adata.shape == adata_.shape
+    assert (adata.X == adata_.X).all()
+
+
+def test_validate(mdata, filepath_h5mu):
+    adata = mdata["mod1"]
+    adata.write(filepath_h5mu)
+    with pytest.warns(UserWarning, match="not created by muon/mudata"), contextlib.suppress(Exception):
+        md.read_h5mu(filepath_h5mu)
+
+    with open(filepath_h5mu, "w") as f:
+        f.write("foo")
+    with pytest.raises(ValueError, match="not an HDF5 file"):
+        md.read_h5mu(filepath_h5mu)

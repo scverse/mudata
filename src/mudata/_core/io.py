@@ -375,7 +375,7 @@ def _validate_h5mu(filename: str | PathLike) -> (str, Callable | None):
 
                 if isinstance(filename, OpenFile):
                     fname = filename.__enter__()
-                    callback = lambda: fname.__exit__()
+                    callback = lambda: fname.__exit__(None, None, None)
                 ish5mu = fname.read(6) == b"MuData"
             except ImportError as e:
                 raise ImportError("To read from remote storage or cache, install fsspec: pip install fsspec") from e
@@ -632,7 +632,11 @@ def read(filename: str | PathLike, **kwargs) -> MuData | AnnData:
         fname = str(filename)
 
     if fname.endswith(".h5ad"):
-        return ad.read_h5ad(filename, **kwargs)
+        if filename.__class__.__name__ == "OpenFile":
+            with filename as f:
+                return ad.read_h5ad(f, **kwargs)
+        else:
+            return ad.read_h5ad(filename, **kwargs)
     elif fname.endswith(".h5mu") or not isinstance(filename, str) and not isinstance(filename, Path):
         return read_h5mu(filename, **kwargs)
 
