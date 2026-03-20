@@ -1,4 +1,7 @@
 import re
+from html import escape
+
+import mudata as md
 
 modality_header_pattern = re.compile(r"^\s*(.+):\s*(\d+)\s*×\s*(\d+)\s*$")
 
@@ -31,3 +34,10 @@ def test_repr(mdata):
             assert (cmod := match[1]) in mdata.mod
             assert int(match[2]) == mdata[cmod].n_obs
             assert int(match[3]) == mdata[cmod].n_vars
+
+
+def test_repr_html_smoke(mdata):  # only test that it doesn't error'
+    assert mdata._repr_html_() == f"<pre>{escape(repr(mdata))}</pre>"
+
+    with md.set_options(display_style="html"):
+        mdata._repr_html_()
