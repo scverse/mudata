@@ -8,38 +8,38 @@
 
 {% block attributes %}
 {% if attributes %}
-Attributes table
-~~~~~~~~~~~~~~~~
+    Attributes table
+    ~~~~~~~~~~~~~~~~
 
-.. autosummary::
-{% for item in attributes %}
-    ~{{ name }}.{{ item }}
-{%- endfor %}
-{% endif %}
-{% endblock %}
+    .. autosummary::
+    {% for item in attributes %}
+        ~{{ name }}.{{ item }}
+    {%- endfor %}
+    {% endif %}
+    {% endblock %}
 
 {% block methods %}
 {% if methods %}
-Methods table
-~~~~~~~~~~~~~
+    Methods table
+    ~~~~~~~~~~~~~
 
-.. autosummary::
-{% for item in methods %}
-    {%- if item != '__init__' %}
-    ~{{ name }}.{{ item }}
-    {%- endif -%}
-{%- endfor %}
-{% endif %}
-{% endblock %}
+    .. autosummary::
+    {% for item in methods %}
+        {%- if item != '__init__' %}
+        ~{{ name }}.{{ item }}
+        {%- endif -%}
+    {%- endfor %}
+    {% endif %}
+    {% endblock %}
 
 {% block attributes_documentation %}
 {% if attributes %}
-Attributes
-~~~~~~~~~~
+    Attributes
+    ~~~~~~~~~~
 
 {% for item in attributes %}
 
-.. autoattribute:: {{ [objname, item] | join(".") }}
+    .. autoattribute:: {{ [objname, item] | join(".") }}
 {%- endfor %}
 
 {% endif %}
@@ -47,13 +47,13 @@ Attributes
 
 {% block methods_documentation %}
 {% if methods %}
-Methods
-~~~~~~~
+    Methods
+    ~~~~~~~
 
 {% for item in methods %}
 {%- if item != '__init__' %}
 
-.. automethod:: {{ [objname, item] | join(".") }}
+    .. automethod:: {{ [objname, item] | join(".") }}
 {%- endif -%}
 {%- endfor %}
 

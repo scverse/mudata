@@ -1,22 +1,12 @@
 # API Reference
 
-```{contents}
-:depth: 3
-:local:
-```
-
-```{toctree}
-:maxdepth: 10
-```
-
 ```{eval-rst}
-.. currentmodule:: mudata
+.. module:: mudata
 ```
 
 ## Multimodal omics
 
 ```{eval-rst}
-.. module::mudata
 .. autosummary::
    :toctree: generated
 
@@ -26,7 +16,7 @@
 ## Input/Output
 
 ```{eval-rst}
-.. module::mudata
+.. currentmodule:: mudata
 .. autosummary::
    :toctree: generated
 
@@ -47,7 +37,6 @@
 
 ## Extensions
 ```{eval-rst}
-.. module::mudata
 .. autosummary::
    :toctree: generated
 
@@ -56,7 +45,6 @@
 
 Types used by the former:
 ```{eval-rst}
-.. module::mudata
 .. autosummary::
    :toctree: generated
 
