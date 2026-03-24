@@ -50,3 +50,11 @@ Types used by the former:
 
    ExtensionNamespace
 ```
+
+## Settings
+```{eval-rst}
+.. autosummary::
+   :toctree: generated
+
+   set_options
+```
