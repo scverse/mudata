@@ -6,6 +6,7 @@ import h5py
 import numpy as np
 import pytest
 import zarr
+from scipy.sparse import issparse
 
 import mudata as md
 
@@ -21,9 +22,15 @@ def test_initial_order(mdata):
     assert mods == ["mod2", "mod1"]
 
 
-def test_write_read_h5mu_basic(mdata, filepath_h5mu, filepath2_h5mu):
-    mdata.write(filepath_h5mu)
-    mdata_ = md.read_h5mu(filepath_h5mu)
+@pytest.mark.parametrize(
+    ("write_func", "read_func", "open_func", "filepath"),
+    (("write", "read_h5mu", h5py.File, "filepath_h5mu"), ("write_zarr", "read_zarr", zarr.open, "filepath_zarr")),
+)
+def test_write_read_basic(mdata, write_func, read_func, open_func, filepath, request):
+    filepath = request.getfixturevalue(filepath)
+
+    getattr(mdata, write_func)(filepath)
+    mdata_ = getattr(md, read_func)(filepath)
     assert list(mdata_.mod.keys()) == ["mod2", "mod1"]
     assert (mdata.obs_names == mdata_.obs_names).all()
     assert (mdata.var_names == mdata_.var_names).all()
@@ -31,29 +38,18 @@ def test_write_read_h5mu_basic(mdata, filepath_h5mu, filepath2_h5mu):
         assert np.all(mod.X == mdata_[modname].X)
 
     # Test implementation (storage) as well
-    with h5py.File(filepath_h5mu, "r") as f:
-        assert "mod-order" in f["mod"].attrs
-        assert list(f["mod"].attrs["mod-order"]) == ["mod2", "mod1"]
-
-    mdata.filename = filepath2_h5mu
-    assert mdata.isbacked
-    assert mdata.filename == filepath2_h5mu
-
-
-def test_write_read_zarr_basic(mdata, filepath_zarr):
-    mdata.write_zarr(filepath_zarr)
-    mdata_ = md.read_zarr(filepath_zarr)
-    assert list(mdata_.mod.keys()) == ["mod2", "mod1"]
-    assert (mdata.obs_names == mdata_.obs_names).all()
-    assert (mdata.var_names == mdata_.var_names).all()
-    for modname, mod in mdata.mod.items():
-        assert np.all(mod.X == mdata_[modname].X)
-
-    # Test implementation (storage) as well
-    f = zarr.open(filepath_zarr, mode="r")
+    f = open_func(filepath, mode="r")
     assert "mod-order" in f["mod"].attrs
     assert list(f["mod"].attrs["mod-order"]) == ["mod2", "mod1"]
 
+
+def test_set_filename(mdata, filepath_h5mu):
+    mdata.filename = filepath_h5mu
+    assert mdata.isbacked
+    assert mdata.filename == filepath_h5mu
+
+
+def test_write_read_zarr_adata(mdata, filepath_zarr):
     adata = mdata["mod1"]
     md.write_zarr(filepath_zarr, adata)
     adata_ = ad.read_zarr(filepath_zarr)
@@ -62,33 +58,26 @@ def test_write_read_zarr_basic(mdata, filepath_zarr):
     assert (adata.var_names == adata_.var_names).all()
 
 
-def test_write_read_h5mu_mod_obs_colname(mdata, filepath_h5mu):
+@pytest.mark.parametrize(
+    ("write_func", "read_func", "filepath"),
+    (("write", "read_h5mu", "filepath_h5mu"), ("write_zarr", "read_zarr", "filepath_zarr")),
+)
+def test_write_read_mod_obs_colname(mdata, write_func, read_func, filepath, request):
+    filepath = request.getfixturevalue(filepath)
+
     mdata.obs["column"] = 0
     mdata.obs["mod1:column"] = 1
     mdata["mod1"].obs["column"] = 2
     mdata.update()
-    mdata.write(filepath_h5mu)
-    mdata_ = md.read_h5mu(filepath_h5mu)
+    getattr(mdata, write_func)(filepath)
+    mdata_ = getattr(md, read_func)(filepath)
     assert "column" in mdata_.obs.columns
     assert "mod1:column" in mdata_.obs.columns
     # 2 should supercede 1 on .update()
     assert mdata_.obs["mod1:column"].values[0] == 2
 
 
-def test_write_read_zarr_mod_obs_colname(mdata, filepath_zarr):
-    mdata.obs["column"] = 0
-    mdata.obs["mod1:column"] = 1
-    mdata["mod1"].obs["column"] = 2
-    mdata.update()
-    mdata.write_zarr(filepath_zarr)
-    mdata_ = md.read_zarr(filepath_zarr)
-    assert "column" in mdata_.obs.columns
-    assert "mod1:column" in mdata_.obs.columns
-    # 2 should supercede 1 on .update()
-    assert mdata_.obs["mod1:column"].values[0] == 2
-
-
-def test_h5mu_mod_backed(mdata, filepath_h5mu, filepath2_h5mu):
+def test_h5mu_backed(mdata, filepath_h5mu, filepath2_h5mu):
     mdata.write(filepath_h5mu)
     mdata_ = md.read_h5mu(filepath_h5mu, backed="r")
     assert list(mdata_.mod.keys()) == ["mod2", "mod1"]
@@ -99,10 +88,18 @@ def test_h5mu_mod_backed(mdata, filepath_h5mu, filepath2_h5mu):
 
     mdata_.filename = filepath2_h5mu
     assert mdata_.isbacked
-
     assert mdata_.filename == filepath2_h5mu
+
+
+def test_h5mu_backed_to_memory(mdata, filepath_h5mu):
+    mdata.write(filepath_h5mu)
+    mdata_ = md.read_h5mu(filepath_h5mu, backed="r")
     mdata_.filename = None
     assert not mdata_.isbacked
+
+    for modname in mdata.mod_names:
+        assert isinstance(mdata_.mod[modname].X, np.ndarray) or issparse(mdata_.mod[modname].X)
+        assert (mdata_.mod[modname].X == mdata.mod[modname].X).all()
 
 
 def test_write_read_h5ad(mdata, filepath_h5mu):

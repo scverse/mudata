@@ -97,7 +97,7 @@ class AnnDataFileManager(ad._core.file_backing.AnnDataFileManager):
         self._parent._close()
 
     def _to_memory_mode(self):
-        self._adata.__X = self._adata.X[()]
+        self._adata._X = self._adata.X[()]
         self.close()
         self.filename = None
 
