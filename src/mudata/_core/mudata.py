@@ -1,6 +1,7 @@
 import warnings
 from collections import Counter, abc
 from collections.abc import Iterable, Mapping, MutableMapping, Sequence
+from contextlib import suppress
 from copy import deepcopy
 from functools import reduce
 from hashlib import sha1
@@ -27,11 +28,9 @@ from .repr import MUDATA_CSS, block_matrix, details_block_table
 from .utils import (
     MetadataColumn,
     _make_index_unique,
-    _maybe_coerce_to_bool,
-    _maybe_coerce_to_boolean,
-    _maybe_coerce_to_int,
     _restore_index,
     _update_and_concat,
+    try_convert_dataframe_to_numpy_dtypes,
 )
 from .views import DictView
 
@@ -248,8 +247,6 @@ class MuData:
         self._mudata_ref = None
 
         # Unstructured annotations
-        # NOTE: this is dict in contract to OrderedDict in anndata
-        #       due to favourable performance and lack of need to preserve the insertion order
         self._uns = {}
 
         # For compatibility with calls requiring AnnData slots
@@ -257,7 +254,7 @@ class MuData:
         self.X = None
         self.layers = None
         self.file = MuDataFileManager()
-        self.is_view = False
+        self._is_view = False
 
     def _init_as_view(self, mudata_ref: "MuData", index):
         from anndata._core.index import _normalize_indices
@@ -324,7 +321,7 @@ class MuData:
                 posmap[mod] = cposmap
             setattr(self, "_" + attr + "map", posmap)
 
-        self.is_view = True
+        self._is_view = True
         self.file = mudata_ref.file
         self._axis = mudata_ref._axis
         self._uns = mudata_ref._uns
@@ -518,6 +515,11 @@ class MuData:
         return self._mod
 
     @property
+    def is_view(self) -> bool:
+        """Whether the object is a view of another `MuData` object."""
+        return self._is_view
+
+    @property
     def shape(self) -> tuple[int, int]:
         """Shape of data, all variables and observations combined (:attr:`n_obs`, :attr:`n_var`)."""
         return self.n_obs, self.n_vars
@@ -525,27 +527,6 @@ class MuData:
     def __len__(self) -> int:
         """Length defined as a total number of observations (:attr:`n_obs`)."""
         return self.n_obs
-
-    # # Currently rely on AnnData's interface for setting .obs / .var
-    # # This code implements AnnData._set_dim_df for another namespace
-    # def _set_dim_df(self, value: pd.DataFrame, attr: str):
-    #     if not isinstance(value, pd.DataFrame):
-    #         raise ValueError(f"Can only assign pd.DataFrame to {attr}.")
-    #     value_idx = AnnData._prep_dim_index(self, value.index, attr)
-    #     setattr(self, f"_{attr}", value)
-    #     AnnData._set_dim_index(self, value_idx, attr)
-
-    def _create_global_attr_index(self, attr: str, axis: int):
-        if axis == (1 - self._axis):
-            # Shared indices
-            modindices = [getattr(self._mod[m], attr).index for m in self._mod]
-            if all(modindices[i].equals(modindices[i + 1]) for i in range(len(modindices) - 1)):
-                attrindex = modindices[0].copy()
-            attrindex = reduce(pd.Index.union, [getattr(self._mod[m], attr).index for m in self._mod]).values
-        else:
-            # Modality-specific indices
-            attrindex = np.concatenate([getattr(self._mod[m], attr).index.values for m in self._mod], axis=0)
-        return attrindex
 
     def _update_attr(
         self,
@@ -656,7 +637,9 @@ class MuData:
             data_mod = _make_index_unique(data_mod, force=attr_intersecting)
             data_global = _make_index_unique(data_global, force=attr_intersecting)
             if data_global.shape[1] > 0:
-                data_mod = data_mod.join(data_global, how="left", sort=False)
+                data_mod = try_convert_dataframe_to_numpy_dtypes(
+                    data_mod.join(data_global.convert_dtypes(), how="left", sort=False)
+                )
 
             if data_global.shape[0] > 0:
                 reorder_data_mod()
@@ -704,7 +687,9 @@ class MuData:
                 need_unique = data_mod.index.is_unique | data_global.index.is_unique
                 data_global = _make_index_unique(data_global, force=need_unique)
                 data_mod = _make_index_unique(data_mod, force=need_unique)
-                data_mod = data_mod.join(data_global, how="left", sort=False)
+                data_mod = try_convert_dataframe_to_numpy_dtypes(
+                    data_mod.join(data_global.convert_dtypes(), how="left", sort=False)
+                )
 
                 reorder_data_mod()
                 calc_attrm_update()
@@ -750,6 +735,7 @@ class MuData:
                         if isinstance(mx, pd.DataFrame):
                             mx = mx.iloc[index_order, :]
                             mx.iloc[index_order == -1, :] = pd.NA
+                            mx.index = data_mod.index
                         else:
                             mx = mx[index_order]
                             mx[index_order == -1] = np.nan
@@ -757,7 +743,7 @@ class MuData:
 
                 # Update .obsp/.varp (size might have changed)
                 for mx_key, mx in attrp.items():
-                    mx = mx[mx_key][index_order, index_order]
+                    mx = mx[index_order[:, None], index_order[None, :]]
                     mx[index_order == -1, :] = -1
                     mx[:, index_order == -1] = -1
                     attrp[mx_key] = mx
@@ -874,14 +860,13 @@ class MuData:
             # Shared axis
             if axis == (1 - self._axis) or self._axis == -1:
                 # We assume attr_intersecting and can't join_common
-                data_mod = _maybe_coerce_to_bool(
+                data_mod = try_convert_dataframe_to_numpy_dtypes(
                     pd.concat(
                         [
-                            _maybe_coerce_to_boolean(
-                                getattr(a, attr)
-                                .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                                .add_prefix(m + ":")
-                            )
+                            getattr(a, attr)
+                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                            .add_prefix(m + ":")
+                            .convert_dtypes()
                             for m, a in self._mod.items()
                         ],
                         join="outer",
@@ -894,12 +879,11 @@ class MuData:
                     # We checked above that attr_names are guaranteed to be unique and thus are safe to be used for joins
                     data_mod = pd.concat(
                         [
-                            _maybe_coerce_to_boolean(
-                                getattr(a, attr)
-                                .drop(columns_common, axis=1)
-                                .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                                .add_prefix(m + ":")
-                            )
+                            getattr(a, attr)
+                            .drop(columns_common, axis=1)
+                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                            .add_prefix(m + ":")
+                            .convert_dtypes()
                             for m, a in self._mod.items()
                         ],
                         join="outer",
@@ -907,27 +891,26 @@ class MuData:
                         sort=False,
                     )
                     data_common = pd.concat(
-                        [_maybe_coerce_to_boolean(getattr(a, attr)[columns_common]) for m, a in self._mod.items()],
+                        [getattr(a, attr)[columns_common].convert_dtypes() for m, a in self._mod.items()],
                         join="outer",
                         axis=0,
                         sort=False,
                     )
 
-                    data_mod = _maybe_coerce_to_bool(data_mod.join(data_common, how="left", sort=False))
-                    data_common = _maybe_coerce_to_bool(data_common)
+                    data_mod = try_convert_dataframe_to_numpy_dtypes(data_mod.join(data_common, how="left", sort=False))
+                    data_common = try_convert_dataframe_to_numpy_dtypes(data_common)
 
                     # this occurs when join_common=True and we already have a global data frame, e.g. after reading from H5MU
                     sharedcols = data_mod.columns.intersection(data_global.columns)
                     data_global.rename(columns={col: f"global:{col}" for col in sharedcols}, inplace=True)
                 else:
-                    data_mod = _maybe_coerce_to_bool(
+                    data_mod = try_convert_dataframe_to_numpy_dtypes(
                         pd.concat(
                             [
-                                _maybe_coerce_to_boolean(
-                                    getattr(a, attr)
-                                    .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                                    .add_prefix(m + ":")
-                                )
+                                getattr(a, attr)
+                                .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                                .add_prefix(m + ":")
+                                .convert_dtypes()
                                 for m, a in self._mod.items()
                             ],
                             join="outer",
@@ -973,15 +956,13 @@ class MuData:
         else:
             if join_common:
                 dfs = [
-                    _maybe_coerce_to_boolean(
-                        _make_index_unique(
-                            getattr(a, attr)
-                            .drop(columns_common, axis=1)
-                            .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
-                            .add_prefix(m + ":"),
-                            force=True,
-                        )
-                    )
+                    _make_index_unique(
+                        getattr(a, attr)
+                        .drop(columns_common, axis=1)
+                        .assign(**{rowcol: np.arange(getattr(a, attr).shape[0])})
+                        .add_prefix(m + ":"),
+                        force=True,
+                    ).convert_dtypes()
                     for m, a in self._mod.items()
                 ]
 
@@ -990,7 +971,7 @@ class MuData:
 
                 data_common = pd.concat(
                     [
-                        _maybe_coerce_to_boolean(_make_index_unique(getattr(a, attr)[columns_common], force=True))
+                        _make_index_unique(getattr(a, attr)[columns_common], force=True).convert_dtypes()
                         for m, a in self._mod.items()
                     ],
                     join="outer",
@@ -998,8 +979,8 @@ class MuData:
                     sort=False,
                 )
 
-                data_mod = _maybe_coerce_to_bool(data_mod.join(data_common, how="left", sort=False))
-                data_common = _maybe_coerce_to_bool(data_common)
+                data_mod = try_convert_dataframe_to_numpy_dtypes(data_mod.join(data_common, how="left", sort=False))
+                data_common = try_convert_dataframe_to_numpy_dtypes(data_common)
             else:
                 dfs = [
                     _make_index_unique(
@@ -1263,21 +1244,70 @@ class MuData:
         """Total number of observations"""
         return self._obs.shape[0]
 
-    def obs_vector(self, key: str, layer: str | None = None) -> np.ndarray:
-        """Return an array of values for the requested key of length n_obs"""
-        if key not in self.obs.columns:
+    def _attr_vector(self, key: str, attr: str) -> np.ndarray:
+        df = getattr(self, attr)
+        if key not in df.columns:
             for m, a in self._mod.items():
-                if key in a.obs.columns:
+                if key in getattr(a, attr).columns:
                     raise KeyError(
-                        f"There is no {key} in MuData .obs but there is one in {m} .obs. Consider running `mu.update_obs()` to update global .obs."
+                        f"There is no key {key} in MuData .{attr} but there is one in {m} .{attr}. Consider running `update_{attr}()` to update global .{attr}."
                     )
-            raise KeyError(f"There is no key {key} in MuData .obs or in .obs of any modalities.")
-        return self.obs[key].values
+            raise KeyError(f"There is no key {key} in MuData .{attr} or in .{attr} of any modalities.")
+        return df[key].to_numpy()
+
+    def obs_vector(self, key: str, layer: str | None = None) -> np.ndarray:
+        """Return an array of values for the requested key of length n_obs.
+
+        Parameters
+        ----------
+        key
+            The key to use. Must be in `.obs.columns`.
+        layer
+            Ignored, only for compatibility with AnnData.
+        """
+        return self._attr_vector(key, "obs")
 
     def update_obs(self):
         """Update global .obs_names according to the .obs_names of all the modalities."""
         join_common = self.axis == 1
         self._update_attr("obs", axis=1, join_common=join_common)
+
+    def _names_make_unique(self, attr: Literal["obs", "var"]):
+        axis = 0 if attr == "obs" else 1
+        if self.axis != 1 - axis:
+            raise TypeError(
+                f"This operation is only supported on MuData objects with `axis={1 - axis}`. This MuData has `axis={self.axis}`."
+            )
+        namesattr = f"{attr}_names"
+        mod_sum = np.sum([a.shape[axis] for a in self._mod.values()])
+        if mod_sum != self.shape[axis]:
+            self._update_attr(attr, axis=1 - axis)
+
+        for mod in self._mod.values():
+            mod_make_unique = getattr(mod, f"{attr}_names_make_unique")
+            if isinstance(mod, AnnData):
+                mod_make_unique()
+            # Only propagate to individual modalities with shared vars
+            elif isinstance(mod, MuData) and mod.axis == axis:
+                mod_make_unique()
+
+        # Check if there are observations with the same name in different modalities
+        mods = list(self._mod.keys())
+        with suppress(StopIteration):
+            for i in range(len(self._mod) - 1):
+                ki = mods[i]
+                for j in range(i + 1, len(self._mod)):
+                    kj = mods[j]
+                    if len(getattr(self._mod[ki], namesattr).intersection(getattr(self._mod[kj], namesattr))) > 0:
+                        warnings.warn(
+                            "Modality names will be prepended to obs_names since there are identical obs_names in different modalities.",
+                            stacklevel=1,
+                        )
+                        for m, mod in self._mod.items():
+                            setattr(mod, namesattr, m + ":" + getattr(mod, namesattr).astype(str))
+                        raise StopIteration()  # break out of both loops
+
+        setattr(self, namesattr, pd.Index([]).append([getattr(mod, namesattr) for mod in self._mod.values()]))
 
     def obs_names_make_unique(self):
         """
@@ -1286,36 +1316,7 @@ class MuData:
         If there are obs_names, which are the same for multiple modalities,
         append modality name to all obs_names.
         """
-        mod_obs_sum = np.sum([a.n_obs for a in self._mod.values()])
-        if mod_obs_sum != self.n_obs:
-            self.update_obs()
-
-        for k in self._mod:
-            if isinstance(self._mod[k], AnnData):
-                self._mod[k].obs_names_make_unique()
-            # Only propagate to individual modalities with shared vars
-            elif isinstance(self._mod[k], MuData) and getattr(self._mod[k], "axis", 1) == 1:
-                self._mod[k].obs_names_make_unique()
-
-        # Check if there are observations with the same name in different modalities
-        common_obs = []
-        mods = list(self._mod.keys())
-        for i in range(len(self._mod) - 1):
-            ki = mods[i]
-            for j in range(i + 1, len(self._mod)):
-                kj = mods[j]
-                common_obs.append(self._mod[ki].obs_names.intersection(self._mod[kj].obs_names.values))
-        if any(len(x) > 0 for x in common_obs):
-            warnings.warn(
-                "Modality names will be prepended to obs_names since there are identical obs_names in different modalities.",
-                stacklevel=1,
-            )
-            for k in self._mod:
-                self._mod[k].obs_names = k + ":" + self._mod[k].obs_names.astype(str)
-
-        # Update .obs.index in the MuData
-        obs_names = [obs for a in self._mod.values() for obs in a.obs_names.values]
-        self._obs.index = obs_names
+        self._names_make_unique("obs")
 
     def _set_names(self, attr: str, axis: int, names: Sequence[str]):
         if isinstance(names, pd.Index):
@@ -1329,13 +1330,16 @@ class MuData:
             if not isinstance(names.name, str | type(None)):
                 names.name = None
 
-        mod_shape_sum = np.sum([a.shape[axis] for a in self._mod.values()])
+        if axis != self.axis and self.axis != -1:
+            mod_shape_sum = np.sum([a.shape[axis] for a in self._mod.values()])
+        else:
+            mod_shape_sum = reduce(lambda x, y: x.union(y), (getattr(a, attr).index for a in self._mod.values())).size
         if mod_shape_sum != self.shape[axis]:
             self._update_attr(attr, axis=1 - axis)
 
         if len(names) != self.shape[axis]:
             raise ValueError(
-                f"The length of provided observation names {len(names)} does not match the length {self.shape[axis]} of MuData.{attr}."
+                f"The length of provided {attr}_names {len(names)} does not match the length {self.shape[axis]} of MuData.{attr}."
             )
 
         if self.is_view:
@@ -1392,15 +1396,16 @@ class MuData:
         return self._var.shape[0]
 
     def var_vector(self, key: str, layer: str | None = None) -> np.ndarray:
-        """Return an array of values for the requested key of length n_var."""
-        if key not in self.var.columns:
-            for m, a in self._mod.items():
-                if key in a.var.columns:
-                    raise KeyError(
-                        f"There is no {key} in MuData .var but there is one in {m} .var. Consider running `mu.update_var()` to update global .var."
-                    )
-            raise KeyError(f"There is no key {key} in MuData .var or in .var of any modalities.")
-        return self.var[key].values
+        """Return an array of values for the requested key of length n_var.
+
+        Parameters
+        ----------
+        key
+            The key to use. Must be in `.obs.columns`.
+        layer
+            Ignored, only for compatibility with AnnData.
+        """
+        return self._attr_vector(key, "var")
 
     def update_var(self):
         """Update global .var_names according to the .var_names of all the modalities."""
@@ -1414,36 +1419,7 @@ class MuData:
         If there are var_names, which are the same for multiple modalities,
         append modality name to all var_names.
         """
-        mod_var_sum = np.sum([a.n_vars for a in self._mod.values()])
-        if mod_var_sum != self.n_vars:
-            self.update_var()
-
-        for k in self._mod:
-            if isinstance(self._mod[k], AnnData):
-                self._mod[k].var_names_make_unique()
-            # Only propagate to individual modalities with shared obs
-            elif isinstance(self._mod[k], MuData) and getattr(self._mod[k], "axis", 0) == 0:
-                self._mod[k].var_names_make_unique()
-
-        # Check if there are variables with the same name in different modalities
-        common_vars = []
-        mods = list(self._mod.keys())
-        for i in range(len(self._mod) - 1):
-            ki = mods[i]
-            for j in range(i + 1, len(self._mod)):
-                kj = mods[j]
-                common_vars.append(np.intersect1d(self._mod[ki].var_names.values, self._mod[kj].var_names.values))
-        if any(len(x) > 0 for x in common_vars):
-            warnings.warn(
-                "Modality names will be prepended to var_names since there are identical var_names in different modalities.",
-                stacklevel=1,
-            )
-            for k in self._mod:
-                self._mod[k].var_names = k + ":" + self._mod[k].var_names.astype(str)
-
-        # Update .var.index in the MuData
-        var_names = [var for a in self._mod.values() for var in a.var_names.values]
-        self._var.index = var_names
+        self._names_make_unique("var")
 
     @property
     def var_names(self) -> pd.Index:
@@ -1621,7 +1597,7 @@ class MuData:
         nonunique: bool | None = None,
         join_nonunique: bool | None = None,
         unique: bool | None = None,
-        prefix_unique: bool | None = True,
+        prefix_unique: bool = True,
         drop: bool = False,
         only_drop: bool = False,
     ):
@@ -1763,9 +1739,6 @@ class MuData:
         if join_nonunique is None:
             join_nonunique = False
 
-        if prefix_unique is None:
-            prefix_unique = True
-
         # Below we will rely on attrmap that has been calculated during .update()
         # and use it to create an index without duplicates
         # for faster concatenation and to reduce the amount of code
@@ -1806,21 +1779,20 @@ class MuData:
 
             # reorder modality DF to conform to global order
             mod_df = (
-                _maybe_coerce_to_boolean(mod_df)
-                .iloc[mod_map[mask] - 1]
+                mod_df.iloc[mod_map[mask] - 1]
                 .set_index(np.arange(n_attr)[mask])
                 .reindex(np.arange(n_attr))
+                .convert_dtypes()
             )
             dfs.append(mod_df)
 
         if only_drop:
             return
 
-        global_df = _maybe_coerce_to_boolean(getattr(self, attr).set_index(np.arange(n_attr)))
-        df = reduce(_update_and_concat, [global_df, *dfs])
-        df = _maybe_coerce_to_bool(df)
-        df = _maybe_coerce_to_int(df)
-        df = df.set_index(getattr(self, f"{attr}_names"))
+        global_df = getattr(self, attr).set_index(np.arange(n_attr)).convert_dtypes()
+        df = try_convert_dataframe_to_numpy_dtypes(reduce(_update_and_concat, [global_df, *dfs])).set_index(
+            getattr(self, f"{attr}_names")
+        )
         setattr(self, attr, df)
 
     def pull_obs(
@@ -1832,7 +1804,7 @@ class MuData:
         nonunique: bool | None = None,
         join_nonunique: bool | None = None,
         unique: bool | None = None,
-        prefix_unique: bool | None = True,
+        prefix_unique: bool = True,
         drop: bool = False,
         only_drop: bool = False,
     ):
@@ -1902,7 +1874,7 @@ class MuData:
         nonunique: bool | None = None,
         join_nonunique: bool | None = None,
         unique: bool | None = None,
-        prefix_unique: bool | None = True,
+        prefix_unique: bool = True,
         drop: bool = False,
         only_drop: bool = False,
     ):
@@ -1991,7 +1963,6 @@ class MuData:
             Cannot be used with columns. True by default.
         prefixed
             If True, push columns that have a modality prefix.
-            which are prefixed by modality names.
             Only push to the respective modality names.
             Cannot be used with columns. True by default.
         drop
@@ -2006,8 +1977,7 @@ class MuData:
 
         if mods is not None:
             if isinstance(mods, str):
-                mods = [mods]
-            mods = list(dict.fromkeys(mods))
+                mods = (mods,)
             if not all(m in self._mod for m in mods):
                 raise ValueError("All mods should be present in mdata.mod")
             elif len(mods) == self.n_mod:
@@ -2081,8 +2051,6 @@ class MuData:
             df = df.iloc[idx].set_index(np.arange(mod_n_attr, dtype=mod_map.dtype))
 
             if not only_drop:
-                # TODO: _maybe_coerce_to_bool
-                # TODO: _maybe_coerce_to_int
                 # TODO: _prune_unused_categories
                 mod_df = getattr(mod, attr).set_index(np.arange(mod_n_attr))
                 mod_df = _update_and_concat(mod_df, df)
@@ -2253,7 +2221,7 @@ class MuData:
             if isinstance(v, MuData):
                 descr += f"\n{mod_indent}{k}:\t" + v._gen_repr(v.n_obs, v.n_vars, extensive, nest_level + 1)
                 continue
-            descr += f"\n{mod_indent}{k}:\t{v.n_obs} x {v.n_vars}"
+            descr += f"\n{mod_indent}{k}:\t{v.n_obs} × {v.n_vars}"
             for attr in ["obs", "var", "uns", "obsm", "varm", "layers", "obsp", "varp"]:
                 try:
                     keys = getattr(v, attr).keys()

@@ -1,5 +1,6 @@
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from contextlib import suppress
 from typing import Literal, TypeVar
 
 import numpy as np
@@ -29,19 +30,6 @@ def _make_index_unique(df: pd.DataFrame, force: bool = False) -> pd.DataFrame:
 
 def _restore_index(df: pd.DataFrame) -> pd.DataFrame:
     return df.reset_index(level=-1, drop=True) if df.index.nlevels > 1 else df
-
-
-def _maybe_coerce_to_boolean(df: T) -> T:
-    if isinstance(df, pd.Series):
-        if df.dtype == bool:
-            return df.astype("boolean")
-        return df
-
-    for col in df.columns:
-        if df[col].dtype == bool:
-            df = df.assign(**{col: df[col].astype("boolean")})
-
-    return df
 
 
 class MetadataColumn:
@@ -115,43 +103,43 @@ def _update_and_concat(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
     return res
 
 
-def _maybe_coerce_to_bool(df: T) -> T:
-    if isinstance(df, pd.Series):
-        if isinstance(df.dtype, pd.BooleanDtype):
-            try:
-                return df.astype(bool)
-            except ValueError:
-                # cannot convert float NaN to bool
-                return df
-        return df
+def try_convert_series_to_numpy_dtype(col: pd.Series) -> pd.Series:
+    """Attempt to convert a :class:`~pandas.Series` to a non-nullable dtype.
 
-    for col in df.columns:
-        if isinstance(df[col].dtype, pd.BooleanDtype):
-            try:
-                df = df.assign(**{col: df[col].astype(bool)})
-            except ValueError:
-                # cannot convert float NaN to bool
-                pass
+    Parameters
+    ----------
+    col
+        The series to be converted.
 
-    return df
+    Returns
+    -------
+    The converted series, `col` did not contain any :data:`~pandas.NA` values, the unmodified `col` otherwise.
+    """
+    with suppress(ValueError):
+        match col.dtype:
+            case pd.BooleanDtype():
+                col = col.astype(bool)
+            case pd.core.arrays.integer.IntegerDtype(type=dtype) | pd.core.arrays.floating.FloatingDtype(type=dtype):
+                col = col.astype(dtype)
+            case pd.StringDtype():
+                col = col.astype(object)
+    return col
 
 
-def _maybe_coerce_to_int(df: T) -> T:
-    if isinstance(df, pd.Series):
-        if isinstance(df.dtype, pd.Int64Dtype):
-            try:
-                return df.astype(int)
-            except ValueError:
-                # cannot convert float NaN to int
-                return df
-        return df
+def try_convert_dataframe_to_numpy_dtypes(df: pd.DataFrame | Mapping[str, pd.Series]) -> pd.DataFrame:
+    """Attempt to convert all columns of a :class:`~pandas.DataFrame` to their respective non-nullable dtype.
 
-    for col in df.columns:
-        if isinstance(df[col].dtype, pd.Int64Dtype):
-            try:
-                df = df.assign(**{col: df[col].astype(int)})
-            except ValueError:
-                # cannot convert float NaN to int
-                pass
+    Parameters
+    ----------
+    df
+        The dataframe to be converted.
 
-    return df
+    Returns
+    -------
+    A new dataframe with each column of `df` that had a nullable dtype but did not contain any :data:`~pandas.NA`
+    values converted to the corresponding non-nullable dtype.
+    """
+    new_cols = {}
+    for colname, col in df.items():
+        new_cols[colname] = try_convert_series_to_numpy_dtype(col)
+    return pd.DataFrame(new_cols)
