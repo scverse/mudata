@@ -94,6 +94,7 @@ intersphinx_mapping = {
     "scanpy": ("https://scanpy.readthedocs.io/en/stable/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "fsspec": ("https://filesystem-spec.readthedocs.io/en/stable/", None),
+    "h5py": ("https://docs.h5py.org/en/stable/", None),
     "zarr": ("https://zarr.readthedocs.io/en/stable/", None),
 }
 

@@ -8,19 +8,19 @@ from mudata import MuData
 
 def to_anndata(mdata: MuData, **kwargs) -> AnnData:
     """
-    Convert MuData to AnnData by concatenating modalities.
+    Convert :class:`MuData` to :class:`~anndata.AnnData` by concatenating modalities.
 
-    If mdata.axis == 0 (shared observations),
+    If `mdata.axis == 0` (shared observations),
     concatenate modalities along axis 1 (`anndata.concat(axis=1)`).
-    If mdata.axis == 1 (shared variables),
+    If `mdata.axis == 1` (shared variables),
     concatenate datasets along axis 0 (`anndata.concat(axis=0)`).
 
     Parameters
     ----------
     data
-        MuData object to convert  to AnnData
-    kwargs
-        Keyword arguments passed to anndata.concat
+        Object to convert to :class:`~anndata.AnnData`.
+    **kwargs
+        Additional arguments for :func:`anndata.concat`.
     """
     if mdata.axis == -1:
         raise ValueError("Only MuData with axis=0 and axis=1 are supported in `to_anndata()`")
@@ -37,18 +37,18 @@ def to_anndata(mdata: MuData, **kwargs) -> AnnData:
 
 def to_mudata(adata: AnnData, axis: Literal[0, 1], by: str) -> MuData:
     """
-    Convert AnnData to MuData by splitting it along obs or var.
+    Convert :class:`~anndata.AnnData` to :class:`MuData` by splitting it along obs or var.
 
     Axis signifies the shared axis.
-    Use `axis=0` for getting MuData with shared observations (axis=0),
-    and `axis=1` for getting MuData with shared variables (axis=1).
+    Use `axis=0` for getting :class:`MuData` with shared observations (axis=0),
+    and `axis=1` for getting :class:`MuData` with shared variables (axis=1).
 
-    Paramteters
-    -----------
+    Parameters
+    ----------
     adata
-        AnnData object to convert to MuData
+        Object to convert to MuData.
     axis
-        Axis of shared observations (0) or variables (1)
+        Shared axis: `0` for observations, `1` for features.
     by
         Key in `adata.var` (if axis=0) or `adata.obs` (if axis=1) to split by
     """

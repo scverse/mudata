@@ -24,7 +24,7 @@ class set_options:
     >>> with mudata.set_options(display_style="html"):
     ...     print("Options are applied here")
 
-    ... or globally:
+    or globally:
 
     >>> mudata.set_options(display_style="html")
     """
