@@ -32,7 +32,7 @@ from .config import OPTIONS
 from .file_backing import AnnDataFileManager, MuDataFileManager
 from .mudata import ModDict, MuData
 
-_pattern = re.compile(r"^((.+)\.(h5mu))/([^/]+)(/([^/]+))?$")
+_pattern = re.compile(r"^(.+\.h5mu)/([^/]+)(/([^/]+))?$")
 
 #
 # Saving multimodal data objects
@@ -328,20 +328,20 @@ def write(filename: str | PathLike, data: MuData | AnnData):
             if not isinstance(data, AnnData):
                 raise ValueError("Only MuData and AnnData objects are accepted")
 
-            m = _pattern.fullmatch(filename)
-            if m is None:
+            match = _pattern.fullmatch(filename)
+            if match is None:
                 raise ValueError(
                     "If a single modality is to be written to a .h5mu file, \
                     provide it after the filename separated by slash symbol:\
                     .h5mu/rna or .h5mu/mod/rna"
                 )
 
-            if m[5] is None:
-                # .h5mu/<modality>
-                return write_h5ad(m[1], m[4], data)
-            elif m[4] == "mod":
-                # .h5mu/mod/<modality>
-                return write_h5ad(m[1], m[6], data)
+            filename, maybe_mod, _, modname = match.groups()
+
+            if modname is None:
+                return write_h5ad(filename, maybe_mod, data)
+            elif maybe_mod == "mod":
+                return write_h5ad(filename, modname, data)
             else:
                 raise ValueError("Modality names cannot contain slashes.")
 
@@ -563,19 +563,19 @@ def read(filename: str | PathLike | io.IOBase | fsspec.OpenFile, **kwargs) -> Mu
     elif fname.endswith(".h5mu") or not isinstance(filename, str) and not isinstance(filename, Path):
         return read_h5mu(filename, **kwargs)
 
-    m = _pattern.fullmatch(fname)
-    if m is None:
+    match = _pattern.fullmatch(fname)
+    if match is None:
         raise ValueError(
             "If a single modality is to be read from a .h5mu file, \
             provide it after the filename separated by slash symbol:\
             .h5mu/rna or .h5mu/mod/rna"
         )
 
-    if m[5] is None:
-        # .h5mu/<modality>
-        return read_h5ad(m[1], m[4], **kwargs)
-    elif m[4] == "mod":
+    filename, maybe_mod, _, modname = match.groups()
+    if modname is None:
+        return read_h5ad(filename, maybe_mod, **kwargs)
+    elif maybe_mod == "mod":
         # .h5mu/mod/<modality>
-        return read_h5ad(m[1], m[6], **kwargs)
+        return read_h5ad(filename, modname, **kwargs)
     else:
         raise ValueError("Modality names cannot contain slashes.")
