@@ -1,4 +1,6 @@
+from collections.abc import Mapping, Sequence
 from functools import reduce
+from typing import Literal, TypeAlias
 
 import numpy as np
 import pandas as pd
@@ -8,9 +10,16 @@ from scipy.sparse import csc_array, csr_array
 
 from mudata import MuData, set_options
 
+Axis: TypeAlias = Literal[0, 1]
+
 
 @pytest.fixture
-def modalities(rng, n, across, mod):
+def modalities(
+    rng: np.random.Generator,
+    n: Literal["joint", "disjoint"],
+    across: Literal["intersecting"],
+    mod: Literal["unique", "duplicated", "extreme_duplicated"],
+) -> dict[str, AnnData]:
     n_mod = 3
     mods = {}
     for i in range(n_mod):
@@ -54,7 +63,7 @@ def modalities(rng, n, across, mod):
     return mods
 
 
-def add_mdata_global_columns(md, rng):
+def add_mdata_global_columns(md: MuData, rng: np.random.Generator):
     md.obs["batch"] = rng.choice(["a", "b", "c"], size=md.shape[0])
     md.var["batch"] = rng.choice(["d", "e", "f"], size=md.shape[1])
 
@@ -85,7 +94,7 @@ def add_mdata_global_columns(md, rng):
 
 
 @pytest.fixture
-def mdata_legacy(rng, modalities, axis):
+def mdata_legacy(rng: np.random.Generator, modalities: Mapping[str, AnnData], axis: Axis):
     mdata = MuData(modalities, axis=axis)
 
     batches = rng.choice(["a", "b", "c"], size=mdata.n_obs, replace=True)
@@ -96,7 +105,7 @@ def mdata_legacy(rng, modalities, axis):
 
 
 @pytest.fixture
-def mdata(rng, modalities, axis):
+def mdata(rng: np.random.Generator, modalities: Mapping[str, AnnData], axis: Axis):
     md = MuData(modalities, axis=axis)
 
     return add_mdata_global_columns(md, rng)
@@ -114,20 +123,20 @@ class TestMuData:
         set_options(pull_on_update=None)
 
     @staticmethod
-    def get_attrm_values(mdata, attr, key, names):
+    def get_attrm_values(mdata: MuData, attr: str, key: str, names: Sequence[str]):
         attrm = getattr(mdata, f"{attr}m")
         index = getattr(mdata, f"{attr}_names")
         return np.concatenate([np.atleast_1d(attrm[key][np.nonzero(index == name)[0]]) for name in names])
 
     @staticmethod
-    def assert_dtypes(df):
+    def assert_dtypes(df: pd.DataFrame):
         assert pd.api.types.is_integer_dtype(df["dtype-int"])
         assert pd.api.types.is_float_dtype(df["dtype-float"])
         assert pd.api.types.is_bool_dtype(df["dtype-bool"])
         assert pd.api.types.is_categorical_dtype(df["dtype-categorical"])
         assert pd.api.types.is_string_dtype(df["batch"]) or df["batch"].dtype == object
 
-    def test_update_simple(self, mdata, axis):
+    def test_update_simple(self, mdata: MuData, axis: Axis):
         """
         Update should work when
         - obs_names are the same across modalities,
@@ -167,7 +176,7 @@ class TestMuData:
             getattr(mdata, f"{attr}_names")[: mdata["mod1"].shape[axis]] == getattr(mdata["mod1"], f"{attr}_names")
         ).all()
 
-    def test_update_add_modality(self, rng, modalities, axis):
+    def test_update_add_modality(self, rng: np.random.Generator, modalities: Mapping[str, AnnData], axis: Axis):
         modnames = list(modalities.keys())
         mdata = add_mdata_global_columns(
             MuData({modname: modalities[modname] for modname in modnames[:-2]}, axis=axis), rng
@@ -213,7 +222,7 @@ class TestMuData:
             ).all()
             assert (oattrnames == old_oattrnames.append(getattr(modalities[modnames[i]], f"{oattr}_names"))).all()
 
-    def test_update_delete_modality(self, mdata, axis):
+    def test_update_delete_modality(self, mdata: MuData, axis: Axis):
         modnames = list(mdata.mod.keys())
         attr = "obs" if axis == 0 else "var"
         oattr = "var" if axis == 0 else "obs"
@@ -263,7 +272,7 @@ class TestMuData:
         assert (getattr(mdata, attrm)["test"] == fulltestm[keptmask, :]).all()
         assert (getattr(mdata, oattrm)["test"] == fullotestm[keptomask, :]).all()
 
-    def test_update_intersecting(self, rng, modalities, axis):
+    def test_update_intersecting(self, rng: np.random.Generator, modalities: Mapping[str, AnnData], axis: Axis):
         """
         Update should work when
         - obs_names are the same across modalities,
@@ -302,7 +311,7 @@ class TestMuData:
         assert mdata.shape[axis] == axisnames.shape[0]
         assert (getattr(mdata, f"{attr}_names") == axisnames).all()
 
-    def test_update_after_filter_obs_adata(self, mdata, axis):
+    def test_update_after_filter_obs_adata(self, mdata: MuData, axis: Axis):
         """
         Check for https://github.com/scverse/muon/issues/44
         """
@@ -340,7 +349,7 @@ class TestMuData:
         test_obsm_values = self.get_attrm_values(mdata, "obs", "test", some_obs_names)
         assert (true_obsm_values == test_obsm_values).all()
 
-    def test_update_after_obs_reordered(self, mdata):
+    def test_update_after_obs_reordered(self, mdata: MuData):
         """
         Update should work if obs are reordered.
         """
@@ -368,7 +377,7 @@ class TestMuDataLegacy:
     @pytest.mark.parametrize("mod", ["unique"])
     @pytest.mark.parametrize("across", ["intersecting"])
     @pytest.mark.parametrize("n", ["joint", "disjoint"])
-    def test_update_simple(self, modalities, axis):
+    def test_update_simple(self, modalities: Mapping[str, AnnData], axis: Axis):
         """
         Update should work when
         - obs_names are the same across modalities,
@@ -402,7 +411,7 @@ class TestMuDataLegacy:
     @pytest.mark.parametrize("mod", ["unique", "extreme_duplicated"])
     @pytest.mark.parametrize("across", ["intersecting"])
     @pytest.mark.parametrize("n", ["joint", "disjoint"])
-    def test_update_duplicates(self, modalities, axis):
+    def test_update_duplicates(self, modalities: Mapping[str, AnnData], axis: Axis):
         """
         Update should work when
         - obs_names are the same across modalities,
@@ -431,7 +440,7 @@ class TestMuDataLegacy:
     @pytest.mark.parametrize("mod", ["unique", "extreme_duplicated"])
     @pytest.mark.parametrize("across", ["intersecting"])
     @pytest.mark.parametrize("n", ["joint", "disjoint"])
-    def test_update_intersecting(self, modalities, axis):
+    def test_update_intersecting(self, modalities: Mapping[str, AnnData], axis: Axis):
         """
         Update should work when
         - obs_names are the same across modalities,
@@ -463,7 +472,7 @@ class TestMuDataLegacy:
     @pytest.mark.parametrize("mod", ["unique"])
     @pytest.mark.parametrize("across", ["intersecting"])
     @pytest.mark.parametrize("n", ["joint", "disjoint"])
-    def test_update_after_filter_obs_adata(self, mdata_legacy):
+    def test_update_after_filter_obs_adata(self, mdata_legacy: MuData):
         """
         Check for https://github.com/scverse/muon/issues/44
         """
@@ -476,7 +485,7 @@ class TestMuDataLegacy:
     @pytest.mark.parametrize("mod", ["unique", "extreme_duplicated"])
     @pytest.mark.parametrize("across", ["intersecting"])
     @pytest.mark.parametrize("n", ["joint", "disjoint"])
-    def test_update_after_obs_reordered(self, rng, mdata_legacy):
+    def test_update_after_obs_reordered(self, rng, mdata_legacy: MuData):
         """
         Update should work if obs are reordered.
         """

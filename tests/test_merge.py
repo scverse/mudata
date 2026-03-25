@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -5,7 +7,7 @@ import mudata as md
 
 
 @pytest.mark.parametrize("roundtrip", (False, True))
-def test_merge(mdata_nouniqueobs, filepath_h5mu, roundtrip):
+def test_merge(mdata_nouniqueobs: md.MuData, filepath_h5mu: str | Path, roundtrip: bool):
     mdata1, mdata2 = mdata_nouniqueobs[:15, :].copy(), mdata_nouniqueobs[15:, :].copy()
     mdata_ = md.concat([mdata1, mdata2])
     if roundtrip:

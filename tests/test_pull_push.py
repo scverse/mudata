@@ -1,3 +1,6 @@
+from collections.abc import Callable
+from typing import Literal, TypeAlias
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -5,41 +8,51 @@ from anndata import AnnData
 
 from mudata import MuData, set_options
 
+Axis: TypeAlias = Literal[0, 1]
+AxisAttr: TypeAlias = Literal["obs", "var"]
+
 
 @pytest.fixture(params=(0, 1))
-def axis(request):
+def axis(request) -> Axis:
     return request.param
 
 
 @pytest.fixture
-def attr(axis):
+def attr(axis: Axis) -> AxisAttr:
     return "obs" if axis == 0 else "var"
 
 
 @pytest.fixture
-def oattr(axis):
+def oattr(axis: Axis) -> AxisAttr:
     return "var" if axis == 0 else "obs"
 
 
 @pytest.fixture(params=("joint", "disjoint"))
-def n(request):
+def n(request) -> Literal["joint", "disjoint"]:
     return request.param
 
 
 @pytest.fixture(params=(True, False))
-def unique(request):
+def unique(request: pytest.FixtureRequest) -> bool:
     return request.param
 
 
 @pytest.fixture
-def new_update():
+def new_update() -> None:
     set_options(pull_on_update=False)
     yield
     set_options(pull_on_update=None)
 
 
 @pytest.fixture
-def mdata(rng, axis, attr, n, unique, new_update):
+def mdata(
+    rng: np.random.Generator,
+    axis: Axis,
+    attr: AxisAttr,
+    n: Literal["joint", "disjoint"],
+    unique: bool,
+    new_update: None,
+) -> MuData:
     n_mod = 3
     mods = {}
     for i in range(n_mod):
@@ -94,7 +107,7 @@ def mdata(rng, axis, attr, n, unique, new_update):
 
 
 @pytest.fixture
-def mdata_for_push(rng, mdata, new_update):
+def mdata_for_push(rng: np.random.Generator, mdata: MuData, new_update: None) -> MuData:
     for axis, attr in enumerate(("obs", "var")):
         df = getattr(mdata, attr)
 
@@ -111,26 +124,26 @@ def mdata_for_push(rng, mdata, new_update):
 
 
 @pytest.fixture(params=("obs", "var"))
-def cattr(request):
+def cattr(request) -> AxisAttr:
     return request.param
 
 
 @pytest.fixture
-def push_func(mdata_for_push, cattr):
+def push_func(mdata_for_push: MuData, cattr: AxisAttr) -> Callable[..., None]:
     return getattr(mdata_for_push, f"push_{cattr}")
 
 
 @pytest.fixture
-def push_df(mdata_for_push, cattr):
+def push_df(mdata_for_push: MuData, cattr: AxisAttr) -> pd.DataFrame:
     return getattr(mdata_for_push, cattr)
 
 
 @pytest.fixture
-def pull_func_oattr(mdata, oattr):
+def pull_func_oattr(mdata: MuData, oattr: AxisAttr) -> Callable[..., pd.DataFrame]:
     return lambda *args, **kwargs: getattr(mdata, f"pull_{oattr}")(*args, **kwargs) or getattr(mdata, oattr)
 
 
-def assert_dtypes(df, suffix, prefix=""):
+def assert_dtypes(df: pd.DataFrame, suffix: str, prefix: str = ""):
     assert pd.api.types.is_integer_dtype(df[f"{prefix}dtype-int-{suffix}"])
     assert pd.api.types.is_float_dtype(df[f"{prefix}dtype-float-{suffix}"])
     assert pd.api.types.is_bool_dtype(df[f"{prefix}dtype-bool-{suffix}"])
@@ -140,7 +153,7 @@ def assert_dtypes(df, suffix, prefix=""):
     )
 
 
-def test_raises_on_view(mdata, attr):
+def test_raises_on_view(mdata: MuData, attr: AxisAttr):
     getattr(mdata, attr)["foo"] = 42
     view = mdata[:42]
 
@@ -152,7 +165,7 @@ def test_raises_on_view(mdata, attr):
 
 
 @pytest.mark.parametrize("drop", (True, False))
-def test_pull_oattr_simple(mdata, oattr, pull_func_oattr, drop):
+def test_pull_oattr_simple(mdata: MuData, oattr: AxisAttr, pull_func_oattr: Callable[..., pd.DataFrame], drop: bool):
     df = pull_func_oattr(drop=drop)
     assert "mod" in df.columns
     assert "common_col" in df.columns
@@ -186,7 +199,7 @@ def test_pull_oattr_simple(mdata, oattr, pull_func_oattr, drop):
                 assert f"dtype-{dtype}-common" in mdf.columns
 
 
-def test_pull_oattr_onlydrop(mdata, oattr, pull_func_oattr):
+def test_pull_oattr_onlydrop(mdata: MuData, oattr: AxisAttr, pull_func_oattr: Callable[..., pd.DataFrame]):
     df = pull_func_oattr(only_drop=True)
     assert "mod" not in df.columns
     assert "common_col" not in df.columns
@@ -210,7 +223,7 @@ def test_pull_oattr_onlydrop(mdata, oattr, pull_func_oattr):
 
 
 @pytest.mark.parametrize("drop", (True, False))
-def test_pull_oattr_common(mdata, oattr, pull_func_oattr, drop):
+def test_pull_oattr_common(mdata: MuData, oattr: AxisAttr, pull_func_oattr: Callable[..., pd.DataFrame], drop: bool):
     df = pull_func_oattr(columns=["common_col"], drop=drop)
     assert "common_col" in df.columns
     assert (~pd.isnull(df.common_col)).sum() == mdata.shape[1 - mdata.axis]
@@ -221,7 +234,9 @@ def test_pull_oattr_common(mdata, oattr, pull_func_oattr, drop):
 
 
 @pytest.mark.parametrize("drop", (True, False))
-def test_pull_oattr_common_mods(mdata, oattr, pull_func_oattr, drop):
+def test_pull_oattr_common_mods(
+    mdata: MuData, oattr: AxisAttr, pull_func_oattr: Callable[..., pd.DataFrame], drop: bool
+):
     df = pull_func_oattr(columns=["common_col"], mods="mod2", drop=drop)
     assert "mod2:common_col" in df.columns
     assert (~pd.isnull(df["mod2:common_col"])).sum() == mdata["mod2"].shape[1 - mdata.axis]
@@ -237,7 +252,7 @@ def test_pull_oattr_common_mods(mdata, oattr, pull_func_oattr, drop):
 
 
 @pytest.mark.parametrize("drop", (True, False))
-def test_pull_oattr_nounique(mdata, oattr, pull_func_oattr, drop):
+def test_pull_oattr_nounique(mdata: MuData, oattr: AxisAttr, pull_func_oattr: Callable[..., pd.DataFrame], drop: bool):
     df = pull_func_oattr(common=True, nonunique=True, unique=False, drop=drop)
     assert "mod1:unique_col" not in df.columns
     assert "common_col" in df.columns
@@ -259,7 +274,7 @@ def test_pull_oattr_nounique(mdata, oattr, pull_func_oattr, drop):
 
 
 @pytest.mark.parametrize("drop", (True, False))
-def test_pull_oattr_unique(mdata, oattr, pull_func_oattr, drop):
+def test_pull_oattr_unique(mdata: MuData, oattr: AxisAttr, pull_func_oattr: Callable[..., pd.DataFrame], drop: bool):
     df = pull_func_oattr(common=False, nonunique=False, unique=True, drop=drop)
     assert "mod1:unique_col" in df.columns
     assert len(df.columns) == 8
@@ -270,7 +285,9 @@ def test_pull_oattr_unique(mdata, oattr, pull_func_oattr, drop):
 
 
 @pytest.mark.parametrize("drop", (True, False))
-def test_pull_oattr_nocommon_nounique(mdata, oattr, pull_func_oattr, drop):
+def test_pull_oattr_nocommon_nounique(
+    mdata: MuData, oattr: AxisAttr, pull_func_oattr: Callable[..., pd.DataFrame], drop: bool
+):
     df = pull_func_oattr(common=False, unique=False, drop=drop)
     assert "nonunique_col" not in df.columns
     assert len(df.columns) == (mdata.n_mod - 1) * 5
@@ -287,7 +304,9 @@ def test_pull_oattr_nocommon_nounique(mdata, oattr, pull_func_oattr, drop):
 
 
 @pytest.mark.parametrize("drop", (True, False))
-def test_pull_oattr_nocommon_nounique_join(mdata, oattr, pull_func_oattr, drop):
+def test_pull_oattr_nocommon_nounique_join(
+    mdata: MuData, oattr: AxisAttr, pull_func_oattr: Callable[..., pd.DataFrame], drop: bool
+):
     df = pull_func_oattr(common=False, unique=False, join_nonunique=True, drop=drop)
     assert "nonunique_col" in df.columns
     assert len(df.columns) == 5
@@ -303,7 +322,9 @@ def test_pull_oattr_nocommon_nounique_join(mdata, oattr, pull_func_oattr, drop):
 
 
 @pytest.mark.parametrize("drop", (True, False))
-def test_pull_oattr_unique_noprefix(mdata, oattr, pull_func_oattr, drop):
+def test_pull_oattr_unique_noprefix(
+    mdata: MuData, oattr: AxisAttr, pull_func_oattr: Callable[..., pd.DataFrame], drop: bool
+):
     df = pull_func_oattr(common=False, nonunique=False, unique=True, prefix_unique=False, drop=drop)
     assert "mod1:unique_col" not in df.columns
     assert "unique_col" in df.columns
@@ -316,7 +337,7 @@ def test_pull_oattr_unique_noprefix(mdata, oattr, pull_func_oattr, drop):
         assert "unique_col" in getattr(mdata["mod1"], oattr).columns
 
 
-def test_pull_attr_simple(mdata, attr):
+def test_pull_attr_simple(mdata: MuData, attr: AxisAttr):
     pull_func = getattr(mdata, f"pull_{attr}")
 
     pull_func()
@@ -347,7 +368,7 @@ def test_pull_attr_simple(mdata, attr):
         pull_func(join_nonunique=True)
 
 
-def test_push_simple(mdata_for_push, push_func, push_df, cattr):
+def test_push_simple(mdata_for_push: MuData, push_func: Callable[..., None], push_df: pd.DataFrame, cattr: AxisAttr):
     push_func()
     for modname, mod in mdata_for_push.mod.items():
         mdf = getattr(mod, cattr)
@@ -370,7 +391,9 @@ def test_push_simple(mdata_for_push, push_func, push_df, cattr):
 
 
 @pytest.mark.parametrize("drop", (True, False))
-def test_push_columns(mdata_for_push, push_func, push_df, cattr, drop):
+def test_push_columns(
+    mdata_for_push: MuData, push_func: Callable[..., None], push_df: pd.DataFrame, cattr: AxisAttr, drop: bool
+):
     push_func(columns=["dtype-int-pushed", "mod2:mod2_dtype-bool-pushed"], drop=drop)
     for mod in mdata_for_push.mod.values():
         mdf = getattr(mod, cattr)
@@ -395,7 +418,9 @@ def test_push_columns(mdata_for_push, push_func, push_df, cattr, drop):
 
 
 @pytest.mark.parametrize("drop", (True, False))
-def test_push_mods(mdata_for_push, push_func, push_df, cattr, drop):
+def test_push_mods(
+    mdata_for_push: MuData, push_func: Callable[..., None], push_df: pd.DataFrame, cattr: AxisAttr, drop: bool
+):
     push_func(mods="mod2", drop=drop)
     for dtype in ("int", "float", "bool", "string"):
         for modname, mod in mdata_for_push.mod.items():
@@ -411,7 +436,9 @@ def test_push_mods(mdata_for_push, push_func, push_df, cattr, drop):
 
 
 @pytest.mark.parametrize("drop", (True, False))
-def test_push_nocommon(mdata_for_push, push_func, push_df, cattr, drop):
+def test_push_nocommon(
+    mdata_for_push: MuData, push_func: Callable[..., None], push_df: pd.DataFrame, cattr: AxisAttr, drop: bool
+):
     push_func(common=False, drop=drop)
     for dtype in ("int", "float", "bool", "string"):
         for modname, mod in mdata_for_push.mod.items():
@@ -427,7 +454,9 @@ def test_push_nocommon(mdata_for_push, push_func, push_df, cattr, drop):
 
 
 @pytest.mark.parametrize("drop", (True, False))
-def test_push_noprefix(mdata_for_push, push_func, push_df, cattr, drop):
+def test_push_noprefix(
+    mdata_for_push: MuData, push_func: Callable[..., None], push_df: pd.DataFrame, cattr: AxisAttr, drop: bool
+):
     push_func(prefixed=False, drop=drop)
     for dtype in ("int", "float", "bool", "string"):
         for mod in mdata_for_push.mod.values():
@@ -438,7 +467,7 @@ def test_push_noprefix(mdata_for_push, push_func, push_df, cattr, drop):
             assert f"dtype-{dtype}-pushed" not in push_df.columns
 
 
-def test_push_drop(mdata_for_push, push_func, push_df, cattr):
+def test_push_drop(mdata_for_push: MuData, push_func: Callable[..., None], push_df: pd.DataFrame, cattr: AxisAttr):
     push_func(only_drop=True)
     assert push_df.shape[1] == 0
 

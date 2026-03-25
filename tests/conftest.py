@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -7,32 +9,32 @@ from mudata import MuData
 
 
 @pytest.fixture
-def filepath_h5mu(tmp_path):
+def filepath_h5mu(tmp_path: Path) -> Path:
     return tmp_path / "testA.h5mu"
 
 
 @pytest.fixture
-def filepath2_h5mu(tmp_path):
+def filepath2_h5mu(tmp_path: Path) -> Path:
     return tmp_path / "testB.h5mu"
 
 
 @pytest.fixture
-def filepath_zarr(tmp_path):
+def filepath_zarr(tmp_path: Path) -> Path:
     return tmp_path / "testA.zarr"
 
 
 @pytest.fixture
-def filepath2_zarr(tmp_path):
+def filepath2_zarr(tmp_path: Path) -> Path:
     return tmp_path / "testB.zarr"
 
 
 @pytest.fixture(scope="module")
-def rng():
+def rng() -> np.random.Generator:
     return np.random.default_rng(42)
 
 
 @pytest.fixture
-def mdata(rng, request):
+def mdata(rng: np.random.Generator, request: pytest.FixtureRequest):
     axis = getattr(request, "param", 0)
     mod1 = AnnData(
         np.arange(0, 200, 0.1).reshape(-1, 20), obs=pd.DataFrame(index=rng.choice(150, size=100, replace=False))
@@ -62,5 +64,5 @@ def mdata(rng, request):
 
 
 @pytest.fixture
-def mdata_nouniqueobs(mdata):
+def mdata_nouniqueobs(mdata: MuData):
     return mdata[mdata["mod1"].obs_names.intersection(mdata["mod2"].obs_names), :]

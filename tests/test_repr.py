@@ -6,7 +6,7 @@ import mudata as md
 modality_header_pattern = re.compile(r"^\s*(.+):\s*(\d+)\s*×\s*(\d+)\s*$")
 
 
-def test_repr(mdata):
+def test_repr(mdata: md.MuData):
     rep = repr(mdata).splitlines()
 
     assert rep[0] == f"MuData object with n_obs × n_vars = {mdata.n_obs} × {mdata.n_vars}"
@@ -36,7 +36,7 @@ def test_repr(mdata):
             assert int(match[3]) == mdata[cmod].n_vars
 
 
-def test_repr_html_smoke(mdata):  # only test that it doesn't error'
+def test_repr_html_smoke(mdata: md.MuData):  # only test that it doesn't error
     assert mdata._repr_html_() == f"<pre>{escape(repr(mdata))}</pre>"
 
     with md.set_options(display_style="html"):

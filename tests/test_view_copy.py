@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
@@ -5,11 +6,11 @@ import pandas as pd
 import pytest
 from scipy import sparse
 
-import mudata
+import mudata as md
 
 
 @pytest.fixture
-def mdata_with_obsp(mdata):
+def mdata_with_obsp(mdata: md.MuData):
     distances = sparse.random(mdata.n_obs, mdata.n_obs, density=0.2, random_state=42)
     distances = sparse.triu(distances)
     distances = distances + distances.T
@@ -30,7 +31,7 @@ def mdata_with_obsp(mdata):
     return mdata
 
 
-def test_copy(mdata):
+def test_copy(mdata: md.MuData):
     mdata_copy = mdata.copy()
     assert mdata.shape == mdata_copy.shape
     assert np.array_equal(mdata.obs_names.values, mdata_copy.obs_names.values)
@@ -39,7 +40,7 @@ def test_copy(mdata):
     assert np.array_equal(mdata.var.columns.values, mdata_copy.var.columns.values)
 
 
-def test_view_attributes(mdata):
+def test_view_attributes(mdata: md.MuData):
     n, d = mdata.n_obs, mdata.n_var
     # Populate attributes
     mdata.uns["uns_key"] = {"key": "value"}
@@ -64,7 +65,7 @@ def test_view_attributes(mdata):
     assert mdata_view.axis == mdata.axis
 
 
-def test_view_copy(mdata):
+def test_view_copy(mdata: md.MuData):
     view_n_obs = 5
     mdata_view = mdata[list(range(view_n_obs)), :]
     assert mdata_view.is_view
@@ -74,7 +75,7 @@ def test_view_copy(mdata):
     assert mdata_copy.n_obs == view_n_obs
 
 
-def test_view_view(mdata):
+def test_view_view(mdata: md.MuData):
     view_n_obs = 5
     mdata_view = mdata[list(range(view_n_obs)), :]
     assert mdata_view.is_view
@@ -103,15 +104,15 @@ def test_view_view(mdata):
         assert (mod.var_names == mdata_view[modname].var_names).all()
 
 
-def test_backed_copy(mdata, filepath_h5mu, filepath2_h5mu):
+def test_backed_copy(mdata: md.MuData, filepath_h5mu: str | Path, filepath2_h5mu: str | Path):
     mdata.write(filepath_h5mu)
-    mdata_b = mudata.read_h5mu(filepath_h5mu, backed="r")
+    mdata_b = md.read_h5mu(filepath_h5mu, backed="r")
     assert mdata_b.n_obs == mdata.n_obs
     mdata_b_copy = mdata_b.copy(filepath2_h5mu)
     assert mdata_b_copy.file._filename.name == Path(filepath2_h5mu).name
 
 
-def test_obsp_slicing(mdata_with_obsp):
+def test_obsp_slicing(mdata_with_obsp: md.MuData):
     """Test that obsp matrices are correctly sliced when subsetting a MuData object."""
     orig_n_obs = mdata_with_obsp.n_obs
 
@@ -145,7 +146,7 @@ def test_obsp_slicing(mdata_with_obsp):
     )
 
 
-def test_varp_slicing(mdata_with_obsp):
+def test_varp_slicing(mdata_with_obsp: md.MuData):
     """Test that varp matrices are correctly sliced when subsetting a MuData object."""
     orig_n_var = mdata_with_obsp.n_var
 
@@ -173,7 +174,7 @@ def test_varp_slicing(mdata_with_obsp):
     )
 
 
-def _test_view_after_setattr(mdata, mdata_ref, skip=()):
+def _test_view_after_setattr(mdata: md.MuData, mdata_ref: md.MuData, skip: Sequence[str] = ()):
     if isinstance(skip, str):
         skip = (skip,)
 
@@ -200,7 +201,7 @@ def _test_view_after_setattr(mdata, mdata_ref, skip=()):
                 assert (v.columns == mdata_ref.varm[k].columns).all()
 
 
-def test_view_setattr(mdata_with_obsp):
+def test_view_setattr(mdata_with_obsp: md.MuData):
     view = mdata_with_obsp[:42, :]
     view.obs_names = [f"foo_{i}" for i in range(len(view))]
     _test_view_after_setattr(view, mdata_with_obsp)

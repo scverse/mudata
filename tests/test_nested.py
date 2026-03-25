@@ -10,8 +10,8 @@ D1, D2 = 10, 20
 D = D1 + D2
 
 
-@pytest.fixture()
-def mdata():
+@pytest.fixture
+def mdata() -> MuData:
     mod1 = AnnData(np.arange(0, 100, 0.1).reshape(-1, D1))
     mod1.obs_names = [f"obs{i}" for i in range(mod1.n_obs)]
     mod1.var_names = [f"var{i}" for i in range(D1)]
@@ -29,7 +29,7 @@ def mdata():
     return mdata
 
 
-def test_nested_mudata(mdata):
+def test_nested_mudata(mdata: MuData):
     assert mdata.shape == (N, D)
     assert mdata["mod1"].shape == (N, D1)
     assert mdata["mod2"].shape == (N, D2)
@@ -37,7 +37,7 @@ def test_nested_mudata(mdata):
     assert mdata["mod2"].axis == -1
 
 
-def test_mod_repr(mdata):
+def test_mod_repr(mdata: MuData):
     assert (
         repr(mdata.mod)
         == f"MuData\n├─ mod1 AnnData ({N} x {D1})\n└─ mod2 MuData [shared obs and var] ({N} × 20)\n   ├─ mod21 AnnData ({N} x {D2})\n   └─ mod22 AnnData ({N} x {D2})"

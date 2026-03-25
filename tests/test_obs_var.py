@@ -1,12 +1,14 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
 
-import mudata
+import mudata as md
 
 
 @pytest.mark.parametrize("mdata", (0, 1), indirect=True)
-def test_obs_global_columns(mdata, filepath_h5mu):
+def test_obs_global_columns(mdata: md.MuData, filepath_h5mu: str | Path):
     mdata.obs.drop(columns=mdata.obs.columns, inplace=True)
     for m, mod in mdata.mod.items():
         mod.obs.drop(columns=mod.obs.columns, inplace=True)
@@ -18,12 +20,12 @@ def test_obs_global_columns(mdata, filepath_h5mu):
     else:
         assert list(mdata.obs.columns.values) == ["demo"]
     mdata.write(filepath_h5mu)
-    mdata_ = mudata.read(filepath_h5mu)
+    mdata_ = md.read(filepath_h5mu)
     assert list(mdata_.obs.columns.values) == list(mdata.obs.columns.values)
 
 
 @pytest.mark.parametrize("mdata", (0, 1), indirect=True)
-def test_set_obs_names(mdata):  # https://github.com/scverse/mudata/issues/112
+def test_set_obs_names(mdata: md.MuData):  # https://github.com/scverse/mudata/issues/112
     names = {m: mod.obs_names for m, mod in mdata.mod.items()}
     mdata.obs_names = mdata.obs_names
     for m, mod in mdata.mod.items():
@@ -36,14 +38,14 @@ def test_set_obs_names(mdata):  # https://github.com/scverse/mudata/issues/112
         mdata.obs = pd.DataFrame()
 
 
-def test_obs_vector(mdata):
+def test_obs_vector(mdata: md.MuData):
     assert (mdata.obs["arange"] == mdata.obs_vector("arange")).all()
     with pytest.raises(KeyError, match="There is no key foo in MuData"):
         mdata.obs_vector("foo")
 
 
 @pytest.mark.parametrize("mdata", (0, 1), indirect=True)
-def test_var_global_columns(mdata, filepath_h5mu):
+def test_var_global_columns(mdata: md.MuData, filepath_h5mu: str | Path):
     mdata.var.drop(columns=mdata.var.columns, inplace=True)
     for m, mod in mdata.mod.items():
         mod.var.drop(columns=mod.var.columns, inplace=True)
@@ -61,12 +63,12 @@ def test_var_global_columns(mdata, filepath_h5mu):
     else:
         assert list(mdata.var.columns.values) == [f"{m}:demo" for m in mdata.mod.keys()]
     mdata.write(filepath_h5mu)
-    mdata_ = mudata.read(filepath_h5mu)
+    mdata_ = md.read(filepath_h5mu)
     assert list(mdata_.var.columns.values) == list(mdata.var.columns.values)
 
 
 @pytest.mark.parametrize("mdata", (0, 1), indirect=True)
-def test_set_var_names(mdata):  # https://github.com/scverse/mudata/issues/112
+def test_set_var_names(mdata: md.MuData):  # https://github.com/scverse/mudata/issues/112
     names = {m: mod.var_names for m, mod in mdata.mod.items()}
     mdata.var_names = mdata.var_names
     for m, mod in mdata.mod.items():
@@ -78,7 +80,7 @@ def test_set_var_names(mdata):  # https://github.com/scverse/mudata/issues/112
         mdata.var = pd.DataFrame()
 
 
-def test_var_vector(rng, mdata):
+def test_var_vector(rng: np.random.Generator, mdata: md.MuData):
     mdata.var["test"] = rng.uniform(size=mdata.n_vars)
     assert (mdata.var["test"] == mdata.var_vector("test")).all()
     with pytest.raises(KeyError, match="There is no key foo in MuData"):
@@ -88,7 +90,7 @@ def test_var_vector(rng, mdata):
 
 
 @pytest.mark.parametrize("mdata", (0, 1), indirect=True)
-def test_names_make_unique(mdata):
+def test_names_make_unique(mdata: md.MuData):
     attr = "obs" if mdata.axis == 0 else "var"
     oattr = "var" if mdata.axis == 0 else "obs"
     namesattr = f"{oattr}_names"
