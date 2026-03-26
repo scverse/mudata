@@ -92,6 +92,7 @@ source_suffix = {".rst": "restructuredtext", ".ipynb": "myst-nb", ".myst": "myst
 import pandas as pd  # noqa: E402
 
 pd.DataFrame.__module__ = "pandas"
+pd.Index.__module__ = "pandas"
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),

@@ -39,7 +39,7 @@
 
 {% for item in attributes %}
 
-    .. autoattribute:: {{ [objname, item] | join(".") }}
+    .. auto{{ [fullname, item] | join(".") | member_type }}:: {{ [objname, item] | join(".") }}
 {%- endfor %}
 
 {% endif %}
