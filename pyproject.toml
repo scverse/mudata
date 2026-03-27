@@ -55,6 +55,7 @@ doc = [
   "docutils>=0.8,!=0.18.*,!=0.19.*",
   "ipykernel",
   "ipython",
+  "mudata[io]",
   "myst-nb>=1.1",
   "pandas",
   "sphinx>=8.1",
@@ -64,7 +65,7 @@ doc = [
   "sphinx-design",
   "sphinxcontrib-bibtex>=1",
   "sphinxcontrib-katex",
-  "sphinxext-opengraph",
+  "sphinxext-opengraph"
 ]
 
 [tool.hatch]

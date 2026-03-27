@@ -45,21 +45,22 @@ def concat(
 ) -> MuData:
     """Concatenates MuData objects.
 
-    All mdatas should have the same axis 0 or 1, which defines concatenation axis:
+    All mdatas should have the same :attr:`~MuData.axis` `0` or `1`, which defines concatenation axis:
+
     - concatenate along obs when obs are shared in each mdata (multimodal),
     - concatenate along vars when vars are shared in each mdata (multi-dataset).
 
     The intersection of modalities is taken.
-    Nested MuData objects cannot be concatenated.
+    Nested :class:`MuData` objects cannot be concatenated.
 
     This implementation follows anndata.concat() original implementation.
     The arguments are propagated to anndata.concat() for concatenating modalities.
     See anndata.concat() documentation for more details.
 
-    Params
-    ------
+    Parameters
+    ----------
     mdatas
-        The objects to be concatenated. If a Mapping is passed, keys are used for the `keys`
+        The objects to be concatenated. If a :class:`~collections.abc.Mapping` is passed, keys are used for the `keys`
         argument and values are concatenated.
     join
         How to align values when concatenating. If "outer", the union of the other axis
@@ -68,17 +69,17 @@ def concat(
         How elements not aligned to the axis being concatenated along are selected.
         Currently implemented strategies include:
 
-        * `None`: No elements are kept.
-        * `"same"`: Elements that are the same in each of the objects.
-        * `"unique"`: Elements for which there is only one possible value.
-        * `"first"`: The first element seen at each from each position.
-        * `"only"`: Elements that show up in only one of the objects.
+        - `None`: No elements are kept.
+        - `"same"`: Elements that are the same in each of the objects.
+        - `"unique"`: Elements for which there is only one possible value.
+        - `"first"`: The first element seen at each from each position.
+        - `"only"`: Elements that show up in only one of the objects.
     uns_merge
-        How the elements of `.uns` are selected. Uses the same set of strategies as
+        How the elements of :attr:`~MuData.uns` are selected. Uses the same set of strategies as
         the `merge` argument, except applied recursively.
     label
-        Column in axis annotation (i.e. `.obs` or `.var`) to place batch information in.
-        If it's None, no column is added.
+        Column in axis annotation (i.e. :attr:`~MuData.obs` or :attr:`~MuData.var`) to place batch information in.
+        If `None`, no column is added.
     keys
         Names for each object being added. These values are used for column values for
         `label` or appended to the index if `index_unique` is not `None`. Defaults to

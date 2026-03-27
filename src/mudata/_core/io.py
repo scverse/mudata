@@ -39,7 +39,7 @@ _pattern = re.compile(r"^(.+\.h5mu)/([^/]+)(/([^/]+))?$")
 #
 
 
-def _is_openfile(obj):
+def _is_openfile(obj) -> bool:
     return obj.__class__.__name__ == "OpenFile" and obj.__class__.__module__.startswith("fsspec.")
 
 
@@ -116,11 +116,27 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
         mdata.update()
 
 
-def write_zarr(store: MutableMapping | str | PathLike, data: MuData | AnnData, chunks=None, write_data=True, **kwargs):
+def write_zarr(
+    store: MutableMapping | str | PathLike | zarr.abc.store.Store,
+    data: MuData | AnnData,
+    chunks: tuple[int, ...] | None = None,
+    write_data: bool = True,
+    **kwargs,
+):
     """
-    Write MuData or AnnData object to the Zarr store
+    Write a MuData or AnnData object to the Zarr store.
 
-    Matrices - sparse or dense - are currently stored as they are.
+    Parameters
+    ----------
+    store
+        Thie filename or a Zarr store.
+    chunks
+        The chunk shape.
+    write_data
+        Whether to write the data (the :attr:`~anndata.AnnData.X` matrices) for the modalities. If `False`, only the metadata
+        (everything except :attr:~anndata.AnnData.X`) will be written.
+    **kwargs
+        Additional arguments to :func:`zarr.create_array`.
     """
     import zarr
 
@@ -222,9 +238,16 @@ def write_zarr(store: MutableMapping | str | PathLike, data: MuData | AnnData, c
 
 def write_h5mu(filename: str | PathLike, mdata: MuData, **kwargs):
     """
-    Write MuData object to the HDF5 file
+    Write a MuData object to an HDF5 file.
 
-    Matrices - sparse or dense - are currently stored as they are.
+    Parameters
+    ----------
+    filename
+        The filename.
+    mdata
+        The :class:`~mudata.MuData` object.
+    **kwargs
+        Additional arguments to :meth:`h5py.Group.create_dataset`.
     """
     from .. import __mudataversion__, __version__
 
@@ -239,12 +262,16 @@ def write_h5mu(filename: str | PathLike, mdata: MuData, **kwargs):
 
 def write_h5ad(filename: str | PathLike, mod: str, data: MuData | AnnData):
     """
-    Write AnnData object to the HDF5 file with a MuData container
+    Write an AnnData object to an existing HDF5 file containing a MuData (an h5mu file).
 
-    Currently is based on anndata._io.h5ad.write_h5ad internally.
-    Matrices - sparse or dense - are currently stored as they are.
-
-    Ideally this is merged later to anndata._io.h5ad.write_h5ad.
+    Parameters
+    ----------
+    filename
+        The file name.
+    mod
+        The modality to write.
+    data
+        The data. If a :class:`~mudata.MuData` object, `data[mod]` will be written.
     """
     from .. import __anndataversion__, __version__
 
@@ -301,17 +328,30 @@ write_anndata = write_h5ad
 
 def write(filename: str | PathLike, data: MuData | AnnData):
     """
-    Write MuData or AnnData to an HDF5 file
+    Write a :class:`~mudata.MuData` or :class:`~anndata.AnnData` object to an HDF5 file.
 
     This function is designed to enhance I/O ease of use.
-    It recognises the following formats of filename:
+    It recognises the following formats of `filename`:
 
     - for MuData
-        - `FILE.h5mu`
+
+      - `FILE.h5mu`
+
     - for AnnData
-        - `FILE.h5mu/MODALITY`
-        - `FILE.h5mu/mod/MODALITY`
-        - `FILE.h5ad`
+
+      - `FILE.h5mu/MODALITY`
+      - `FILE.h5mu/mod/MODALITY`
+      - `FILE.h5ad`
+
+      The first two variants will write the :class:`~anndata.AnnData` object to the modality `MODALITY`
+      of the existing `FILE.h5mu` file, same as :func:`write_h5ad`.
+
+    Parameters
+    ----------
+    filename
+        The file name.
+    data
+        The data object to write.
     """
     filename = str(filename)
     if filename.endswith(".h5ad") and isinstance(data, AnnData):
@@ -351,9 +391,28 @@ def write(filename: str | PathLike, data: MuData | AnnData):
 #
 
 
-def read_h5mu(filename: str | PathLike | io.IOBase | fsspec.OpenFile, backed: str | bool | None = None):
-    """Read MuData object from HDF5 file."""
-    assert backed in [None, True, False, "r", "r+"], "Argument `backed` should be boolean, or r/r+, or None"
+def read_h5mu(
+    filename: str | PathLike | io.IOBase | fsspec.OpenFile, backed: Literal["r", "r+"] | bool | None = None
+) -> MuData:
+    """Read an `.h5mu`-formatted HDF5 file.
+
+    Parameters
+    ----------
+    filename
+        The file name or an :external+fsspec:doc:`fsspec<index>` object.
+    backed
+        Whether to open the file in backed mode. In this mode, the data matrices :attr:`~anndata.AnnData.X` are not read into memory,
+        but are references to the on-disk datasets.
+
+    Examples
+    --------
+    >>> mdata = read_h5mu("file.h5mu")
+
+    >>> with fsspec.open("https://example.com/file.h5mu") as f:
+    ...     mdata = read_h5mu(f)
+    """
+    if backed not in [None, True, False, "r", "r+"]:
+        raise ValueError("Argument `backed` should be boolean, or r/r+, or None")
 
     if backed is True or not backed:
         mode = "r"
@@ -410,13 +469,13 @@ def read_h5mu(filename: str | PathLike | io.IOBase | fsspec.OpenFile, backed: st
     return mu
 
 
-def read_zarr(store: str | PathLike | MutableMapping | zarr.Group):
+def read_zarr(store: str | PathLike | MutableMapping | zarr.Group | zarr.abc.store.Store) -> MuData | AnnData:
     """Read from a hierarchical Zarr array store.
 
     Parameters
     ----------
     store
-        The filename, a :class:`~typing.MutableMapping`, or a Zarr storage class.
+        The file name or a Zarr store.
     """
     import zarr
 
@@ -503,12 +562,27 @@ def _read_h5mu_mod(g: h5py.Group, manager: MuDataFileManager = None, backed: boo
 def read_h5ad(
     filename: str | PathLike | io.IOBase | fsspec.OpenFile, mod: str | None, backed: Literal["r", "r+"] | bool = False
 ) -> AnnData:
-    """Read AnnData object from inside a .h5mu file or from a standalone .h5ad file (mod=None).
+    """Read a modality from inside a .h5mu file or from a standalone .h5ad file (mod=None).
 
-    Currently replicates and modifies anndata._io.h5ad.read_h5ad.
-    Matrices are loaded as they are in the file (sparse or dense).
+    Parameters
+    ----------
+    filename
+        The file name or an :external+fsspec:doc:`fsspec<index>` object.
+    backed
+        Whether to open the file in backed mode. In this mode, the data matrix :attr:`~anndata.AnnData.X` is not read into memory,
+        but is a reference to the on-disk datasets.
 
-    Ideally this is merged later to anndata._io.h5ad.read_h5ad.
+    Examples
+    --------
+    >>> adata = read_h5ad("file.h5mu", "rna")
+
+    >>> adata = read_h5ad("rna.h5ad")
+
+    >>> with fsspec.open("https://example.com/file.h5mu") as f:
+    ...     adata = read_h5ad(f, "rna")
+
+    >>> with fsspec.open("https://example.com/rna.h5ad") as f:
+    ...     adata = read_h5ad(f)
     """
     if mod is None:
         with ExitStack() as stack:
@@ -533,21 +607,33 @@ read_anndata = read_h5ad
 
 
 def read(filename: str | PathLike | io.IOBase | fsspec.OpenFile, **kwargs) -> MuData | AnnData:
-    """Read MuData object from HDF5 file or AnnData object (a single modality) inside it.
+    """Read an `.h5mu` formatted HDF5 file or a single modality inside it.
 
     This function is designed to enhance I/O ease of use.
-    It recognises the following formats:
+    It recognises the following formats of `filename`:
 
     - `FILE.h5mu`
+    - `FILE.h5ad`
     - `FILE.h5mu/MODALITY`
     - `FILE.h5mu/mod/MODALITY`
-    - `FILE.h5ad`
 
-    OpenFile from fsspec is supported for remote storage, e.g.:
+    The last two variantes will read the modality `MODALITY` and return an :class:`~anndata.AnnData` object.
 
-    - .. code-block::
+    Parameters
+    ----------
+    filename
+        The file name or an :external+fsspec:doc:`fsspec<index>` object.
+    **kwargs
+        additional arguments to :func:`read_h5ad` or :func:`read_h5mu`.
 
-         mdata = read(fsspec.open("s3://bucket/file.h5mu")))
+    Examples
+    --------
+    >>> mdata = read("file.h5mu")
+
+    >>> adata = read("file.h5mu/rna")
+
+    >>> with fsspec.open("s3://bucket/file.h5mu") as f:
+    ...     mdata = read(f)
     """
     if isinstance(filename, io.IOBase):
         raise TypeError(
