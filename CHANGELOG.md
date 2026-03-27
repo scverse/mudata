@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning][].
 
 - `update()`, `push_obs()`, `push_var()`, `pull_obs()`, and `pull_var()` now try harder to preserve the dtype of the dataframe columns
 
+### Deprecated
+
+- `MuData.mod_names`, `MuData.obs_keys`, `MuData.var_keys`, `MuData.obsm_keys`, `MuData.varm_keys`, `MuData.uns_keys`, `MuData.obs_vector`, `MuData.var_vector`.
+  Their analoga in AnnData will be deprecated in AnnData 0.13.
+
 ## [0.3.3]
 
 ### Fixed

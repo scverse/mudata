@@ -1607,6 +1607,7 @@ class MuData:
         return self._axis
 
     @property
+    @deprecated(version="0.3.4", msg="Use `mod.keys()` instead.")
     def mod_names(self) -> list[str]:
         """Names of modalities (alias for `list(mdata.mod.keys())`)"""
         return list(self._mod.keys())
