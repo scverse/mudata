@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy as np
 import pandas as pd
 from anndata import AnnData
-from anndata._core.aligned_mapping import AxisArraysBase, PairwiseArraysView
+from anndata._core.aligned_mapping import AxisArraysBase
 from anndata._core.views import DataFrameView
 from anndata.utils import convert_to_dict
 
@@ -584,7 +584,7 @@ class MuData:
 
         attrm = getattr(self, attr + "m")
         attrp = getattr(self, attr + "p")
-        attrmap = getattr(self, attr + "map")
+        attrmap = getattr(self, f"_{attr}map")
 
         dfs = [
             getattr(a, attr).loc[:, []].assign(**{f"{m}:{rowcol}": np.arange(getattr(a, attr).shape[0])})
@@ -847,7 +847,7 @@ class MuData:
 
         attrm = getattr(self, attr + "m")
         attrp = getattr(self, attr + "p")
-        attrmap = getattr(self, attr + "map")
+        attrmap = getattr(self, f"_{attr}map")
 
         if join_common:
             # If all modalities have a column with the same name, it is not global
@@ -1432,7 +1432,7 @@ class MuData:
     # Multi-dimensional annotations (.obsm and .varm)
 
     @property
-    def obsm(self) -> MuAxisArrays | MuAxisArraysView:
+    def obsm(self) -> MutableMapping[str]:
         """Multi-dimensional annotation of observations.
 
         Stores for each key a two- or higher-dimensional :class:`~numpy.ndarray` or :class:`~pandas.DataFrame` of length :attr:`n_obs`.
@@ -1441,7 +1441,7 @@ class MuData:
         return self._obsm
 
     @obsm.setter
-    def obsm(self, value):
+    def obsm(self, value: Mapping[str]):
         obsm = MuAxisArrays(self, axis=0, store=convert_to_dict(value))
         if self.is_view:
             self._init_as_actual(self.copy())
@@ -1452,7 +1452,7 @@ class MuData:
         self.obsm = {}
 
     @property
-    def obsp(self) -> PairwiseArrays | PairwiseArraysView:
+    def obsp(self) -> MutableMapping[str]:
         """Pairwise annotatation of observations.
 
         Stores for each key a two- or higher-dimensional :class:`~numpy.ndarray` whose first two dimensions are of liength `n_obs`.
@@ -1461,7 +1461,7 @@ class MuData:
         return self._obsp
 
     @obsp.setter
-    def obsp(self, value):
+    def obsp(self, value: Mapping[str]):
         obsp = PairwiseArrays(self, axis=0, store=convert_to_dict(value))
         if self.is_view:
             self._init_as_actual(self.copy())
@@ -1472,17 +1472,17 @@ class MuData:
         self.obsp = {}
 
     @property
-    def obsmap(self) -> PairwiseArrays | PairwiseArraysView:
+    def obsmap(self) -> Mapping[str]:
         """Mapping of observation indices in the object to indices in individual modalities.
 
         Contains an entry for each modality. Each entry is an :class:`~numpy.ndarray` with shape `(n_obs, 1)`. Each element
         in the array contains the numerical index of the observation in the respective modality corresponding to the :class:`MuData`
         observation in that position. The index is 1-based, 0 indicates that the observation is missing in the modality.
         """
-        return self._obsmap
+        return MappingProxyType(self._obsmap)
 
     @property
-    def varm(self) -> MuAxisArrays | MuAxisArraysView:
+    def varm(self) -> MutableMapping[str]:
         """Multi-dimensional annotation of variables.
 
         Stores for each key a two- or higher-dimensional :class:`~numpy.ndarray` or :class:`~pandas.DataFrame` of length :attr:`n_vars`.
@@ -1491,7 +1491,7 @@ class MuData:
         return self._varm
 
     @varm.setter
-    def varm(self, value):
+    def varm(self, value: Mapping[str]):
         varm = MuAxisArrays(self, axis=1, store=convert_to_dict(value))
         if self.is_view:
             self._init_as_actual(self.copy())
@@ -1502,7 +1502,7 @@ class MuData:
         self.varm = {}
 
     @property
-    def varp(self) -> PairwiseArrays | PairwiseArraysView:
+    def varp(self) -> MutableMapping[str]:
         """Pairwise annotatation of variables.
 
         Stores for each key a two- or higher-dimensional :class:`~numpy.ndarray` whose first two dimensions are of liength `n_obs`.
@@ -1511,7 +1511,7 @@ class MuData:
         return self._varp
 
     @varp.setter
-    def varp(self, value):
+    def varp(self, value: Mapping[str]):
         varp = PairwiseArrays(self, axis=0, store=convert_to_dict(value))
         if self.is_view:
             self._init_as_actual(self.copy())
@@ -1522,14 +1522,14 @@ class MuData:
         self.varp = {}
 
     @property
-    def varmap(self) -> PairwiseArrays | PairwiseArraysView:
+    def varmap(self) -> Mapping[str]:
         """Mapping of feature indices in the object to indices in individual modalities.
 
         Contains an entry for each modality. Each entry is an :class:`~numpy.ndarray` with shape `(n_obs, 1)`. Each element
         in the array contains the numerical index of the feature in the respective modality corresponding to the :class:`MuData`
         feature in that position. The index is 1-based, 0 indicates that the feature is missing in the modality.
         """
-        return self._varmap
+        return MappingProxyType(self._varmap)
 
     # Unstructured annotations
 
