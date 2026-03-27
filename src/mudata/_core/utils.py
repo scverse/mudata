@@ -1,12 +1,58 @@
+from __future__ import annotations
+
 from collections import Counter
-from collections.abc import Mapping, Sequence
 from contextlib import suppress
-from typing import Literal, TypeVar
+from functools import wraps
+from typing import TYPE_CHECKING, Literal
+from warnings import warn
 
 import numpy as np
 import pandas as pd
 
-T = TypeVar("T", pd.Series, pd.DataFrame)
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping, Sequence
+
+
+def deprecated(version: str, msg: str | None = None):
+    def decorate(func: Callable):
+        if func.__name__ == func.__qualname__:
+            warnmsg = f"The function {func.__name__} is deprecated and will be removed in the future."
+        else:
+            warnmsg = f"The method {func.__qualname__} is deprecated and will be removed in the future."
+
+        doc = func.__doc__
+        indentation = 0
+        if doc is not None:
+            lines = doc.expandtabs().splitlines()
+            with suppress(StopIteration):
+                for line in lines[1:]:
+                    if not len(line):
+                        continue
+                    for indentation, char in enumerate(line):  # noqa: B007
+                        if not char.isspace():
+                            raise StopIteration  # break out of both loops
+        indentation = " " * indentation
+
+        docmsg = f"{indentation}.. version-deprecated:: {version}"
+        if msg is not None:
+            docmsg += f"\n{indentation}   {msg}"
+            warnmsg += f" {msg}"
+
+        if doc is None:
+            doc = docmsg
+        else:
+            body = "\n".join(lines[1:])
+            doc = f"{lines[0]}\n\n{docmsg}\n{body}"
+        func.__doc__ = doc
+
+        @wraps(func)
+        def decorated(*args, **kwargs):
+            warn(warnmsg, FutureWarning, stacklevel=2)
+            return func(*args, **kwargs)
+
+        return decorated
+
+    return decorate
 
 
 def _make_index_unique(df: pd.DataFrame, force: bool = False) -> pd.DataFrame:

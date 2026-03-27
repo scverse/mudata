@@ -30,6 +30,7 @@ from .utils import (
     _make_index_unique,
     _restore_index,
     _update_and_concat,
+    deprecated,
     try_convert_dataframe_to_numpy_dtypes,
 )
 from .views import DictView
@@ -1248,6 +1249,7 @@ class MuData:
             raise KeyError(f"There is no key {key} in MuData .{attr} or in .{attr} of any modalities.")
         return df[key].to_numpy()
 
+    @deprecated(version="0.3.4")
     def obs_vector(self, key: str, layer: str | None = None) -> np.ndarray:
         """Return an array of values for the requested key of length n_obs.
 
@@ -1391,6 +1393,7 @@ class MuData:
         # )
         return self._var.shape[0]
 
+    @deprecated(version="0.3.4")
     def var_vector(self, key: str, layer: str | None = None) -> np.ndarray:
         """Return an array of values for the requested key of length n_var.
 
@@ -1558,22 +1561,27 @@ class MuData:
     # _keys methods to increase compatibility
     # with calls requiring those AnnData methods
 
+    @deprecated(version="0.3.4", msg="Use `obs.columns` instead.")
     def obs_keys(self) -> list[str]:
         """List keys of observation annotation :attr:`obs`."""
         return self._obs.keys().tolist()
 
+    @deprecated(version="0.3.4", msg="Use `var.columns` instead.")
     def var_keys(self) -> list[str]:
         """List keys of variable annotation :attr:`var`."""
         return self._var.keys().tolist()
 
+    @deprecated(version="0.3.4", msg="Use `obsm.keys()` instead.")
     def obsm_keys(self) -> list[str]:
         """List keys of observation annotation :attr:`obsm`."""
         return list(self._obsm.keys())
 
+    @deprecated(version="0.3.4", msg="Use `varm.keys()` instead.")
     def varm_keys(self) -> list[str]:
         """List keys of variable annotation :attr:`varm`."""
         return list(self._varm.keys())
 
+    @deprecated(version="0.3.4", msg="Use `uns.keys()` instead.")
     def uns_keys(self) -> list[str]:
         """List keys of unstructured annotation."""
         return list(self._uns.keys())
