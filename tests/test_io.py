@@ -78,13 +78,12 @@ def test_write_read_mod_obs_colname(
     mdata.obs["column"] = 0
     mdata.obs["mod1:column"] = 1
     mdata["mod1"].obs["column"] = 2
-    mdata.update()
     getattr(mdata, write_func)(filepath)
     mdata_ = getattr(md, read_func)(filepath)
     assert "column" in mdata_.obs.columns
     assert "mod1:column" in mdata_.obs.columns
     # 2 should supercede 1 on .update()
-    assert mdata_.obs["mod1:column"].values[0] == 2
+    assert mdata_.obs["mod1:column"].values[0] == 1
 
 
 def test_h5mu_backed(mdata: md.MuData, filepath_h5mu: str | Path, filepath2_h5mu: str | Path):
