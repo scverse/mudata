@@ -21,8 +21,8 @@ import h5py
 from anndata import AnnData
 from anndata._io.h5ad import _read_raw
 from anndata._io.h5ad import read_dataframe as read_h5ad_dataframe
-from anndata._io.specs.registry import read_elem, write_elem
 from anndata.compat import _read_attr
+from anndata.io import read_elem, write_elem
 from scipy import sparse
 
 from .file_backing import AnnDataFileManager, MuDataFileManager
