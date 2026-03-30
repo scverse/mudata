@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import Literal, TypeAlias
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -8,8 +8,8 @@ from anndata import AnnData
 
 from mudata import MuData
 
-Axis: TypeAlias = Literal[0, 1]
-AxisAttr: TypeAlias = Literal["obs", "var"]
+type Axis = Literal[0, 1]
+type AxisAttr = Literal["obs", "var"]
 
 
 @pytest.fixture(params=(0, 1))

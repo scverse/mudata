@@ -1,6 +1,6 @@
 from collections.abc import Mapping, Sequence
 from functools import reduce
-from typing import Literal, TypeAlias
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -10,7 +10,7 @@ from scipy.sparse import csc_array, csr_array
 
 from mudata import MuData
 
-Axis: TypeAlias = Literal[0, 1]
+type Axis = Literal[0, 1]
 
 
 @pytest.fixture(params=(0, 1))

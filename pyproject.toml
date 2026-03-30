@@ -14,14 +14,12 @@ maintainers = [
 authors = [
   { name = "Danila Bredikhin" },
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 classifiers = [
   "Intended Audience :: Science/Research",
   "License :: OSI Approved :: BSD License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
@@ -29,7 +27,7 @@ classifiers = [
 ]
 dynamic = [ "version" ]
 dependencies = [
-  "anndata>=0.10.8",
+  "anndata>=0.11",
   "h5py",
   "numpy",
   "pandas>=1.4",
@@ -78,7 +76,7 @@ envs.docs.scripts.open = "python -m webbrowser -t docs/_build/html/index.html"
 envs.docs.scripts.clean = "git clean -fdX -- {args:docs}"
 envs.hatch-test.dependency-groups = [ "dev", "test" ]
 envs.hatch-test.matrix = [
-  { deps = [ "stable" ], python = [ "3.11", "3.14" ] },
+  { deps = [ "stable" ], python = [ "3.12", "3.14" ] },
   { deps = [ "pre" ], python = [ "3.14" ] }
 ]
 # If the matrix variable `deps` is set to "pre",
