@@ -19,9 +19,8 @@ from warnings import warn
 import anndata as ad
 import h5py
 from anndata import AnnData
-from anndata._io.h5ad import _read_raw
-from anndata._io.h5ad import read_dataframe as read_h5ad_dataframe
 from anndata.compat import _read_attr
+from anndata.experimental import read_dispatched
 from anndata.io import read_elem, write_elem
 from anndata.io import read_zarr as anndata_read_zarr
 from anndata.io import write_zarr as anndata_write_zarr
@@ -404,8 +403,6 @@ def read_h5mu(
                     )
                 d = {}
                 for k in f.keys():
-                    if k in ["obs", "var"]:
-                        d[k] = read_h5ad_dataframe(f[k])
                     if k == "mod":
                         mods = ModDict()
                         gmods = f[k]
@@ -445,7 +442,6 @@ def read_zarr(store: str | PathLike | MutableMapping | zarr.Group | zarr.abc.sto
         The file name or a Zarr store.
     """
     import zarr
-    from anndata._io.zarr import read_dataframe as read_zarr_dataframe
 
     f = zarr.open(store, mode="r")
     d = {}
@@ -453,8 +449,6 @@ def read_zarr(store: str | PathLike | MutableMapping | zarr.Group | zarr.abc.sto
         return ad.read_zarr(store)
 
     for k in f.keys():
-        if k in {"obs", "var"}:
-            d[k] = read_zarr_dataframe(f[k])
         if k == "mod":
             mods = {}
             gmods = f[k]
@@ -477,25 +471,18 @@ def read_zarr(store: str | PathLike | MutableMapping | zarr.Group | zarr.abc.sto
     return mu
 
 
-def _read_h5mu_mod(g: h5py.Group, manager: MuDataFileManager = None, backed: bool = False) -> dict:
-    d = {}
+def _read_h5mu_mod(g: h5py.Group, manager: MuDataFileManager = None, backed: bool = False) -> AnnData:
+    modname = Path(g.name).name
+    Xpath = g.name + "/X"
+    rawXpath = g.name + "/raw/X"
 
-    for k in g.keys():
-        if k in ("obs", "var"):
-            d[k] = read_h5ad_dataframe(g[k])
-        elif k == "X":
-            X = g["X"]
-            if not backed:
-                d["X"] = read_elem(X)
-        elif k != "raw":
-            d[k] = read_elem(g[k])
-    ad = AnnData(**d)
+    def callback(func, elem_name, elem, iospec):
+        if not backed or elem_name not in (Xpath, rawXpath):
+            return func(elem)
+
+    ad = read_dispatched(g, callback=callback)
     if manager is not None:
-        ad.file = AnnDataFileManager(ad, Path(g.name).name, manager)
-
-    raw = _read_raw(g, attrs=("var", "varm") if backed else ("var", "varm", "X"))
-    if raw:
-        ad._raw = ad.Raw(ad, **raw)
+        ad.file = AnnDataFileManager(ad, modname, manager)
     return ad
 
 
