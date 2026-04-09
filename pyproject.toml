@@ -34,7 +34,7 @@ dependencies = [
   "numpy",
   "pandas>=1.4",
   "scipy",
-  "scverse-misc",
+  "scverse-misc>=0.0.3",
   # for debug logging (referenced from the issue template)
   "session-info2",
 ]
