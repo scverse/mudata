@@ -1249,7 +1249,7 @@ class MuData:
             raise KeyError(f"There is no key {key} in MuData .{attr} or in .{attr} of any modalities.")
         return df[key].to_numpy()
 
-    @deprecated(Deprecation(version_deprecated="0.3.4"))
+    @deprecated(Deprecation("0.3.4"))
     def obs_vector(self, key: str, layer: str | None = None) -> np.ndarray:
         """Return an array of values for the requested key of length n_obs.
 
@@ -1393,7 +1393,7 @@ class MuData:
         # )
         return self._var.shape[0]
 
-    @deprecated(Deprecation(version_deprecated="0.3.4"))
+    @deprecated(Deprecation("0.3.4"))
     def var_vector(self, key: str, layer: str | None = None) -> np.ndarray:
         """Return an array of values for the requested key of length n_var.
 
