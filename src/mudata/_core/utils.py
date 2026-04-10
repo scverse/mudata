@@ -1,12 +1,14 @@
+from __future__ import annotations
+
 from collections import Counter
-from collections.abc import Mapping, Sequence
 from contextlib import suppress
-from typing import Literal, TypeVar
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import pandas as pd
 
-T = TypeVar("T", pd.Series, pd.DataFrame)
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
 
 
 def _make_index_unique(df: pd.DataFrame, force: bool = False) -> pd.DataFrame:
