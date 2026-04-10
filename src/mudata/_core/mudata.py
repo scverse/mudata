@@ -1561,27 +1561,27 @@ class MuData:
     # _keys methods to increase compatibility
     # with calls requiring those AnnData methods
 
-    @deprecated(Deprecation(version_deprecated="0.3.4", msg="Use `obs.columns` instead."))
+    @deprecated(Deprecation("0.3.4", msg="Use `obs.columns` instead."))
     def obs_keys(self) -> list[str]:
         """List keys of observation annotation :attr:`obs`."""
         return self._obs.keys().tolist()
 
-    @deprecated(Deprecation(version_deprecated="0.3.4", msg="Use `var.columns` instead."))
+    @deprecated(Deprecation("0.3.4", msg="Use `var.columns` instead."))
     def var_keys(self) -> list[str]:
         """List keys of variable annotation :attr:`var`."""
         return self._var.keys().tolist()
 
-    @deprecated(Deprecation(version_deprecated="0.3.4", msg="Use `obsm.keys()` instead."))
+    @deprecated(Deprecation("0.3.4", msg="Use `obsm.keys()` instead."))
     def obsm_keys(self) -> list[str]:
         """List keys of observation annotation :attr:`obsm`."""
         return list(self._obsm.keys())
 
-    @deprecated(Deprecation(version_deprecated="0.3.4", msg="Use `varm.keys()` instead."))
+    @deprecated(Deprecation("0.3.4", msg="Use `varm.keys()` instead."))
     def varm_keys(self) -> list[str]:
         """List keys of variable annotation :attr:`varm`."""
         return list(self._varm.keys())
 
-    @deprecated(Deprecation(version_deprecated="0.3.4", msg="Use `uns.keys()` instead."))
+    @deprecated(Deprecation("0.3.4", msg="Use `uns.keys()` instead."))
     def uns_keys(self) -> list[str]:
         """List keys of unstructured annotation."""
         return list(self._uns.keys())
@@ -1607,7 +1607,7 @@ class MuData:
         return self._axis
 
     @property
-    @deprecated(Deprecation(version_deprecated="0.3.4", msg="Use `mod.keys()` instead."))
+    @deprecated(Deprecation("0.3.4", msg="Use `mod.keys()` instead."))
     def mod_names(self) -> list[str]:
         """Names of modalities (alias for `list(mdata.mod.keys())`)"""
         return list(self._mod.keys())
