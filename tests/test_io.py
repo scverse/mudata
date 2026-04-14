@@ -82,7 +82,7 @@ def test_write_read_mod_obs_colname(
     mdata_ = getattr(md, read_func)(filepath)
     assert "column" in mdata_.obs.columns
     assert "mod1:column" in mdata_.obs.columns
-    # 2 should supercede 1 on .update()
+    # 2 should not overwrite 1 on .update()
     assert mdata_.obs["mod1:column"].values[0] == 1
 
 
