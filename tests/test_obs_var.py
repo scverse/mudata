@@ -8,20 +8,24 @@ import mudata as md
 
 
 @pytest.mark.parametrize("mdata", (0, 1), indirect=True)
-def test_obs_global_columns(mdata: md.MuData, filepath_h5mu: str | Path):
+@pytest.mark.parametrize("pull_on_update", (False, True))
+def test_obs_global_columns(mdata: md.MuData, pull_on_update: bool, filepath_h5mu: str | Path):
     mdata.obs.drop(columns=mdata.obs.columns, inplace=True)
     for m, mod in mdata.mod.items():
         mod.obs.drop(columns=mod.obs.columns, inplace=True)
         mod.obs["demo"] = m
     mdata.obs["demo"] = "global"
-    mdata.update()
-    if mdata.axis == 0:
-        assert list(mdata.obs.columns.values) == [f"{m}:demo" for m in mdata.mod.keys()] + ["demo"]
+    if pull_on_update:
+        with md.set_options(pull_on_update=pull_on_update):
+            del mdata._obshash
+            mdata.update()
+    if mdata.axis == 0 and pull_on_update:
+        assert mdata.obs.columns.to_list() == ["demo"] + [f"{m}:demo" for m in mdata.mod.keys()]
     else:
-        assert list(mdata.obs.columns.values) == ["demo"]
+        assert mdata.obs.columns.to_list() == ["demo"]
     mdata.write(filepath_h5mu)
     mdata_ = md.read(filepath_h5mu)
-    assert list(mdata_.obs.columns.values) == list(mdata.obs.columns.values)
+    assert (mdata_.obs.columns == mdata.obs.columns.values).all()
 
 
 @pytest.mark.parametrize("mdata", (0, 1), indirect=True)
@@ -45,23 +49,32 @@ def test_obs_vector(mdata: md.MuData):
 
 
 @pytest.mark.parametrize("mdata", (0, 1), indirect=True)
-def test_var_global_columns(mdata: md.MuData, filepath_h5mu: str | Path):
+@pytest.mark.parametrize("pull_on_update", (False, True))
+def test_var_global_columns(mdata: md.MuData, pull_on_update, filepath_h5mu: str | Path):
     mdata.var.drop(columns=mdata.var.columns, inplace=True)
     for m, mod in mdata.mod.items():
         mod.var.drop(columns=mod.var.columns, inplace=True)
         mod.var["demo"] = m
     mdata.var["global"] = "global_var"
-    mdata.update()
-    if mdata.axis == 0:
-        assert list(mdata.var.columns.values) == ["demo", "global"]
+    if pull_on_update:
+        with md.set_options(pull_on_update=pull_on_update):
+            del mdata._varhash
+            mdata.update()
+    if not pull_on_update:
+        assert mdata.var.columns.to_list() == ["global"]
+    elif mdata.axis == 0:
+        assert mdata.var.columns.to_list() == ["global", "demo"]
     else:
-        assert list(mdata.var.columns.values) == [f"{m}:demo" for m in mdata.mod.keys()] + ["global"]
+        assert mdata.var.columns.to_list() == ["global"] + [f"{m}:demo" for m in mdata.mod.keys()]
     del mdata.var["global"]
-    mdata.update()
-    if mdata.axis == 0:
-        assert list(mdata.var.columns.values) == ["demo"]
+    with md.set_options(pull_on_update=pull_on_update):
+        mdata.update()
+    if not pull_on_update:
+        assert mdata.var.shape[1] == 0
+    elif mdata.axis == 0:
+        assert mdata.var.columns.to_list() == ["demo"]
     else:
-        assert list(mdata.var.columns.values) == [f"{m}:demo" for m in mdata.mod.keys()]
+        assert mdata.var.columns.to_list() == [f"{m}:demo" for m in mdata.mod.keys()]
     mdata.write(filepath_h5mu)
     mdata_ = md.read(filepath_h5mu)
     assert list(mdata_.var.columns.values) == list(mdata.var.columns.values)

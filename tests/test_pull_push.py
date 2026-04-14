@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 from anndata import AnnData
 
-from mudata import MuData, set_options
+from mudata import MuData
 
 Axis: TypeAlias = Literal[0, 1]
 AxisAttr: TypeAlias = Literal["obs", "var"]
@@ -38,20 +38,8 @@ def unique(request: pytest.FixtureRequest) -> bool:
 
 
 @pytest.fixture
-def new_update() -> None:
-    set_options(pull_on_update=False)
-    yield
-    set_options(pull_on_update=None)
-
-
-@pytest.fixture
 def mdata(
-    rng: np.random.Generator,
-    axis: Axis,
-    attr: AxisAttr,
-    n: Literal["joint", "disjoint"],
-    unique: bool,
-    new_update: None,
+    rng: np.random.Generator, axis: Axis, attr: AxisAttr, n: Literal["joint", "disjoint"], unique: bool
 ) -> MuData:
     n_mod = 3
     mods = {}
@@ -107,7 +95,7 @@ def mdata(
 
 
 @pytest.fixture
-def mdata_for_push(rng: np.random.Generator, mdata: MuData, new_update: None) -> MuData:
+def mdata_for_push(rng: np.random.Generator, mdata: MuData) -> MuData:
     for axis, attr in enumerate(("obs", "var")):
         df = getattr(mdata, attr)
 
