@@ -22,9 +22,6 @@ from anndata import AnnData
 from anndata._io.h5ad import _read_raw
 from anndata._io.h5ad import read_dataframe as read_h5ad_dataframe
 from anndata._io.specs.registry import read_elem, write_elem
-from anndata._io.zarr import _read_legacy_raw
-from anndata._io.zarr import read_dataframe as read_zarr_dataframe
-from anndata._io.zarr import write_zarr as anndata_write_zarr
 from anndata.compat import _read_attr
 from scipy import sparse
 
@@ -124,6 +121,7 @@ def write_zarr(
         Additional arguments to :func:`zarr.create_array`.
     """
     import zarr
+    from anndata._io.zarr import write_zarr as anndata_write_zarr
 
     from .. import __anndataversion__, __mudataversion__, __version__
 
@@ -445,6 +443,7 @@ def read_zarr(store: str | PathLike | MutableMapping | zarr.Group | zarr.abc.sto
         The file name or a Zarr store.
     """
     import zarr
+    from anndata._io.zarr import read_dataframe as read_zarr_dataframe
 
     if isinstance(store, Path):
         store = str(store)
@@ -481,6 +480,9 @@ def read_zarr(store: str | PathLike | MutableMapping | zarr.Group | zarr.abc.sto
 
 
 def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: bool = False) -> dict:
+    from anndata._io.zarr import _read_legacy_raw
+    from anndata._io.zarr import read_dataframe as read_zarr_dataframe
+
     d = {}
 
     for k in g.keys():
