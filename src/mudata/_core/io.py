@@ -23,7 +23,6 @@ from anndata.compat import _read_attr
 from anndata.experimental import read_dispatched
 from anndata.io import read_elem, write_elem
 from anndata.io import read_zarr as anndata_read_zarr
-from anndata.io import write_zarr as anndata_write_zarr
 from scipy import sparse
 
 from .file_backing import AnnDataFileManager, MuDataFileManager
