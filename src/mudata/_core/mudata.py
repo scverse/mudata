@@ -1482,7 +1482,7 @@ class MuData:
         in the array contains the numerical index of the observation in the respective modality corresponding to the :class:`MuData`
         observation in that position. The index is 1-based, 0 indicates that the observation is missing in the modality.
         """
-        return MappingProxyType(self._obsmap)
+        return self._obsmap
 
     @property
     def varm(self) -> MutableMapping[str]:
@@ -1532,7 +1532,7 @@ class MuData:
         in the array contains the numerical index of the feature in the respective modality corresponding to the :class:`MuData`
         feature in that position. The index is 1-based, 0 indicates that the feature is missing in the modality.
         """
-        return MappingProxyType(self._varmap)
+        return self._varmap
 
     # Unstructured annotations
 
