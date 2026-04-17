@@ -48,6 +48,10 @@ def test_obs_vector(mdata: md.MuData):
         mdata.obs_vector("foo")
 
 
+def test_obsmap_writeable(mdata: md.MuData):
+    mdata.obsmap["test_writeable"] = np.arange(mdata.n_obs)
+
+
 @pytest.mark.parametrize("mdata", (0, 1), indirect=True)
 @pytest.mark.parametrize("pull_on_update", (False, True))
 def test_var_global_columns(mdata: md.MuData, pull_on_update, filepath_h5mu: str | Path):
@@ -100,6 +104,10 @@ def test_var_vector(rng: np.random.Generator, mdata: md.MuData):
         mdata.var_vector("foo")
     with pytest.raises(KeyError, match="There is no key assert-boolean-1 in MuData .var but there is one in"):
         mdata.var_vector("assert-boolean-1")
+
+
+def test_varmap_writeable(mdata: md.MuData):
+    mdata.varmap["test_writeable"] = np.arange(mdata.n_vars)
 
 
 @pytest.mark.parametrize("mdata", (0, 1), indirect=True)

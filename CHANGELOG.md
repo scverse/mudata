@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning][].
 - `update()` no longer automatically pulls obs/var columns from individual modalities by default. Set `mudata.set_options(pull_on_update=true)`
   to restore the old behavior. Use `pull_obs/pull_var` and `push_obs/push_var` for more flexibility.
 
+## [0.3.6]
+
+### Fixed
+
+- `.obsmap` and `.varmap` are once again writeable
+
 ## [0.3.5]
 
 ### Fixed
@@ -158,6 +164,7 @@ To copy the annotations explicitly, you will need to use `pull_obs()` and/or `pu
 Initial `mudata` release with `MuData`, previously a part of the `muon` framework.
 
 [0.4.0]: https://github.com/scverse/mudata/releases/tag/v0.4.0
+[0.3.6]: https://github.com/scverse/mudata/releases/tag/v0.3.6
 [0.3.5]: https://github.com/scverse/mudata/releases/tag/v0.3.5
 [0.3.4]: https://github.com/scverse/mudata/releases/tag/v0.3.4
 [0.3.3]: https://github.com/scverse/mudata/releases/tag/v0.3.3
