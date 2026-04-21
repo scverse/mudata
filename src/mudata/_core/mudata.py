@@ -17,12 +17,11 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy as np
 import pandas as pd
 from anndata import AnnData
-from anndata._core.aligned_mapping import AxisArraysBase
+from anndata._core.aligned_mapping import AlignedView, AxisArrays, AxisArraysBase, PairwiseArrays
 from anndata._core.views import DataFrameView
 from anndata.utils import convert_to_dict
 from scverse_misc import Deprecation, deprecated
 
-from .compat import AlignedView, AxisArrays, PairwiseArrays
 from .config import OPTIONS
 from .file_backing import MuDataFileManager
 from .repr import MUDATA_CSS, block_matrix, details_block_table

@@ -19,10 +19,10 @@ from warnings import warn
 import anndata as ad
 import h5py
 from anndata import AnnData
-from anndata._io.h5ad import _read_raw
-from anndata._io.h5ad import read_dataframe as read_h5ad_dataframe
-from anndata._io.specs.registry import read_elem, write_elem
 from anndata.compat import _read_attr
+from anndata.experimental import read_dispatched
+from anndata.io import read_elem, write_elem
+from anndata.io import read_zarr as anndata_read_zarr
 from scipy import sparse
 
 from .file_backing import AnnDataFileManager, MuDataFileManager
@@ -162,7 +162,7 @@ def write_zarr(
             if adata.raw is not None:
                 adata.strings_to_categoricals(adata.raw.var)
 
-            if write_data or not adata.isbacked:
+            if write_data:
                 if chunks is not None and not isinstance(adata.X, sparse.spmatrix):
                     write_elem(group, "X", adata.X, dataset_kwargs=dict(chunks=chunks, **kwargs))
                 else:
@@ -402,8 +402,6 @@ def read_h5mu(
                     )
                 d = {}
                 for k in f.keys():
-                    if k in ["obs", "var"]:
-                        d[k] = read_h5ad_dataframe(f[k])
                     if k == "mod":
                         mods = ModDict()
                         gmods = f[k]
@@ -443,25 +441,18 @@ def read_zarr(store: str | PathLike | MutableMapping | zarr.Group | zarr.abc.sto
         The file name or a Zarr store.
     """
     import zarr
-    from anndata._io.zarr import read_dataframe as read_zarr_dataframe
-
-    if isinstance(store, Path):
-        store = str(store)
 
     f = zarr.open(store, mode="r")
     d = {}
     if "mod" not in f.keys():
         return ad.read_zarr(store)
 
-    manager = MuDataFileManager()
     for k in f.keys():
-        if k in {"obs", "var"}:
-            d[k] = read_zarr_dataframe(f[k])
         if k == "mod":
             mods = {}
             gmods = f[k]
             for m in gmods.keys():
-                mods[m] = _read_zarr_mod(gmods[m], manager)
+                mods[m] = anndata_read_zarr(gmods[m])
 
             mod_order = None
             if "mod-order" in gmods.attrs:
@@ -474,57 +465,23 @@ def read_zarr(store: str | PathLike | MutableMapping | zarr.Group | zarr.abc.sto
             d[k] = read_elem(f[k])
 
     mu = MuData._init_from_dict_(**d)
-    mu.file = manager
+    mu.file = MuDataFileManager()
 
     return mu
 
 
-def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: bool = False) -> dict:
-    from anndata._io.zarr import _read_legacy_raw
-    from anndata._io.zarr import read_dataframe as read_zarr_dataframe
+def _read_h5mu_mod(g: h5py.Group, manager: MuDataFileManager = None, backed: bool = False) -> AnnData:
+    modname = Path(g.name).name
+    Xpath = g.name + "/X"
+    rawXpath = g.name + "/raw/X"
 
-    d = {}
+    def callback(func, elem_name, elem, iospec):
+        if not backed or elem_name not in (Xpath, rawXpath):
+            return func(elem)
 
-    for k in g.keys():
-        if k in ("obs", "var"):
-            d[k] = read_zarr_dataframe(g[k])
-        elif k == "X":
-            X = g["X"]
-            if not backed:
-                d["X"] = read_elem(X)
-        elif k != "raw":
-            d[k] = read_elem(g[k])
-    ad = AnnData(**d)
+    ad = read_dispatched(g, callback=callback)
     if manager is not None:
-        ad.file = AnnDataFileManager(ad, Path(g.name).name, manager)
-
-    raw = _read_legacy_raw(
-        g, d.get("raw"), read_zarr_dataframe, read_elem, attrs=("var", "varm") if backed else ("var", "varm", "X")
-    )
-    if raw:
-        ad._raw = ad.Raw(ad, **raw)
-    return ad
-
-
-def _read_h5mu_mod(g: h5py.Group, manager: MuDataFileManager = None, backed: bool = False) -> dict:
-    d = {}
-
-    for k in g.keys():
-        if k in ("obs", "var"):
-            d[k] = read_h5ad_dataframe(g[k])
-        elif k == "X":
-            X = g["X"]
-            if not backed:
-                d["X"] = read_elem(X)
-        elif k != "raw":
-            d[k] = read_elem(g[k])
-    ad = AnnData(**d)
-    if manager is not None:
-        ad.file = AnnDataFileManager(ad, Path(g.name).name, manager)
-
-    raw = _read_raw(g, attrs=("var", "varm") if backed else ("var", "varm", "X"))
-    if raw:
-        ad._raw = ad.Raw(ad, **raw)
+        ad.file = AnnDataFileManager(ad, modname, manager)
     return ad
 
 
