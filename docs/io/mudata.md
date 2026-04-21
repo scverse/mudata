@@ -48,7 +48,7 @@ Version 0.3 introduces pull/push interface for annotations.
 For compatibility reasons, the old behaviour of pulling annotations on read/update is kept as default.
 
 This will be changed in the next release, and the annotations will not be copied implicitly.
-To adopt the new behaviour, use [](#mudata.set_options) with `pull_on_update=False`.
+To adopt the new behaviour, use [](#mudata.settings) with `pull_on_update=False`.
 The new approach to `.update()` and annotations is described below.
 :::
 
@@ -112,7 +112,7 @@ Version 0.3 introduces pull/push interface for annotations.
 For compatibility reasons, the old behaviour of pulling annotations on read/update is kept as default.
 
 This will be changed in the next release, and the annotations will not be copied implicitly.
-To adopt the new behaviour, use [](#mudata.set_options) with `pull_on_update=False`.
+To adopt the new behaviour, use [](#mudata.settings) with `pull_on_update=False`.
 The new approach to `.update()` and annotations is described below.
 :::
 

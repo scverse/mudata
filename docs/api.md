@@ -56,5 +56,6 @@ Types used by the former:
 .. autosummary::
    :toctree: generated
 
-   set_options
+   settings
+   settings.override
 ```

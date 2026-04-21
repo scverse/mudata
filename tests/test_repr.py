@@ -38,5 +38,5 @@ def test_repr(mdata: md.MuData):
 def test_repr_html_smoke(mdata: md.MuData):  # only test that it doesn't error
     assert mdata._repr_html_() == f"<pre>{escape(repr(mdata))}</pre>"
 
-    with md.set_options(display_style="html"):
+    with md.settings.override(display_style="html"):
         mdata._repr_html_()
