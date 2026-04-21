@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from types import GenericAlias
 from typing import Annotated, Literal
 
+import dotenv
 from pydantic import Field
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
@@ -18,7 +19,9 @@ class _Settings(BaseSettings):
     all caps with `MUDATA_` as the prefix before import of mudata.
     """
 
-    model_config = SettingsConfigDict(validate_assignment=True, use_attribute_docstrings=True, env_prefix="mudata_")
+    model_config = SettingsConfigDict(
+        validate_assignment=True, use_attribute_docstrings=True, env_prefix="mudata_", env_file=dotenv.find_dotenv()
+    )
 
     @classmethod
     def settings_customise_sources(
