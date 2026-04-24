@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning][].
 
 - `update()` no longer automatically pulls obs/var columns from individual modalities by default. Set `mudata.set_options(pull_on_update=true)`
   to restore the old behavior. Use `pull_obs/pull_var` and `push_obs/push_var` for more flexibility.
+- The settings API has changed. Use e.g. `mudata.settings.pull_on_update = True` instead of `mudata.set_options(pull_on_update=True)` and use
+  `mudata.settings.override` as context manager for local settings overrides.
 
 ## [0.3.6]
 
