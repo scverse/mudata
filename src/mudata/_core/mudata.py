@@ -22,9 +22,9 @@ from anndata._core.views import DataFrameView
 from anndata.utils import convert_to_dict
 from scverse_misc import Deprecation, deprecated
 
-from .config import OPTIONS
 from .file_backing import MuDataFileManager
 from .repr import MUDATA_CSS, block_matrix, details_block_table
+from .settings import settings
 from .utils import (
     MetadataColumn,
     _make_index_unique,
@@ -752,7 +752,7 @@ class MuData:
                     sha1(np.ascontiguousarray(getattr(mod, attr).columns.values)).hexdigest(),
                 )
 
-        if OPTIONS["pull_on_update"]:
+        if settings.pull_on_update:
             self._pull_attr(attr, **kwargs)
 
     @property
@@ -1856,13 +1856,13 @@ class MuData:
         001 - expand slots for each modality
         """
         # Return text representation if set in options
-        if OPTIONS["display_style"] == "text":
+        if settings.display_style == "text":
             from html import escape
 
             return f"<pre>{escape(repr(self))}</pre>"
 
         if expand is None:
-            expand = OPTIONS["display_html_expand"]
+            expand = settings.display_html_expand
 
         # General object properties
         header = "<span>MuData object <span class='hl-dim'>{} obs &times; {} var in {} modalit{}</span></span>".format(

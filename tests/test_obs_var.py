@@ -16,7 +16,7 @@ def test_obs_global_columns(mdata: md.MuData, pull_on_update: bool, filepath_h5m
         mod.obs["demo"] = m
     mdata.obs["demo"] = "global"
     if pull_on_update:
-        with md.set_options(pull_on_update=pull_on_update):
+        with md.settings.override(pull_on_update=pull_on_update):
             del mdata._obshash
             mdata.update()
     if mdata.axis == 0 and pull_on_update:
@@ -61,7 +61,7 @@ def test_var_global_columns(mdata: md.MuData, pull_on_update, filepath_h5mu: str
         mod.var["demo"] = m
     mdata.var["global"] = "global_var"
     if pull_on_update:
-        with md.set_options(pull_on_update=pull_on_update):
+        with md.settings.override(pull_on_update=pull_on_update):
             del mdata._varhash
             mdata.update()
     if not pull_on_update:
@@ -71,7 +71,7 @@ def test_var_global_columns(mdata: md.MuData, pull_on_update, filepath_h5mu: str
     else:
         assert mdata.var.columns.to_list() == ["global"] + [f"{m}:demo" for m in mdata.mod.keys()]
     del mdata.var["global"]
-    with md.set_options(pull_on_update=pull_on_update):
+    with md.settings.override(pull_on_update=pull_on_update):
         mdata.update()
     if not pull_on_update:
         assert mdata.var.shape[1] == 0
