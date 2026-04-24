@@ -31,9 +31,8 @@ dependencies = [
   "h5py",
   "numpy",
   "pandas>=1.4",
-  "pydantic-settings",
   "scipy",
-  "scverse-misc>=0.0.3",
+  "scverse-misc[settings]>=0.0.4",
   # for debug logging (referenced from the issue template)
   "session-info2",
 ]
