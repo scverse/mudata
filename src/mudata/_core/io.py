@@ -67,7 +67,12 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
         if write_data or not adata.isbacked:
             write_elem(group, "X", adata.X, dataset_kwargs=kwargs)
         if adata.raw is not None:
-            write_elem(group, "raw", adata.raw)
+            if not adata.isbacked:
+                write_elem(group, "raw", adata.raw, dataset_kwargs=kwargs)
+            else:
+                rawgrp = group.require_group("raw")
+                write_elem(rawgrp, "var", adata.raw.var, dataset_kwargs=kwargs)
+                write_elem(rawgrp, "varm", dict(adata.raw.varm), dataset_kwargs=kwargs)
 
         write_elem(group, "obs", adata.obs, dataset_kwargs=kwargs)
         write_elem(group, "var", adata.var, dataset_kwargs=kwargs)
@@ -168,7 +173,12 @@ def write_zarr(
                 else:
                     write_elem(group, "X", adata.X, dataset_kwargs=kwargs)
             if adata.raw is not None:
-                write_elem(group, "raw", adata.raw)
+                if write_data or not adata.isbacked:
+                    write_elem(group, "raw", adata.raw, dataset_kwargs=kwargs)
+                else:
+                    rawgrp = group.require_group("raw")
+                    write_elem(rawgrp, "var", adata.raw.var, dataset_kwargs=kwargs)
+                    write_elem(rawgrp, "varm", dict(adata.raw.varm), dataset_kwargs=kwargs)
 
             write_elem(group, "obs", adata.obs, dataset_kwargs=kwargs)
             write_elem(group, "var", adata.var, dataset_kwargs=kwargs)
