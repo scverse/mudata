@@ -191,12 +191,14 @@ def _test_view_after_setattr(mdata: md.MuData, mdata_ref: md.MuData, skip: Seque
 
     for k, v in mdata.obsm.items():
         if k in mdata_ref.obsm:
-            assert v.shape[1] == mdata_ref.obsm[k].shape[1]
+            if v.ndim > 1:
+                assert v.shape[1] == mdata_ref.obsm[k].shape[1]
             if isinstance(v, pd.DataFrame):
                 assert (v.columns == mdata_ref.obsm[k].columns).all()
     for k, v in mdata.varm.items():
         if k in mdata_ref.varm:
-            assert v.shape[1] == mdata_ref.obsm[k].shape[1]
+            if v.ndim > 1:
+                assert v.shape[1] == mdata_ref.obsm[k].shape[1]
             if isinstance(v, pd.DataFrame):
                 assert (v.columns == mdata_ref.varm[k].columns).all()
 

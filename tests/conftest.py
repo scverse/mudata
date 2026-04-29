@@ -34,7 +34,7 @@ def rng() -> np.random.Generator:
 
 
 @pytest.fixture
-def mdata(rng: np.random.Generator, request: pytest.FixtureRequest):
+def mdata(rng: np.random.Generator, request: pytest.FixtureRequest) -> MuData:
     axis = getattr(request, "param", 0)
     mod1 = AnnData(
         np.arange(0, 200, 0.1).reshape(-1, 20), obs=pd.DataFrame(index=rng.choice(150, size=100, replace=False))
@@ -46,6 +46,8 @@ def mdata(rng: np.random.Generator, request: pytest.FixtureRequest):
     mod2.var["assert-bool"] = False
     mod1.var["assert-boolean-1"] = True
     mod2.var["assert-boolean-2"] = False
+
+    mod1.raw = mod1[:, :10].copy()
     mods = {"mod2": mod2, "mod1": mod1}
 
     attr = "obs" if axis == 0 else "var"

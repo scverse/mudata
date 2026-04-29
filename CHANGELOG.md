@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning][].
 [keep a changelog]: https://keepachangelog.com/en/1.1.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
+## [0.3.7]
+
+### Fixed
+
+- MuData objects with modalities containing `.raw` attributes can once again be read from disk.
+
 ## [0.3.6]
 
 ### Fixed
@@ -156,6 +162,7 @@ To copy the annotations explicitly, you will need to use `pull_obs()` and/or `pu
 
 Initial `mudata` release with `MuData`, previously a part of the `muon` framework.
 
+[0.3.7]: https://github.com/scverse/mudata/releases/tag/v0.3.7
 [0.3.6]: https://github.com/scverse/mudata/releases/tag/v0.3.6
 [0.3.5]: https://github.com/scverse/mudata/releases/tag/v0.3.5
 [0.3.4]: https://github.com/scverse/mudata/releases/tag/v0.3.4

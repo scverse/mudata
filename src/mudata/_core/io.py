@@ -82,7 +82,12 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
         if write_data or not adata.isbacked:
             write_elem(group, "X", adata.X, dataset_kwargs=kwargs)
         if adata.raw is not None:
-            write_elem(group, "raw", adata.raw)
+            if not adata.isbacked:
+                write_elem(group, "raw", adata.raw, dataset_kwargs=kwargs)
+            else:
+                rawgrp = group.require_group("raw")
+                write_elem(rawgrp, "var", adata.raw.var, dataset_kwargs=kwargs)
+                write_elem(rawgrp, "varm", dict(adata.raw.varm), dataset_kwargs=kwargs)
 
         write_elem(group, "obs", adata.obs, dataset_kwargs=kwargs)
         write_elem(group, "var", adata.var, dataset_kwargs=kwargs)
@@ -201,7 +206,12 @@ def write_zarr(
                 else:
                     write_elem(group, "X", adata.X, dataset_kwargs=kwargs)
             if adata.raw is not None:
-                write_elem(group, "raw", adata.raw)
+                if write_data or not adata.isbacked:
+                    write_elem(group, "raw", adata.raw, dataset_kwargs=kwargs)
+                else:
+                    rawgrp = group.require_group("raw")
+                    write_elem(rawgrp, "var", adata.raw.var, dataset_kwargs=kwargs)
+                    write_elem(rawgrp, "varm", dict(adata.raw.varm), dataset_kwargs=kwargs)
 
             write_elem(group, "obs", adata.obs, dataset_kwargs=kwargs)
             write_elem(group, "var", adata.var, dataset_kwargs=kwargs)
@@ -527,16 +537,16 @@ def _read_zarr_mod(g: zarr.Group, manager: MuDataFileManager = None, backed: boo
                 d["X"] = read_elem(X)
         elif k != "raw":
             d[k] = read_elem(g[k])
-    ad = AnnData(**d)
+    adata = AnnData(**d)
     if manager is not None:
-        ad.file = AnnDataFileManager(ad, Path(g.name).name, manager)
+        adata.file = AnnDataFileManager(adata, Path(g.name).name, manager)
 
     raw = _read_legacy_raw(
         g, d.get("raw"), read_zarr_dataframe, read_elem, attrs=("var", "varm") if backed else ("var", "varm", "X")
     )
     if raw:
-        ad._raw = ad.Raw(ad, **raw)
-    return ad
+        adata._raw = ad.Raw(adata, **raw)
+    return adata
 
 
 def _read_h5mu_mod(g: h5py.Group, manager: MuDataFileManager = None, backed: bool = False) -> dict:
@@ -551,14 +561,14 @@ def _read_h5mu_mod(g: h5py.Group, manager: MuDataFileManager = None, backed: boo
                 d["X"] = read_elem(X)
         elif k != "raw":
             d[k] = read_elem(g[k])
-    ad = AnnData(**d)
+    adata = AnnData(**d)
     if manager is not None:
-        ad.file = AnnDataFileManager(ad, Path(g.name).name, manager)
+        adata.file = AnnDataFileManager(adata, Path(g.name).name, manager)
 
     raw = _read_raw(g, attrs=("var", "varm") if backed else ("var", "varm", "X"))
     if raw:
-        ad._raw = ad.Raw(ad, **raw)
-    return ad
+        adata._raw = ad.Raw(adata, **raw)
+    return adata
 
 
 def read_h5ad(
