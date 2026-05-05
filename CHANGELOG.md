@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning][].
 [keep a changelog]: https://keepachangelog.com/en/1.1.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
+## [0.3.8] (Unreleased)
+
+### Fixed
+
+- `obs_vector` and `var_vector` once again return Pandas Series objects when appropriate. This fixes
+  applying `sc.pl.umap` on a MuData object.
+
 ## [0.3.7]
 
 ### Fixed
@@ -162,6 +169,7 @@ To copy the annotations explicitly, you will need to use `pull_obs()` and/or `pu
 
 Initial `mudata` release with `MuData`, previously a part of the `muon` framework.
 
+[0.3.8]: https://github.com/scverse/mudata/releases/tag/v0.3.8
 [0.3.7]: https://github.com/scverse/mudata/releases/tag/v0.3.7
 [0.3.6]: https://github.com/scverse/mudata/releases/tag/v0.3.6
 [0.3.5]: https://github.com/scverse/mudata/releases/tag/v0.3.5

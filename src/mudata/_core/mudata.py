@@ -1247,7 +1247,7 @@ class MuData:
                         f"There is no key {key} in MuData .{attr} but there is one in {m} .{attr}. Consider running `update_{attr}()` to update global .{attr}."
                     )
             raise KeyError(f"There is no key {key} in MuData .{attr} or in .{attr} of any modalities.")
-        return df[key].to_numpy()
+        return df[key].values
 
     @deprecated(Deprecation("0.3.4"))
     def obs_vector(self, key: str, layer: str | None = None) -> np.ndarray:
