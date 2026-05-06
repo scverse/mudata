@@ -847,9 +847,6 @@ class MuData:
                 f"This operation is only supported on MuData objects with `axis={1 - axis}`. This MuData has `axis={self.axis}`."
             )
         namesattr = f"{attr}_names"
-        mod_sum = np.sum([a.shape[axis] for a in self._mod.values()])
-        if mod_sum != self.shape[axis]:
-            self._update_attr(attr, axis=1 - axis)
 
         for mod in self._mod.values():
             mod_make_unique = getattr(mod, f"{attr}_names_make_unique")
@@ -875,12 +872,9 @@ class MuData:
                             setattr(mod, namesattr, m + ":" + getattr(mod, namesattr).astype(str))
                         raise StopIteration()  # break out of both loops
 
-        attrval = getattr(self, attr)
-
-        # self._set_names replaces the names of each modality. Unnecessary here, since the names are coming directly from the modalities
-        attrval.index = pd.Index([], name=attrval.index.name).append(
-            [getattr(mod, namesattr) for mod in self._mod.values()]
-        )
+        mod_sum = np.sum([a.shape[axis] for a in self._mod.values()])
+        if mod_sum != self.shape[axis]:
+            self._update_attr(attr, axis=axis)
 
     def obs_names_make_unique(self):
         """
@@ -907,7 +901,7 @@ class MuData:
         else:
             mod_shape_sum = reduce(lambda x, y: x.union(y), (getattr(a, attr).index for a in self._mod.values())).size
         if mod_shape_sum != self.shape[axis]:
-            self._update_attr(attr, axis=1 - axis)
+            self._update_attr(attr, axis=axis)
 
         if len(names) != self.shape[axis]:
             raise ValueError(
@@ -926,7 +920,7 @@ class MuData:
             newnames[modmap[mask] - 1] = names[mask]
             setattr(mod, f"{attr}_names", newnames)
 
-        self._update_attr(attr, axis=1 - axis)
+        self._update_attr(attr, axis=axis)
 
     @property
     def obs_names(self) -> pd.Index:
