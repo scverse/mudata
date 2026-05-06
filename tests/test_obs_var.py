@@ -105,17 +105,22 @@ def test_names_make_unique(mdata: md.MuData):
     namesfun = getattr(mdata, f"{oattr}_names_make_unique")
 
     mods = mdata.mod_names
-    names = getattr(mdata.mod[mods[0]], namesattr).to_list()
-    names[1] = names[0]
-    setattr(mdata.mod[mods[0]], namesattr, names)
+    names = getattr(mdata.mod[mods[0]], namesattr)
+    nameslist = names.to_list()
+    nameslist[1] = nameslist[0]
+    setattr(mdata.mod[mods[0]], namesattr, pd.Index(nameslist, name=names.name))
     namesfun()
     assert mdata.shape[1 - mdata.axis] == sum(mod.shape[1 - mdata.axis] for mod in mdata.mod.values())
     assert getattr(mdata, namesattr).is_unique
+    assert getattr(mdata.mod[mods[0]], namesattr).name == names.name
 
+    modality_index_names = {}
     for mod in mods[:2]:
-        names = getattr(mdata.mod[mod], namesattr).to_list()
-        names[1] = names[0] = "testname"
-        setattr(mdata.mod[mod], namesattr, names)
+        names = getattr(mdata.mod[mod], namesattr)
+        nameslist = names.to_list()
+        nameslist[1] = nameslist[0] = "testname"
+        setattr(mdata.mod[mod], namesattr, pd.Index(nameslist, name=names.name))
+        modality_index_names[mod] = names.name
     with pytest.warns(UserWarning, match="Modality names will be prepended"):
         namesfun()
     assert mdata.shape[1 - mdata.axis] == sum(mod.shape[1 - mdata.axis] for mod in mdata.mod.values())
@@ -123,6 +128,7 @@ def test_names_make_unique(mdata: md.MuData):
     for m, mod in mdata.mod.items():
         assert getattr(mod, namesattr).is_unique
         assert (getattr(mod, namesattr).str[: len(m) + 1] == f"{m}:").all()
+        assert getattr(mod, namesattr).name == modality_index_names[m]
 
     with pytest.raises(TypeError, match="axis="):
         getattr(mdata, f"{attr}_names_make_unique")()

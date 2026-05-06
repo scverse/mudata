@@ -8,14 +8,11 @@ and this project adheres to [Semantic Versioning][].
 [keep a changelog]: https://keepachangelog.com/en/1.1.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
-## [0.4.0] (unreleased)
+## [0.3.9] (Unreleased)
 
-### Changed
+### Fixed
 
-- `update()` no longer automatically pulls obs/var columns from individual modalities by default. Set `mudata.set_options(pull_on_update=true)`
-  to restore the old behavior. Use `pull_obs/pull_var` and `push_obs/push_var` for more flexibility.
-- The settings API has changed. Use e.g. `mudata.settings.pull_on_update = True` instead of `mudata.set_options(pull_on_update=True)` and use
-  `mudata.settings.override` as context manager for local settings overrides.
+- `make_obs_names_unique` and `make_var_names_unique` now preserve the `.obs.index.name` / `.var.index.name` of each modality and of the MuData object.
 
 ## [0.3.8]
 
@@ -180,7 +177,7 @@ To copy the annotations explicitly, you will need to use `pull_obs()` and/or `pu
 
 Initial `mudata` release with `MuData`, previously a part of the `muon` framework.
 
-[0.4.0]: https://github.com/scverse/mudata/releases/tag/v0.4.0
+[0.3.9]: https://github.com/scverse/mudata/releases/tag/v0.3.9
 [0.3.8]: https://github.com/scverse/mudata/releases/tag/v0.3.8
 [0.3.7]: https://github.com/scverse/mudata/releases/tag/v0.3.7
 [0.3.6]: https://github.com/scverse/mudata/releases/tag/v0.3.6
