@@ -874,7 +874,14 @@ class MuData:
 
         mod_sum = np.sum([a.shape[axis] for a in self._mod.values()])
         if mod_sum != self.shape[axis]:
-            self._update_attr(attr, axis=axis)
+            self._update_attr(attr, axis=axis)  # global names set by update
+        else:
+            attrval = getattr(self, attr)
+
+            # self._set_names replaces the names of each modality. Unnecessary here, since the names are coming directly from the modalities
+            attrval.index = pd.Index([], name=attrval.index.name).append(
+                [getattr(mod, namesattr) for mod in self._mod.values()]
+            )
 
     def obs_names_make_unique(self):
         """
