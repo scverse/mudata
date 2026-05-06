@@ -175,6 +175,24 @@ def test_update_simple(mdata: MuData, axis: Axis):
     ).all()
 
 
+def test_update_simple_empty_modalities(modalities: Mapping[str, AnnData], axis: Axis):
+    for mod in modalities.values():
+        mod.obs = pd.DataFrame(index=mod.obs_names)
+        mod.var = pd.DataFrame(index=mod.var_names)
+    mdata = MuData(modalities)
+
+    old_obsnames = mdata.obs_names
+    old_varnames = mdata.var_names
+
+    mdata.obs["test"] = True
+    del mdata._obshash
+    del mdata._varhash
+    mdata.update()  # https://github.com/scverse/mudata/issues/145
+
+    assert (old_obsnames == mdata.obs_names).all()
+    assert (old_varnames == mdata.var_names).all()
+
+
 def test_update_add_modality(rng: np.random.Generator, modalities: Mapping[str, AnnData], axis: Axis):
     modnames = list(modalities.keys())
     mdata = add_mdata_global_columns(

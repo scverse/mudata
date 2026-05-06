@@ -17,12 +17,14 @@ and this project adheres to [Semantic Versioning][].
 - The settings API has changed. Use e.g. `mudata.settings.pull_on_update = True` instead of `mudata.set_options(pull_on_update=True)` and use
   `mudata.settings.override` as context manager for local settings overrides.
 
-## [0.3.8] (Unreleased)
+## [0.3.8]
 
 ### Fixed
 
 - `obs_vector` and `var_vector` once again return Pandas Series objects when appropriate. This fixes
   applying `sc.pl.umap` on a MuData object.
+- `update` with `pull_on_update != None` works again when run on a MuData object where all modalities have empty `.obs` / `.var` but the global
+  `.obs` or `.var` is not empty.
 
 ## [0.3.7]
 
