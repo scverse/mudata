@@ -868,14 +868,19 @@ class MuData:
                     kj = mods[j]
                     if len(getattr(self._mod[ki], namesattr).intersection(getattr(self._mod[kj], namesattr))) > 0:
                         warnings.warn(
-                            "Modality names will be prepended to obs_names since there are identical obs_names in different modalities.",
+                            f"Modality names will be prepended to {namesattr} since there are identical {namesattr} in different modalities.",
                             stacklevel=1,
                         )
                         for m, mod in self._mod.items():
                             setattr(mod, namesattr, m + ":" + getattr(mod, namesattr).astype(str))
                         raise StopIteration()  # break out of both loops
 
-        setattr(self, namesattr, pd.Index([]).append([getattr(mod, namesattr) for mod in self._mod.values()]))
+        attrval = getattr(self, attr)
+
+        # self._set_names replaces the names of each modality. Unnecessary here, since the names are coming directly from the modalities
+        attrval.index = pd.Index([], name=attrval.index.name).append(
+            [getattr(mod, namesattr) for mod in self._mod.values()]
+        )
 
     def obs_names_make_unique(self):
         """
