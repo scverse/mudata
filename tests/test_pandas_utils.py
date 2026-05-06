@@ -33,7 +33,8 @@ def test_try_convert_series_to_numpy_dtype(numpy_dtype, nullable_dtype):
 
 
 def test_try_convert_dataframe_to_numpy_dtypes():
-    series = pd.Series(np.arange(10))
+    idx = pd.Index(np.arange(10)[::-1].astype(str))
+    series = pd.Series(np.arange(10), index=idx)
     df = pd.DataFrame({"numpy": series})
 
     series = series.astype(pd.Int64Dtype())
@@ -45,3 +46,11 @@ def test_try_convert_dataframe_to_numpy_dtypes():
     df = try_convert_dataframe_to_numpy_dtypes(df)
     assert df["numpy"].dtype == df["nullable"].dtype == np.int64
     assert df["nullable_noconvert"].dtype == pd.Int64Dtype()
+    assert (df.index == idx).all()
+
+
+def test_try_convert_empty_dataframe_to_numpy_dtypes():
+    idx = pd.Index(np.arange(10)[::-1].astype(str))
+    df = pd.DataFrame(index=idx)
+    df = try_convert_dataframe_to_numpy_dtypes(df)
+    assert (df.index == idx).all()

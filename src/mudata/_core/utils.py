@@ -144,4 +144,4 @@ def try_convert_dataframe_to_numpy_dtypes(df: pd.DataFrame | Mapping[str, pd.Ser
     new_cols = {}
     for colname, col in df.items():
         new_cols[colname] = try_convert_series_to_numpy_dtype(col)
-    return pd.DataFrame(new_cols)
+    return pd.DataFrame(new_cols, index=df.index)
