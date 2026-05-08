@@ -55,6 +55,8 @@ def test_set_filename(mdata: md.MuData, filepath_h5mu: str | Path):
     mdata.filename = filepath_h5mu
     assert mdata.isbacked
     assert mdata.filename == filepath_h5mu
+    for mod in mdata.mod.values():
+        assert mod.isbacked
 
 
 def test_write_read_zarr_adata(mdata: md.MuData, filepath_zarr: str | Path):

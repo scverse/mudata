@@ -62,7 +62,7 @@ class MuDataFileManager(AnnDataFileManager):
 
     @AnnDataFileManager.filename.setter
     def filename(self, filename: PathLike | None):
-        self._filename = None if filename is None else filename
+        self._filename = filename
 
 
 class AnnDataFileManager(ad._core.file_backing.AnnDataFileManager):
@@ -97,9 +97,13 @@ class AnnDataFileManager(ad._core.file_backing.AnnDataFileManager):
         self._parent._close()
 
     def _to_memory_mode(self):
-        self._adata._X = self._adata.X[()]
+        X = self._adata.X[()]
         self.close()
         self.filename = None
+        if hasattr(self._adata, "_X"):  # anndata < 0.13
+            self._adata._X = X
+        else:
+            self._adata.X = X  # anndata >= 0.13
 
     @property
     def is_open(self) -> bool:

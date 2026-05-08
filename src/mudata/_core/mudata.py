@@ -22,7 +22,7 @@ from anndata._core.views import DataFrameView
 from anndata.utils import convert_to_dict
 from scverse_misc import Deprecation, deprecated
 
-from .file_backing import MuDataFileManager
+from .file_backing import AnnDataFileManager, MuDataFileManager
 from .repr import MUDATA_CSS, block_matrix, details_block_table
 from .settings import settings
 from .utils import (
@@ -787,8 +787,10 @@ class MuData:
         elif filename is not None:
             self.write(filename)
             self.file.open(filename, "r+")
-            for ad in self._mod.values():
-                ad._X = None
+            for modname, mod in self._mod.items():
+                mod.X = None
+                if not isinstance(mod.file, AnnDataFileManager):
+                    mod.file = AnnDataFileManager(mod, modname, self.file)
 
     @property
     def obs(self) -> pd.DataFrame:
