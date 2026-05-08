@@ -95,7 +95,7 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
         write_elem(group, "varm", dict(adata.varm), dataset_kwargs=kwargs)
         write_elem(group, "obsp", dict(adata.obsp), dataset_kwargs=kwargs)
         write_elem(group, "varp", dict(adata.varp), dataset_kwargs=kwargs)
-        write_elem(group, "layers", dict(adata.layers), dataset_kwargs=kwargs)
+        write_elem(group, "layers", {k: v for k, v in adata.layers.items() if k is not None}, dataset_kwargs=kwargs)
         write_elem(group, "uns", dict(adata.uns), dataset_kwargs=kwargs)
 
         attrs = group.attrs
@@ -219,7 +219,7 @@ def write_zarr(
             write_elem(group, "varm", dict(adata.varm), dataset_kwargs=kwargs)
             write_elem(group, "obsp", dict(adata.obsp), dataset_kwargs=kwargs)
             write_elem(group, "varp", dict(adata.varp), dataset_kwargs=kwargs)
-            write_elem(group, "layers", dict(adata.layers), dataset_kwargs=kwargs)
+            write_elem(group, "layers", {k: v for k, v in adata.layers.items() if k is not None}, dataset_kwargs=kwargs)
             write_elem(group, "uns", dict(adata.uns), dataset_kwargs=kwargs)
 
             attrs = group.attrs
@@ -321,7 +321,7 @@ def write_h5ad(filename: str | PathLike, mod: str, data: MuData | AnnData):
         write_elem(fmd, "varm", dict(adata.varm))
         write_elem(fmd, "obsp", dict(adata.obsp))
         write_elem(fmd, "varp", dict(adata.varp))
-        write_elem(fmd, "layers", dict(adata.layers))
+        write_elem(fmd, "layers", {k: v for k, v in adata.layers.items() if k is not None})
         write_elem(fmd, "uns", dict(adata.uns))
 
         attrs = fmd.attrs
