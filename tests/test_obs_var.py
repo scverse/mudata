@@ -154,7 +154,7 @@ def test_names_make_unique(mdata: md.MuData):
 )
 def test_accessors(mdata: md.MuData):
     assert (mdata[ad.acc.A.obs["arange"]] == mdata.obs["arange"]).all()
-    with pytest.raises(KeyError, match="any modalities"):
+    with pytest.raises(KeyError, match="test"):
         mdata[ad.acc.A.var["test"]]
     with pytest.raises(KeyError, match="there is one in"):
         mdata[ad.acc.A.var["assert-bool"]]

@@ -543,19 +543,11 @@ class MuData:
                 except KeyError as e:
                     if index.acc.dim in ("obs", "var"):
                         for modname, mod in self._mod.items():
-                            try:
-                                index.acc.get(mod, index.idx)
-                            except KeyError:
-                                pass
-                            else:
+                            if index in mod:
                                 raise KeyError(
                                     f"There is no key {index.idx} in MuData .{index.acc.dim} but there is one in {modname} .{index.acc.dim}. Consider running `pull_{index.acc.dim}()` to update global .{index.acc.dim}."
                                 ) from e
-                        raise KeyError(
-                            f"There is no key {index.idx} in MuData .{index.acc.dim} or in .{index.acc.dim} of any modalities."
-                        ) from e
-                    else:
-                        raise
+                    raise
         return MuData(self, as_view=True, index=index)
 
     @property
