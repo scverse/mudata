@@ -153,6 +153,7 @@ def test_names_make_unique(mdata: md.MuData):
     Version(ad.__version__) < Version("0.13dev0"), reason="anndata version too old, no accessor support"
 )
 def test_accessors(mdata: md.MuData):
+    assert ad.acc.A.obs["arange"] in mdata
     assert (mdata[ad.acc.A.obs["arange"]] == mdata.obs["arange"]).all()
     with pytest.raises(KeyError, match="test"):
         mdata[ad.acc.A.var["test"]]

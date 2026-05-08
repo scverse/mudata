@@ -550,6 +550,16 @@ class MuData:
                     raise
         return MuData(self, as_view=True, index=index)
 
+    def __contains__(self, key) -> bool:
+        if isinstance(key, str):
+            return key in self._mod
+        with suppress(ImportError):
+            from anndata.acc import AdRef, MapAcc, RefAcc
+
+            if isinstance(key, AdRef | RefAcc | MapAcc):
+                return AnnData.__contains__(self, key)
+        raise TypeError(f"Unexpected key {key!r}.")
+
     @property
     def mod(self) -> Mapping[str, AnnData | MuData]:
         """Dictionary of modalities."""
