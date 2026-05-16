@@ -311,9 +311,8 @@ def write_h5ad(filename: str | PathLike, mod: str, data: MuData | AnnData):
         if not (adata.isbacked and Path(adata.filename) == Path(filepath)):
             write_elem(fmd, "X", adata.X)
 
-        # NOTE: Calling write_elem() does not allow writing .raw into .h5mu modalities
         if adata.raw is not None:
-            write_elem(f, f"mod/{mod}/raw", adata.raw)
+            write_elem(fmd, "raw", adata.raw)
 
         write_elem(fmd, "obs", adata.obs)
         write_elem(fmd, "var", adata.var)
