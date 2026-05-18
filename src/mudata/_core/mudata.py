@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import warnings
 from collections import Counter, abc
-from collections.abc import Iterable, Mapping, MutableMapping, Sequence
+from collections.abc import ItemsView, Iterable, Mapping, MutableMapping, Sequence, ValuesView
 from contextlib import suppress
 from copy import deepcopy
 from functools import reduce
@@ -42,9 +42,27 @@ if TYPE_CHECKING:
     import zarr
 
 
+class ModalityMapItemsView(ItemsView):
+    def __iter__(self):
+        for k, v in super().__iter__():
+            yield k, v.ravel()
+
+
+class ModalityMapValuesView(ValuesView):
+    def __iter__(self):
+        for v in super().__iter__():
+            yield v.ravel()
+
+
 class ModalityMapAxisArraysView(AlignedView, AxisArraysBase):
     def __getitem__(self, key: str):
         return super().__getitem__(key).ravel()
+
+    def items(self):
+        return ModalityMapItemsView(self)
+
+    def values(self):
+        return ModalityMapValuesView(self)
 
 
 class ModalityMapAxisArrays(AxisArrays):
@@ -52,6 +70,12 @@ class ModalityMapAxisArrays(AxisArrays):
 
     def __getitem__(self, key: str):
         return super().__getitem__(key).ravel()
+
+    def items(self):
+        return ModalityMapItemsView(self)
+
+    def values(self):
+        return ModalityMapValuesView(self)
 
 
 class ModDict(dict):
@@ -205,8 +229,8 @@ class MuData:
                 "varm": (AxisArrays, 1),
                 "obsp": (PairwiseArrays, 0),
                 "varp": (PairwiseArrays, 1),
-                "obsmap": (AxisArrays, 0),
-                "varmap": (AxisArrays, 1),
+                "obsmap": (ModalityMapAxisArrays, 0),
+                "varmap": (ModalityMapAxisArrays, 1),
             }
 
             # Initialise each attribute
@@ -231,12 +255,12 @@ class MuData:
         # Make obs map for each modality
         self._obsm = AxisArrays(self, axis=0, store={})
         self._obsp = PairwiseArrays(self, axis=0, store={})
-        self._obsmap = AxisArrays(self, axis=0, store={})
+        self._obsmap = ModalityMapAxisArrays(self, axis=0, store={})
 
         # Make var map for each modality
         self._varm = AxisArrays(self, axis=1, store={})
         self._varp = PairwiseArrays(self, axis=1, store={})
-        self._varmap = AxisArrays(self, axis=1, store={})
+        self._varmap = ModalityMapAxisArrays(self, axis=1, store={})
 
         self._axis = 0
 
@@ -311,7 +335,7 @@ class MuData:
         self._varm = mudata_ref.varm._view(self, (varidx,))
         self._varp = mudata_ref.varp._view(self, (varidx, varidx))
 
-        for attr, idx in (("obs", obsidx), ("var", varidx)):
+        for axis, attr, idx in ((0, "obs", obsidx), (1, "var", varidx)):
             posmap = {}
             size = getattr(self, attr).shape[0]
             for mod, mapping in getattr(mudata_ref, attr + "map").items():
@@ -319,7 +343,7 @@ class MuData:
                 cidx = mapping[idx] > 0
                 cposmap[cidx > 0] = np.arange(cidx.sum()) + 1
                 posmap[mod] = cposmap
-            setattr(self, "_" + attr + "map", posmap)
+            setattr(self, "_" + attr + "map", ModalityMapAxisArrays(self, axis=axis, store=posmap))
 
         self._is_view = True
         self.file = mudata_ref.file
@@ -340,10 +364,10 @@ class MuData:
         self._var = data.var
         self._obsm = AxisArrays(self, axis=0, store=convert_to_dict(data.obsm))
         self._obsp = PairwiseArrays(self, axis=0, store=convert_to_dict(data.obsp))
-        self._obsmap = AxisArrays(self, axis=0, store=convert_to_dict(data.obsmap))
+        self._obsmap = ModalityMapAxisArrays(self, axis=0, store=convert_to_dict(data.obsmap))
         self._varm = AxisArrays(self, axis=1, store=convert_to_dict(data.varm))
         self._varp = PairwiseArrays(self, axis=1, store=convert_to_dict(data.varp))
-        self._varmap = AxisArrays(self, axis=1, store=convert_to_dict(data.varmap))
+        self._varmap = ModalityMapAxisArrays(self, axis=1, store=convert_to_dict(data.varmap))
         self._uns = data._uns
         self._axis = data._axis
 
