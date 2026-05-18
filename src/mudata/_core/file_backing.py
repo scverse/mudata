@@ -1,7 +1,6 @@
 from os import PathLike
 from pathlib import Path
 from typing import Literal
-from weakref import WeakSet
 
 import anndata as ad
 import h5py
@@ -11,7 +10,7 @@ from anndata._core.file_backing import AnnDataFileManager
 class MuDataFileManager(AnnDataFileManager):
     def __init__(self, filename: PathLike | None = None, filemode: Literal["r", "r+"] | None = None):
         self._counter = 0
-        self._children = WeakSet()
+        self._children = set()
         if filename is not None:
             filename = Path(filename)
         super().__init__(ad.AnnData(), filename, filemode)
