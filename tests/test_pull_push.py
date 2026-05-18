@@ -353,7 +353,7 @@ def test_pull_attr_simple(mdata: MuData, attr: AxisAttr):
 
         assert_dtypes(df, "common", f"{m}:")
 
-        modmap = getattr(mdata, f"{attr}map")[m].ravel()
+        modmap = getattr(mdata, f"{attr}map")[m]
         mask = modmap > 0
         assert (
             df[f"{m}:common_col"][mask].to_numpy() == getattr(mod, attr)["common_col"].to_numpy()[modmap[mask] - 1]
@@ -374,12 +374,12 @@ def test_push_simple(mdata_for_push: MuData, push_func: Callable[..., None], pus
         mdf = getattr(mod, cattr)
         assert_dtypes(mdf, "pushed")
 
-        map = getattr(mdata_for_push, f"{cattr}map")[modname].ravel()
+        map = getattr(mdata_for_push, f"{cattr}map")[modname]
         mask = map > 0
         assert (push_df["dtype-int-pushed"][mask] == mdf["dtype-int-pushed"].iloc[map[mask] - 1]).all()
 
     assert_dtypes(getattr(mdata_for_push["mod2"], cattr), "pushed", "mod2_")
-    map = getattr(mdata_for_push, f"{cattr}map")["mod2"].ravel()
+    map = getattr(mdata_for_push, f"{cattr}map")["mod2"]
     mask = map > 0
     assert (
         push_df["mod2:mod2_dtype-int-pushed"][mask]

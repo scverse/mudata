@@ -42,20 +42,16 @@ if TYPE_CHECKING:
     import zarr
 
 
-class MuAxisArraysView(AlignedView, AxisArraysBase):
-    def __init__(self, parent_mapping: AxisArraysBase, parent_view: MuData, subset_idx: Any):
-        self.parent_mapping = parent_mapping
-        self._parent = parent_view
-        self.subset_idx = subset_idx
-        self._axis = parent_mapping._axis
-
-        @property
-        def dimnames(self):
-            return None
+class ModalityMapAxisArraysView(AlignedView, AxisArraysBase):
+    def __getitem__(self, key: str):
+        return super().__getitem__(key).ravel()
 
 
-class MuAxisArrays(AxisArrays):
-    _view_class = MuAxisArraysView
+class ModalityMapAxisArrays(AxisArrays):
+    _view_class = ModalityMapAxisArraysView
+
+    def __getitem__(self, key: str):
+        return super().__getitem__(key).ravel()
 
 
 class ModDict(dict):
@@ -205,12 +201,12 @@ class MuData:
 
             # Map each attribute to its class and axis value
             attr_to_axis_arrays = {
-                "obsm": (MuAxisArrays, 0),
-                "varm": (MuAxisArrays, 1),
+                "obsm": (AxisArrays, 0),
+                "varm": (AxisArrays, 1),
                 "obsp": (PairwiseArrays, 0),
                 "varp": (PairwiseArrays, 1),
-                "obsmap": (MuAxisArrays, 0),
-                "varmap": (MuAxisArrays, 1),
+                "obsmap": (AxisArrays, 0),
+                "varmap": (AxisArrays, 1),
             }
 
             # Initialise each attribute
@@ -233,14 +229,14 @@ class MuData:
         self._var = pd.DataFrame()
 
         # Make obs map for each modality
-        self._obsm = MuAxisArrays(self, axis=0, store={})
+        self._obsm = AxisArrays(self, axis=0, store={})
         self._obsp = PairwiseArrays(self, axis=0, store={})
-        self._obsmap = MuAxisArrays(self, axis=0, store={})
+        self._obsmap = AxisArrays(self, axis=0, store={})
 
         # Make var map for each modality
-        self._varm = MuAxisArrays(self, axis=1, store={})
+        self._varm = AxisArrays(self, axis=1, store={})
         self._varp = PairwiseArrays(self, axis=1, store={})
-        self._varmap = MuAxisArrays(self, axis=1, store={})
+        self._varmap = AxisArrays(self, axis=1, store={})
 
         self._axis = 0
 
@@ -320,7 +316,7 @@ class MuData:
             size = getattr(self, attr).shape[0]
             for mod, mapping in getattr(mudata_ref, attr + "map").items():
                 cposmap = np.zeros((size,), dtype=mapping.dtype)
-                cidx = (mapping[idx] > 0).ravel()
+                cidx = mapping[idx] > 0
                 cposmap[cidx > 0] = np.arange(cidx.sum()) + 1
                 posmap[mod] = cposmap
             setattr(self, "_" + attr + "map", posmap)
@@ -342,12 +338,12 @@ class MuData:
         self._mod = data.mod
         self._obs = data.obs
         self._var = data.var
-        self._obsm = MuAxisArrays(self, axis=0, store=convert_to_dict(data.obsm))
+        self._obsm = AxisArrays(self, axis=0, store=convert_to_dict(data.obsm))
         self._obsp = PairwiseArrays(self, axis=0, store=convert_to_dict(data.obsp))
-        self._obsmap = MuAxisArrays(self, axis=0, store=convert_to_dict(data.obsmap))
-        self._varm = MuAxisArrays(self, axis=1, store=convert_to_dict(data.varm))
+        self._obsmap = AxisArrays(self, axis=0, store=convert_to_dict(data.obsmap))
+        self._varm = AxisArrays(self, axis=1, store=convert_to_dict(data.varm))
         self._varp = PairwiseArrays(self, axis=1, store=convert_to_dict(data.varp))
-        self._varmap = MuAxisArrays(self, axis=1, store=convert_to_dict(data.varmap))
+        self._varmap = AxisArrays(self, axis=1, store=convert_to_dict(data.varmap))
         self._uns = data._uns
         self._axis = data._axis
 
@@ -670,7 +666,7 @@ class MuData:
             for mod, amod in self._mod.items():
                 colname = fix_attrmap_col(data_mod, mod, rowcol)
                 if mod in attrmap:
-                    modmap = attrmap[mod].ravel()
+                    modmap = attrmap[mod]
                     modmask = modmap > 0
                     # only use unchanged modalities for ordering
                     if (
@@ -1354,7 +1350,7 @@ class MuData:
         map = getattr(self, f"{attr}map")
         for modname, mod in self._mod.items():
             newnames = np.empty(mod.shape[axis], dtype=object)
-            modmap = map[modname].ravel()
+            modmap = map[modname]
             mask = modmap > 0
             newnames[modmap[mask] - 1] = names[mask]
             setattr(mod, f"{attr}_names", newnames)
@@ -1452,7 +1448,7 @@ class MuData:
 
     @obsm.setter
     def obsm(self, value: Mapping[str]):
-        obsm = MuAxisArrays(self, axis=0, store=convert_to_dict(value))
+        obsm = AxisArrays(self, axis=0, store=convert_to_dict(value))
         if self.is_view:
             self._init_as_actual(self.copy())
         self._obsm = obsm
@@ -1502,7 +1498,7 @@ class MuData:
 
     @varm.setter
     def varm(self, value: Mapping[str]):
-        varm = MuAxisArrays(self, axis=1, store=convert_to_dict(value))
+        varm = AxisArrays(self, axis=1, store=convert_to_dict(value))
         if self.is_view:
             self._init_as_actual(self.copy())
         self._varm = varm
@@ -1781,7 +1777,7 @@ class MuData:
         dfs: list[pd.DataFrame] = []
         for m, modcols in cols.items():
             mod = self._mod[m]
-            mod_map = attrmap[m].ravel()
+            mod_map = attrmap[m]
             mask = mod_map > 0
 
             mod_df = getattr(mod, attr)[[col.derived_name for col in modcols]]
@@ -2070,7 +2066,7 @@ class MuData:
             if mods is not None and m not in mods:
                 continue
 
-            mod_map = attrmap[m].ravel()
+            mod_map = attrmap[m]
             mask = mod_map > 0
             mod_n_attr = mod.n_obs if attr == "obs" else mod.n_vars
 
