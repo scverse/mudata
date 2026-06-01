@@ -623,8 +623,8 @@ class MuData:
             nonlocal index_order, can_update
             index_order = data_global.index.get_indexer(data_mod.index)
             can_update = (
-                new_idx.shape[0] == 0  # noqa: F821   filtered or reordered
-                or kept_idx.shape[0] == data_global.shape[0]  # noqa: F821     new rows only
+                new_idx.shape[0] == 0
+                or kept_idx.shape[0] == data_global.shape[0]
                 or data_mod.shape[0]
                 == data_global.shape[
                     0
