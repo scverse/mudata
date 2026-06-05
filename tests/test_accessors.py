@@ -82,3 +82,10 @@ def test_get(mdata_augmented: md.MuData, acc_expected):
         assert np.all(val == expected)
     else:
         assert val == expected
+
+
+def test_no_data():
+    with pytest.raises(AttributeError):
+        A.X  # noqa: B018
+    with pytest.raises(AttributeError):
+        A.layers  # noqa: B018
