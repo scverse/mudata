@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import KW_ONLY, dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import pandas as pd
 from anndata.acc import (
@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 @dataclass(frozen=True, kw_only=True)
 class _ModalityMixin:
     mod: str
+    """Modality this accessor refers to."""
 
 
 @dataclass(frozen=True)
@@ -47,12 +48,16 @@ class _ModalityMapAcc[I, R](_ModalityMixin):
 
 @dataclass(frozen=True)
 class ModLayerAcc[R: AdRef[Idx2D]](_ModalityMapAcc[Idx2D, InMemoryArray], LayerAcc[R]):
+    """Reference accessor for arrays in :attr:`~anndata.acc.AdAcc.layers`."""
+
     def __repr__(self) -> str:
         return f"A.mod[{self.mod!r}].X" if self.k is None else f"A.mod[{self.mod}].layers[{self.k!r}]"
 
 
 @dataclass(frozen=True)
 class ModLayerMapAcc[R: AdRef](_ModalityMixin, LayerMapAcc[R]):
+    """Accessor for arrays in :attr:~anndata.acc.AdAcc.layers`."""
+
     ref_acc_cls: type[ModLayerAcc] = ModLayerAcc
 
     def __getitem__(self, k: str | None, /) -> ModLayerAcc[R]:
@@ -66,18 +71,24 @@ class ModLayerMapAcc[R: AdRef](_ModalityMixin, LayerMapAcc[R]):
 
 @dataclass(frozen=True)
 class ModMetaAcc[R: AdRef[str | None]](_ModalityMapAcc[str, pd.api.extensions.ExtensionArray | XVariable], MetaAcc[R]):
+    """Reference accessor for arrays from metadata containers (:attr:`~anndata.acc.AdAcc.obs` / :attr:`~anndata.acc.AdAcc.var`)."""
+
     def __repr__(self) -> str:
         return f"A.mod[{self.mod!r}].{self.dim}"
 
 
 @dataclass(frozen=True)
 class ModMultiAcc[R: AdRef[int]](_ModalityMapAcc[int, InMemoryArray], MultiAcc[R]):
+    """Reference accessor for arrays from multi-dimensional containers (:attr:`~anndata.acc.AdAcc.obsm` / :attr:`~anndata.acc.AdAcc.varm`)."""
+
     def __repr__(self) -> str:
         return f"A.mod[{self.mod!r}].{self.dim}m[self.k!r]"
 
 
 @dataclass(frozen=True)
 class ModMultiMapAcc[R: AdRef](_ModalityMixin, MultiMapAcc[R]):
+    """Accessor for multi-dimensional array containers (:attr:`~anndata.acc.AdAcc.obsm` / :attr:`~anndata.acc.AdAcc.varm`)."""
+
     ref_acc_cls: type[ModMultiAcc] = ModMultiAcc
 
     def __getitem__(self, k: str, /) -> ModMultiAcc[R]:
@@ -91,12 +102,16 @@ class ModMultiMapAcc[R: AdRef](_ModalityMixin, MultiMapAcc[R]):
 
 @dataclass(frozen=True)
 class ModGraphAcc[R: AdRef[Idx2D]](_ModalityMapAcc[Idx2D, InMemoryArray], GraphAcc[R]):
+    """Reference accessor for arrays from graph containers (:attr:`~anndata.acc.AdAcc.obsp` / :attr:`~anndata.acc.AdAcc.varp`)."""
+
     def __repr__(self) -> str:
         return f"A.mod[{self.mod!r}].{self.dim}p[{self.k!r}]"
 
 
 @dataclass(frozen=True)
 class ModGraphMapAcc[R: AdRef](_ModalityMixin, GraphMapAcc[R]):
+    """Accessor for graph containers (:attr:`~anndata.acc.AdAcc.obsp` / :attr:`~anndata.acc.AdAcc.varp`)"""
+
     ref_acc_cls: type[ModGraphAcc] = ModGraphAcc
 
     def __getitem__(self, k: str, /) -> ModGraphAcc[R]:
@@ -110,37 +125,55 @@ class ModGraphMapAcc[R: AdRef](_ModalityMixin, GraphMapAcc[R]):
 
 @dataclass(frozen=True)
 class ModMapAcc[R: AdRef[str]](RefAcc[R, str]):
-    dim: Literal[obs, var]
+    """Reference accessor for modality maps (:attr:`~MuAcc.obsmap` / :attr:`~MuAcc.varmap`)."""
+
+    dim: Literal["obs", "var"]
+    """Axis this accessor refers to, e.g. `A.obsmap[k].dim == "var"`."""
 
     def dims(self, idx: Any, /) -> Axes:
+        """Get which dimension this array refers to."""
         return (self.dim,)
 
     def __repr__(self) -> str:
         return f"A.{self.dim}map"
 
     def idx_repr(self, idx: str, /) -> str:
+        """Get a string representation of the index."""
         return f"[{idx}]"
 
     def isin(self, mdata: MuData, idx: str | None = None) -> bool:
+        """Check if the referenced array is in the :class:`~mudata.MuData` object."""
         m = getattr(mdata, f"{self.dim}map")
         return idx is None or idx in m
 
     def get(self, mdata: MuData, idx: str, /) -> InMemoryArray:
+        """Get the referenced array from the :class:`~mudata.MuData` object."""
         m = getattr(mdata, f"{self.dim}map")
         return m[idx]
 
 
 @dataclass(frozen=True, kw_only=True)
 class ModAcc[R: AdRef](_ModalityMixin, AdAcc[R]):
+    """Accessor to create :class:`AdRefs <anndata.acc.AdRef>` (:data:`A`) for modalities (:attr:`~MuAcc.mod`)."""
+
     layer_cls: type[ModLayerAcc] = ModLayerAcc
+    """Class to use for `layers` accessors."""
+
     meta_cls: type[ModMetaAcc] = ModMetaAcc
+    """Class to use for `obs`/`var` accessors."""
+
     multi_cls: type[ModMultiAcc] = ModMultiAcc
+    """Class to use for `obsm`/`varm` accessors."""
+
     graph_cls: type[ModGraphAcc] = ModGraphAcc
+    """Class to use for `obsp`/`varp` accessors."""
 
     def isin(self, mdata: MuData) -> bool:
+        """Check if the referenced modality is in the :class:`~mudata.MuData` object."""
         return self.mod in mdata.mod
 
-    def get(self, mdata: MuData) -> ad.AnnData:
+    def get(self, mdata: MuData) -> AnnData:
+        """Get the referenced modality from the :class:`~mudata.MuData` object."""
         return mdata.mod[self.mod]
 
     def __post_init__(self) -> None:
@@ -162,6 +195,8 @@ class ModAcc[R: AdRef](_ModalityMixin, AdAcc[R]):
 
 @dataclass(frozen=True)
 class MultiModAcc[R: AdRef](MapAcc[ModAcc[R]]):
+    """Accessor for modalities (:attr:`~MuAcc.mod`)."""
+
     ref_class: type[R]
     ref_acc_cls: type[ModAcc] = ModAcc
 
@@ -176,12 +211,19 @@ class MultiModAcc[R: AdRef](MapAcc[ModAcc[R]]):
 
 @dataclass(frozen=True)
 class MuAcc[R: AdRef](AdAcc[R]):
+    """Accessor to create :class:`AdRefs <anndata.acc.AdRef>` (:data:`A`)."""
+
     mod_cls: type[ModAcc] = ModAcc
     """Class to use for `mod` accessors."""
 
     mod: MultiModAcc[R] = field(init=False)
+    """Access modalities."""
+
     obsmap: ModMapAcc[R] = field(init=False)
+    """Access mappings of observation indices in the MuData to indices in individual modalities."""
+
     varmap: ModMapAcc[R] = field(init=False)
+    """Access mappings of variable indices in the MuData to indices in individual modalities."""
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -201,4 +243,4 @@ class MuAcc[R: AdRef](AdAcc[R]):
         return "A"
 
 
-A = MuAcc()
+A: MuAcc[AdRef] = MuAcc()
