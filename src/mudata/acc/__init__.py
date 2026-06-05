@@ -168,5 +168,10 @@ class MuAcc[R: AdRef](AdAcc[R]):
     def __repr__(self) -> str:
         return "A"
 
+    def __getattribute__(self, name: str):
+        if name in ("X", "layers"):
+            raise AttributeError(f"{self.__class__.__name__!r} object has no attribute {name!r}")
+        return super().__getattribute__(name)
+
 
 A = MuAcc()
