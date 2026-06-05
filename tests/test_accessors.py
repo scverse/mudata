@@ -1,3 +1,5 @@
+from dataclasses import fields
+
 import anndata as ad
 import numpy as np
 import pandas as pd
@@ -95,3 +97,6 @@ def test_no_data():
         A.X  # noqa: B018
     with pytest.raises(AttributeError):
         A.layers  # noqa: B018
+
+    for field in fields(A):
+        assert field.name not in ("X", "layers")

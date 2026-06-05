@@ -189,16 +189,16 @@ class MuAcc[R: AdRef](AdAcc[R]):
         object.__setattr__(self, "obsmap", ModMapAcc("obs", ref_class=self.ref_class))
         object.__setattr__(self, "varmap", ModMapAcc("var", ref_class=self.ref_class))
 
+        del self.__dict__["X"]
+        del self.__dict__["layers"]
+        del self.__dataclass_fields__["X"]
+        del self.__dataclass_fields__["layers"]
+
     def __getitem__(self, k: str, /) -> ModAcc[R]:
         return self.mod[k]
 
     def __repr__(self) -> str:
         return "A"
-
-    def __getattribute__(self, name: str):
-        if name in ("X", "layers"):
-            raise AttributeError(f"{self.__class__.__name__!r} object has no attribute {name!r}")
-        return super().__getattribute__(name)
 
 
 A = MuAcc()
