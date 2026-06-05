@@ -555,9 +555,17 @@ class MuData:
             return key in self._mod
         with suppress(ImportError):
             from anndata.acc import AdRef, MapAcc, RefAcc
+            from ..acc import ModAcc, ModMapAcc, _ModalityMapAcc, _ModalityMixin
 
-            if isinstance(key, AdRef | RefAcc | MapAcc):
+            if isinstance(key, ModAcc | _ModalityMapAcc):
+                return key.isin(self)
+            elif isinstance(key, _ModalityMixin):
+                return AnnData.__contains__(self.mod[key.mod], key)
+            elif isinstance(key, ModMapAcc):
+                return bool(self.mod)
+            elif isinstance(key, AdRef | RefAcc | MapAcc):
                 return AnnData.__contains__(self, key)
+
         raise TypeError(f"Unexpected key {key!r}.")
 
     @property
