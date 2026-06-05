@@ -42,6 +42,10 @@ PATHS = [
     (A["mod2"].obsp, lambda md: md["mod2"].obsp),
     (A["mod2"].obsp["test"], lambda md: md["mod2"].obsp["test"]),
     (A["mod2"].obsp["test"][:, "obs_3"], lambda md: md["mod2"].obsp["test"][:, md["mod2"].obs_names.get_loc("obs_3")]),
+    (A.obsmap, lambda md: md.obsmap),
+    (A.varmap, lambda md: md.varmap),
+    (A.obsmap["mod1"], lambda md: md.obsmap["mod1"]),
+    (A.varmap["mod2"], lambda md: md.varmap["mod2"]),
 ]
 
 
@@ -66,6 +70,8 @@ def test_in(mdata_augmented: md.MuData, acc):
         A["mod1"].obsp,
         A["mod2"].obsp["does_not_exist"],
         A["mod2"].obsp["does_not_exist"][:, "obs_3"],
+        A.obsmap["mod3"],
+        A.varmap["mod3"],
     ],
 )
 def test_not_in(mdata: md.MuData, acc):
