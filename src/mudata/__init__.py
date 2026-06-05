@@ -1,5 +1,7 @@
 """Multimodal datasets"""
 
+from contextlib import suppress
+
 from anndata import AnnData
 from scverse_misc import ExtensionNamespace
 from scverse_misc import make_register_namespace_decorator as _make_register_namespace_decorator
@@ -22,6 +24,9 @@ from ._core.mudata import MuData
 from ._core.settings import settings
 from ._core.to_ import to_anndata, to_mudata
 from ._version import __version__, __version_tuple__
+
+with suppress(ImportError):
+    from . import acc
 
 # file format versions
 __anndataversion__ = "0.1.0"

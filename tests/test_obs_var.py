@@ -1,10 +1,8 @@
 from pathlib import Path
 
-import anndata as ad
 import numpy as np
 import pandas as pd
 import pytest
-from packaging.version import Version
 
 import mudata as md
 
@@ -147,15 +145,3 @@ def test_names_make_unique(mdata: md.MuData):
 
     with pytest.raises(TypeError, match="axis="):
         getattr(mdata, f"{attr}_names_make_unique")()
-
-
-@pytest.mark.skipif(
-    Version(ad.__version__) < Version("0.13dev0"), reason="anndata version too old, no accessor support"
-)
-def test_accessors(mdata: md.MuData):
-    assert ad.acc.A.obs["arange"] in mdata
-    assert (mdata[ad.acc.A.obs["arange"]] == mdata.obs["arange"]).all()
-    with pytest.raises(KeyError, match="test"):
-        mdata[ad.acc.A.var["test"]]
-    with pytest.raises(KeyError, match="there is one in"):
-        mdata[ad.acc.A.var["assert-bool"]]
