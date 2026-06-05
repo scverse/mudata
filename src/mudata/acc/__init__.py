@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import KW_ONLY, dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 from anndata.acc import (
     AdAcc,
     AdRef,
+    Axes,
     GraphAcc,
     GraphMapAcc,
     Idx2D,
@@ -16,6 +17,7 @@ from anndata.acc import (
     MetaAcc,
     MultiAcc,
     MultiMapAcc,
+    RefAcc,
 )
 from anndata.compat import XVariable
 from anndata.typing import InMemoryArray
@@ -49,7 +51,7 @@ class ModLayerAcc[R: AdRef[Idx2D]](_ModalityMapAcc[Idx2D, InMemoryArray], LayerA
         return f"A.mod[{self.mod!r}].X" if self.k is None else f"A.mod[{self.mod}].layers[{self.k!r}]"
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True)
 class ModLayerMapAcc[R: AdRef](_ModalityMixin, LayerMapAcc[R]):
     ref_acc_cls: type[ModLayerAcc] = ModLayerAcc
 
@@ -74,7 +76,7 @@ class ModMultiAcc[R: AdRef[int]](_ModalityMapAcc[int, InMemoryArray], MultiAcc[R
         return f"A.mod[{self.mod!r}].{self.dim}m[self.k!r]"
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True)
 class ModMultiMapAcc[R: AdRef](_ModalityMixin, MultiMapAcc[R]):
     ref_acc_cls: type[ModMultiAcc] = ModMultiAcc
 
@@ -93,7 +95,7 @@ class ModGraphAcc[R: AdRef[Idx2D]](_ModalityMapAcc[Idx2D, InMemoryArray], GraphA
         return f"A.mod[{self.mod!r}].{self.dim}p[{self.k!r}]"
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True)
 class ModGraphMapAcc[R: AdRef](_ModalityMixin, GraphMapAcc[R]):
     ref_acc_cls: type[ModGraphAcc] = ModGraphAcc
 
@@ -104,6 +106,28 @@ class ModGraphMapAcc[R: AdRef](_ModalityMixin, GraphMapAcc[R]):
 
     def __repr__(self) -> str:
         return f"A.mod[{self.mod!r}].{self.dim}p"
+
+
+@dataclass(frozen=True)
+class ModMapAcc[R: AdRef[str]](RefAcc[R, str]):
+    dim: Literal[obs, var]
+
+    def dims(self, idx: Any, /) -> Axes:
+        return (self.dim,)
+
+    def __repr__(self) -> str:
+        return f"A.{self.dim}map"
+
+    def idx_repr(self, idx: str, /) -> str:
+        return f"[{idx}]"
+
+    def isin(self, mdata: MuData, idx: str | None = None) -> bool:
+        m = getattr(mdata, f"{self.dim}map")
+        return idx is None or idx in m
+
+    def get(self, mdata: MuData, idx: str, /) -> InMemoryArray:
+        m = getattr(mdata, f"{self.dim}map")
+        return m[idx]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -137,7 +161,7 @@ class ModAcc[R: AdRef](_ModalityMixin, AdAcc[R]):
 
 
 @dataclass(frozen=True)
-class ModMapAcc[R: AdRef](MapAcc[ModAcc[R]]):
+class MultiModAcc[R: AdRef](MapAcc[ModAcc[R]]):
     ref_class: type[R]
     ref_acc_cls: type[ModAcc] = ModAcc
 
@@ -155,12 +179,15 @@ class MuAcc[R: AdRef](AdAcc[R]):
     mod_cls: type[ModAcc] = ModAcc
     """Class to use for `mod` accessors."""
 
-    mod: ModMapAcc[R] = field(init=False)
+    mod: MultiModAcc[R] = field(init=False)
+    obsmap: ModMapAcc[R] = field(init=False)
+    varmap: ModMapAcc[R] = field(init=False)
 
     def __post_init__(self) -> None:
         super().__post_init__()
-        mod = ModMapAcc(ref_class=self.ref_class, ref_acc_cls=self.mod_cls)
-        object.__setattr__(self, "mod", mod)
+        object.__setattr__(self, "mod", MultiModAcc(ref_class=self.ref_class, ref_acc_cls=self.mod_cls))
+        object.__setattr__(self, "obsmap", ModMapAcc("obs", ref_class=self.ref_class))
+        object.__setattr__(self, "varmap", ModMapAcc("var", ref_class=self.ref_class))
 
     def __getitem__(self, k: str, /) -> ModAcc[R]:
         return self.mod[k]
