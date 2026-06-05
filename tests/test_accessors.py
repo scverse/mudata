@@ -100,3 +100,17 @@ def test_no_data():
 
     for field in fields(A):
         assert field.name not in ("X", "layers")
+
+
+def test_resolve():
+    assert A.resolve("mod.rna.X[:, ACT1]") == A.mod["rna"].X[:, "ACT1"]
+    assert A.resolve("obsmap.rna") == A.obsmap["rna"]
+
+    with pytest.raises(ValueError, match="Unknown accessor"):
+        A.resolve("rna.X[:, :]")
+
+    with pytest.raises(ValueError, match="empty modality"):
+        A.resolve("mod..X[:, :]")
+
+    with pytest.raises(ValueError, match="period-separated"):
+        A.resolve("abcd")
