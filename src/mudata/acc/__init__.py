@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import KW_ONLY, dataclass, field
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 import pandas as pd
 from anndata.acc import (
@@ -225,6 +225,8 @@ class MuAcc[R: AdRef](AdAcc[R]):
     varmap: ModMapAcc[R] = field(init=False)
     """Access mappings of variable indices in the MuData to indices in individual modalities."""
 
+    ATTRS: ClassVar = frozenset(("mod", "obs", "var", "obsm", "varm", "obsp", "varp", "obsmap", "varmap"))
+
     def __post_init__(self) -> None:
         super().__post_init__()
         object.__setattr__(self, "mod", MultiModAcc(ref_class=self.ref_class, ref_acc_cls=self.mod_cls))
@@ -241,6 +243,34 @@ class MuAcc[R: AdRef](AdAcc[R]):
 
     def __repr__(self) -> str:
         return "A"
+
+    def resolve(self, spec: str, *, strict: bool = True) -> R | None:
+        """Create :class:`~anndata.acc.AdRef` from a simplified string."""
+        if not strict:
+            try:
+                self.resolve(spec)
+            except ValueError:
+                return None
+
+        firstdot = spec.find(".")
+        if firstdot < 0:
+            raise ValueError(f"Cannot parse accessor {spec!r} that is not period-separated.")
+        firstattr = spec[:firstdot]
+        match firstattr:
+            case "mod":
+                modend = spec.find(".", firstdot + 1)
+                mod = spec[firstdot + 1 : modend]
+                if not mod:
+                    raise ValueError(f"Cannot parse accessor{spec!r} that has an empty modality.")
+                acc = self.mod[mod]
+                return super().resolve.__func__(acc, spec[modend + 1 :], strict=strict)
+            case "obsmap" | "varmap":
+                if firstdot == len(spec):
+                    raise ValueError(f"Cannot parse accessor{spec!r} that has an empty modality.")
+                mod = spec[firstdot + 1 :]
+                return getattr(self, firstattr)[mod]
+            case _:
+                return super().resolve(spec, strict=strict)
 
 
 A: MuAcc[AdRef] = MuAcc()
