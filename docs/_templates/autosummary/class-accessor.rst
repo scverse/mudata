@@ -1,6 +1,8 @@
 {{ fullname | escape | underline}}
 
+{%if fullname == "mudata.acc.MuAcc" %}
 {% set attributes = attributes | select("ne", "X") | select("ne", "layers") %}
+{% endif %}
 
 .. currentmodule:: {{ module }}
 
