@@ -50,6 +50,7 @@ dev = [
 ]
 test = [ "coverage>=7.10", "mudata[io]", "packaging", "pytest" ]
 doc = [
+  "anndata>=0.13rc1",
   "docutils>=0.8,!=0.18.*,!=0.19.*",
   "ipykernel",
   "ipython",
