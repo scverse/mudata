@@ -8,7 +8,7 @@
 See the corresponding [AnnData documentation](inv:anndata:*:doc#accessors).
 
 :::{important}
-This functionality requires AnnData 0.13 or later.
+This functionality requires AnnData 0.13 or newer.
 :::
 
 The central [accessor](inv:anndata:*:term#accessor) is [](#A).
@@ -20,6 +20,7 @@ See [](#MuAcc) and [AdAcc](#anndata.acc.AdAcc) for examples of how to use it to 
 ```{eval-rst}
 .. autosummary::
    :toctree: generated
+   :template: class-accessor
 
    MuAcc
    MultiModAcc

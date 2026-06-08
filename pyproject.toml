@@ -124,7 +124,7 @@ lint.ignore = [
   "TID252", # allow relative imports
 ]
 lint.per-file-ignores."*/__init__.py" = [ "F401" ]
-lint.per-file-ignores."docs/*" = [ "I" ]
+lint.per-file-ignores."docs/*" = [ "D", "I" ]
 lint.per-file-ignores."docs/notebooks/*" = [ "D", "F403", "F405" ]
 lint.per-file-ignores."tests/*" = [ "D" ]
 lint.pydocstyle.convention = "numpy"
