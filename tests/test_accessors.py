@@ -7,10 +7,11 @@ import pytest
 from packaging.version import Version
 
 import mudata as md
-from mudata.acc import A
 
 if Version(ad.__version__) < Version("0.13dev0"):
     pytest.skip("anndata version too old, no accessor support", allow_module_level=True)
+
+from mudata.acc import A
 
 
 @pytest.fixture
