@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Hashable
+from collections.abc import Hashable, Sequence
 from dataclasses import KW_ONLY, dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
@@ -193,6 +193,10 @@ class ModAcc[R: AdRef](_ModalityMixin, AdAcc[R]):
     def __repr__(self) -> str:
         return f"A.mod[{self.mod}]"
 
+    def to_json(self, ref: R) -> list[str | int | None]:
+        """Serialize :class:`~anndata.acc.AdRef` to a JSON-compatible list."""
+        return ["mod", self.mod, super().to_json(ref)]
+
 
 @dataclass(frozen=True, kw_only=True)
 class MultiModAcc[R: AdRef](MapAcc[ModAcc]):
@@ -270,6 +274,27 @@ class MuAcc[R: AdRef](AdAcc[R]):
                 return getattr(self, firstattr)[mod]
             case _:
                 return super().resolve(spec, strict=strict)
+
+    def to_json(self, ref: R) -> list[str | int | None]:
+        """Serialize :class:`~anndata.acc.AdRef` to a JSON-compatible list."""
+        if isinstance(ref.acc, ModMapAcc):
+            return [f"{ref.acc.dim}map", ref.idx]
+
+        ret = super().to_json(ref)
+        if isinstance(ref.acc, _ModalityMixin):
+            ret = ["mod", ref.acc.mod, ret]
+        return ret
+
+    def from_json(self, data: Sequence[str | int | None]) -> R:
+        """Create a :class:`~anndata.acc.AdRef` from a JSON sequence."""
+        match data:
+            case ["mod", str() as modname, list() as inner]:
+                return self.mod[modname].from_json(inner)
+            case ["obsmap" | "varmap" as dim, str() as modname]:
+                acc = self.obsmap if dim == "obsmap" else self.varmap
+                return acc[modname]
+            case _:
+                return super().from_json(data)
 
 
 del MuAcc.__dataclass_fields__["X"]

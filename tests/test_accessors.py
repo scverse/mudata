@@ -114,3 +114,32 @@ def test_resolve():
 
     with pytest.raises(ValueError, match="period-separated"):
         A.resolve("abcd")
+
+
+@pytest.mark.parametrize("acc", [path[0] for path in PATHS if isinstance(path[0], ad.acc.AdRef)])
+def test_to_from_json(acc):
+    serialized = A.to_json(acc)
+    if isinstance(acc.acc, md.acc.ModMapAcc):
+        assert serialized[0] == f"{acc.acc.dim}map"
+        assert serialized[1] == acc.idx
+    else:
+        assert serialized[0] == "mod"
+        assert serialized[1] == acc.acc.mod
+        assert serialized[2] == ad.acc.A.to_json(acc)
+
+    assert A.from_json(serialized) == acc
+
+
+@pytest.mark.parametrize(
+    "acc",
+    [path[0] for path in PATHS if isinstance(path[0], ad.acc.AdRef) and not isinstance(path[0].acc, md.acc.ModMapAcc)],
+)
+def test_to_from_json_mod(acc):
+    modA = A.mod["foobar"]
+
+    serialized = modA.to_json(acc)
+    assert serialized[0] == "mod"
+    assert serialized[1] == "foobar"
+    assert serialized[2] == ad.acc.A.to_json(acc)
+
+    assert A.from_json(serialized).acc.mod == "foobar"
