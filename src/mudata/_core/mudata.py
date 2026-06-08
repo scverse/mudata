@@ -555,6 +555,7 @@ class MuData:
             return key in self._mod
         with suppress(ImportError):
             from anndata.acc import AdRef, MapAcc, RefAcc
+
             from ..acc import ModAcc, MultiModAcc, _ModalityMapAcc, _ModalityMixin
 
             if isinstance(key, ModAcc | _ModalityMapAcc):
