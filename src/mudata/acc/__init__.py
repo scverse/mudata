@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Hashable
 from dataclasses import KW_ONLY, dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
@@ -70,7 +71,7 @@ class ModLayerMapAcc[R: AdRef](_ModalityMixin, LayerMapAcc[R]):
 
 
 @dataclass(frozen=True)
-class ModMetaAcc[R: AdRef[str | None]](_ModalityMapAcc[str, pd.api.extensions.ExtensionArray | XVariable], MetaAcc[R]):
+class ModMetaAcc[R: AdRef[str]](_ModalityMapAcc[str, pd.api.extensions.ExtensionArray | XVariable], MetaAcc[R]):
     """Reference accessor for arrays from metadata containers (:attr:`~anndata.acc.AdAcc.obs` / :attr:`~anndata.acc.AdAcc.var`)."""
 
     def __repr__(self) -> str:
@@ -193,8 +194,8 @@ class ModAcc[R: AdRef](_ModalityMixin, AdAcc[R]):
         return f"A.mod[{self.mod}]"
 
 
-@dataclass(frozen=True)
-class MultiModAcc[R: AdRef](MapAcc[ModAcc[R]]):
+@dataclass(frozen=True, kw_only=True)
+class MultiModAcc[R: AdRef](MapAcc[ModAcc]):
     """Accessor for modalities (:attr:`~MuAcc.mod`)."""
 
     ref_class: type[R]
@@ -235,8 +236,6 @@ class MuAcc[R: AdRef](AdAcc[R]):
 
         del self.__dict__["X"]
         del self.__dict__["layers"]
-        del self.__dataclass_fields__["X"]
-        del self.__dataclass_fields__["layers"]
 
     def __getitem__(self, k: str, /) -> ModAcc[R]:
         return self.mod[k]
@@ -273,4 +272,12 @@ class MuAcc[R: AdRef](AdAcc[R]):
                 return super().resolve(spec, strict=strict)
 
 
+del MuAcc.__dataclass_fields__["X"]
+del MuAcc.__dataclass_fields__["layers"]
+del MuAcc.__dataclass_fields__["layer_cls"]
+
 A: MuAcc[AdRef] = MuAcc()
+
+
+if not TYPE_CHECKING:  # https://github.com/tox-dev/sphinx-autodoc-typehints/issues/580
+    R = AdRef[Hashable]
