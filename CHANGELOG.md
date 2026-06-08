@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning][].
 
 ## [0.4.0] (Unreleased)
 
+### Added
+
+- MuData accessors. These are similar to and build on [AnnData accessors](https://anndata.scverse.org/page/accessors.html), but add an additional
+  level for modalities.
+
 ### Changed
 
 - `update()` no longer automatically pulls obs/var columns from individual modalities by default. Set `mudata.set_options(pull_on_update=true)`

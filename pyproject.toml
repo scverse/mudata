@@ -48,8 +48,9 @@ dev = [
   "pre-commit",
   "twine>=4.0.2",
 ]
-test = [ "coverage>=7.10", "mudata[io]", "pytest" ]
+test = [ "coverage>=7.10", "mudata[io]", "packaging", "pytest" ]
 doc = [
+  "anndata>=0.13rc1",
   "docutils>=0.8,!=0.18.*,!=0.19.*",
   "ipykernel",
   "ipython",
@@ -123,7 +124,7 @@ lint.ignore = [
   "TID252", # allow relative imports
 ]
 lint.per-file-ignores."*/__init__.py" = [ "F401" ]
-lint.per-file-ignores."docs/*" = [ "I" ]
+lint.per-file-ignores."docs/*" = [ "D", "I" ]
 lint.per-file-ignores."docs/notebooks/*" = [ "D", "F403", "F405" ]
 lint.per-file-ignores."tests/*" = [ "D" ]
 lint.pydocstyle.convention = "numpy"

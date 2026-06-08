@@ -35,6 +35,14 @@
    write_zarr
 ```
 
+## Accessors
+```{eval-rst}
+.. toctree::
+   :hidden:
+
+   mudata.acc <accessors>
+```
+
 ## Extensions
 ```{eval-rst}
 .. autosummary::

@@ -146,6 +146,9 @@ def test_update_simple(mdata: MuData, axis: Axis):
     for mod in mdata.mod.keys():
         assert mdata.obsmap[mod].dtype.kind == "u"
         assert mdata.varmap[mod].dtype.kind == "u"
+        assert mod in mdata
+    with pytest.raises(TypeError):
+        1 in mdata  # noqa: B015
 
     # names along non-axis are concatenated
     assert mdata.shape[1 - axis] == sum(mod.shape[1 - axis] for mod in mdata.mod.values())
