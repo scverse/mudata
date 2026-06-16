@@ -1883,11 +1883,9 @@ class MuData:
         010 - expand .mod slots
         001 - expand slots for each modality
         """
-        # Return text representation if set in options
+        # fall back to text representation if set in options
         if settings.display_style == "text":
-            from html import escape
-
-            return f"<pre>{escape(repr(self))}</pre>"
+            return None
 
         if expand is None:
             expand = settings.display_html_expand
