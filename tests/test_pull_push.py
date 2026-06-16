@@ -398,10 +398,10 @@ def test_push_columns(
     for mod in mdata_for_push.mod.values():
         mdf = getattr(mod, cattr)
         assert "dtype-int-pushed" in mdf.columns
-        assert "mod2_dtype-bool-pushed" not in mdf.columns
+    assert "mod2_dtype-bool-pushed" in getattr(mdata_for_push.mod["mod2"], cattr).columns
     if drop:
         assert "dtype-int-pushed" not in push_df.columns
-        assert "mod2:mod2_dtype-bool-pushed" in push_df.columns
+        assert "mod2:mod2_dtype-bool-pushed" not in push_df.columns
 
     push_func(columns=["mod2:mod2_dtype-bool-pushed"], mods=["mod2"], drop=drop)
     for modname, mod in mdata_for_push.mod.items():

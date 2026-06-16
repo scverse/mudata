@@ -2059,7 +2059,7 @@ class MuData:
                 col
                 for col in cols
                 if (col.name in columns or col.derived_name in columns)
-                and (col.prefix is None or mods is not None and col.prefix in mods)
+                and (mods is None or col.prefix is None or col.prefix in mods)
             ]
         else:
             if common is None:
