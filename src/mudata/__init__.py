@@ -34,7 +34,7 @@ __all__ = [
     "MuData",
     "AnnData",
     "utils",
-    "set_options",
+    "settings",
     "to_anndata",
     "to_mudata",
     "concat",

@@ -43,15 +43,6 @@ mdata['rna']
 
 ### `.obs` & `.var`
 
-:::{warning}
-Version 0.3 introduces pull/push interface for annotations.
-For compatibility reasons, the old behaviour of pulling annotations on read/update is kept as default.
-
-This will be changed in the next release, and the annotations will not be copied implicitly.
-To adopt the new behaviour, use [](#mudata.settings) with `pull_on_update=False`.
-The new approach to `.update()` and annotations is described below.
-:::
-
 Samples (cells) annotations are stored in the data frame accessible via the `.obs` attribute. Same goes for `.var`, which contains annotation of variables (features).
 
 Copies of columns from `.obs` or `.var` data frames of individual modalities can be added with the `.pull_obs()` or `.pull_var()` methods:
