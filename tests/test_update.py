@@ -148,6 +148,9 @@ class TestMuData:
         for mod in mdata.mod.keys():
             assert mdata.obsmap[mod].dtype.kind == "u"
             assert mdata.varmap[mod].dtype.kind == "u"
+            assert mod in mdata
+        with pytest.raises(TypeError):
+            1 in mdata  # noqa: B015
 
         # names along non-axis are concatenated
         assert mdata.shape[1 - axis] == sum(mod.shape[1 - axis] for mod in mdata.mod.values())
@@ -485,6 +488,9 @@ class TestMuDataLegacy:
             assert all(mod.obs["mod"] == m)
             assert "mod" in mod.var.columns
             assert all(mod.var["mod"] == m)
+            assert m in mdata
+        with pytest.raises(TypeError):
+            1 in mdata  # noqa: B015
 
     @pytest.mark.parametrize("mod", ["unique"])
     @pytest.mark.parametrize("across", ["intersecting"])

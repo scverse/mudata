@@ -50,7 +50,7 @@ dev = [
   "pre-commit",
   "twine>=4.0.2",
 ]
-test = [ "coverage>=7.10", "mudata[io]", "pytest" ]
+test = [ "coverage>=7.10", "mudata[io]", "packaging", "pytest" ]
 doc = [
   "docutils>=0.8,!=0.18.*,!=0.19.*",
   "ipykernel",

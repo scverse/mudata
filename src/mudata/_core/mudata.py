@@ -534,8 +534,32 @@ class MuData:
     def __getitem__(self, index) -> AnnData | MuData:
         if isinstance(index, str):
             return self._mod[index]
-        else:
-            return MuData(self, as_view=True, index=index)
+
+        with suppress(ImportError):
+            from anndata.acc import AdRef
+
+            if isinstance(index, AdRef):
+                try:
+                    return index.acc.get(self, index.idx)
+                except KeyError as e:
+                    if index.acc.dim in ("obs", "var"):
+                        for modname, mod in self._mod.items():
+                            if index in mod:
+                                raise KeyError(
+                                    f"There is no key {index.idx} in MuData .{index.acc.dim} but there is one in {modname} .{index.acc.dim}. Consider running `pull_{index.acc.dim}()` to update global .{index.acc.dim}."
+                                ) from e
+                    raise
+        return MuData(self, as_view=True, index=index)
+
+    def __contains__(self, key) -> bool:
+        if isinstance(key, str):
+            return key in self._mod
+        with suppress(ImportError):
+            from anndata.acc import AdRef, MapAcc, RefAcc
+
+            if isinstance(key, AdRef | RefAcc | MapAcc):
+                return AnnData.__contains__(self, key)
+        raise TypeError(f"Unexpected key {key!r}.")
 
     @property
     def mod(self) -> Mapping[str, AnnData | MuData]:
