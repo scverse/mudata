@@ -145,4 +145,4 @@ def test_accessors(mdata: md.MuData):
     with pytest.raises(KeyError, match="test"):
         mdata[ad.acc.A.var["test"]]
     with pytest.raises(KeyError, match="there is one in"):
-        mdata[ad.acc.A.var["assert-bool"]]
+        mdata[ad.acc.A.var["mod2_unique"]]

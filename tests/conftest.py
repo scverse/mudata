@@ -46,6 +46,7 @@ def mdata(rng: np.random.Generator, request: pytest.FixtureRequest) -> MuData:
     mod2.var["assert-bool"] = False
     mod1.var["assert-boolean-1"] = True
     mod2.var["assert-boolean-2"] = False
+    mod2.var["mod2_unique"] = True
 
     mod1.raw = mod1[:, :10].copy()
     mods = {"mod2": mod2, "mod1": mod1}
