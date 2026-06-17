@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning][].
 ### Fixed
 
 - `make_obs_names_unique` and `make_var_names_unique` now preserve the `.obs.index.name` / `.var.index.name` of each modality and of the MuData object.
+- compatibility with anndata 0.13
 
 ## [0.3.8]
 
