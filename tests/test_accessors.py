@@ -17,6 +17,7 @@ from mudata.acc import A
 @pytest.fixture
 def mdata_augmented(mdata: md.MuData, rng: np.random.Generator):
     mdata["mod1"].layers["counts"] = rng.poisson(1, size=mdata["mod1"].shape)
+    mdata["mod2"].varm["test"] = rng.normal(size=(mdata["mod2"].n_vars, 3))
     mdata["mod2"].obsp["test"] = rng.normal(size=(mdata["mod2"].n_obs, mdata["mod2"].n_obs))
 
     return mdata
@@ -42,6 +43,8 @@ PATHS = [
     (A["mod1"].layers, lambda md: md["mod1"].layers),
     (A["mod1"].layers["counts"], lambda md: md["mod1"].layers["counts"]),
     (A["mod1"].layers["counts"]["obs_2", :], lambda md: md["mod1"]["obs_2", :].layers["counts"].squeeze()),
+    (A["mod2"].varm, lambda md: md["mod2"].varm),
+    (A["mod2"].varm["test"], lambda md: md["mod2"].varm["test"]),
     (A["mod2"].obsp, lambda md: md["mod2"].obsp),
     (A["mod2"].obsp["test"], lambda md: md["mod2"].obsp["test"]),
     (A["mod2"].obsp["test"][:, "obs_3"], lambda md: md["mod2"].obsp["test"][:, md["mod2"].obs_names.get_loc("obs_3")]),
