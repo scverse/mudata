@@ -23,10 +23,10 @@ from anndata.acc import (
 from anndata.compat import XVariable
 from anndata.typing import InMemoryArray
 
+from .. import MuData
+
 if TYPE_CHECKING:
     from anndata import AnnData
-
-    from .. import MuData
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -125,7 +125,7 @@ class ModGraphMapAcc[R: AdRef](_ModalityMixin, GraphMapAcc[R]):
 
 
 @dataclass(frozen=True)
-class ModMapAcc[R: AdRef[str]](RefAcc[R, str]):
+class ModMapAcc[R: AdRef[str]](RefAcc[R, str, MuData]):
     """Reference accessor for modality maps (:attr:`~MuAcc.obsmap` / :attr:`~MuAcc.varmap`)."""
 
     dim: Literal["obs", "var"]
@@ -305,4 +305,4 @@ A: MuAcc[AdRef] = MuAcc()
 
 
 if not TYPE_CHECKING:  # https://github.com/tox-dev/sphinx-autodoc-typehints/issues/580
-    R = AdRef[Hashable]
+    R = AdRef[Hashable, MuData]
