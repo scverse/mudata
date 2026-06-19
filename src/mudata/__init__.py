@@ -27,7 +27,7 @@ from ._version import __version__, __version_tuple__
 __anndataversion__ = "0.1.0"
 __mudataversion__ = "0.1.0"
 
-register_mudata_namespace = _make_register_namespace_decorator(MuData, "mdata", "register_mudata_namespace", "numpy")
+register_mudata_namespace = _make_register_namespace_decorator(MuData, "mdata")
 
 __all__ = [
     "__version__",

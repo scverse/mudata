@@ -4,7 +4,7 @@ from pydantic import Field
 from scverse_misc import Settings
 
 
-class _Settings(Settings, exported_object_name="settings", docstring_style="numpy"):
+class _Settings(Settings):
     display_style: Literal["text", "html"] = "text"
     """:class:`MuData` object representation to use in notebooks."""
 
