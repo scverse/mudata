@@ -44,12 +44,8 @@
 ```
 
 Types used by the former:
-```{eval-rst}
-.. autosummary::
-   :toctree: generated
 
-   ExtensionNamespace
-```
+{class}`scverse_misc.ExtensionNamespace`
 
 ## Settings
 ```{eval-rst}
