@@ -62,6 +62,7 @@ extensions = [
     "sphinx_design",
     "IPython.sphinxext.ipython_console_highlighting",
     "sphinxext.opengraph",
+    "scverse_misc.sphinx_ext",
     *[p.stem for p in (HERE / "extensions").glob("*.py")],
 ]
 
@@ -103,6 +104,7 @@ intersphinx_mapping = {
     "fsspec": ("https://filesystem-spec.readthedocs.io/en/stable/", None),
     "h5py": ("https://docs.h5py.org/en/stable/", None),
     "zarr": ("https://zarr.readthedocs.io/en/stable/", None),
+    "scverse_misc": ("https://scverse-misc.readthedocs.io/stable/", None),
 }
 
 # List of patterns, relative to source directory, that match files and
