@@ -1,9 +1,14 @@
+import json
 from dataclasses import fields
+from importlib import resources
+from urllib.request import urlopen
 
 import anndata as ad
+import jsonschema
 import numpy as np
 import pandas as pd
 import pytest
+import referencing
 from packaging.version import Version
 
 import mudata as md
@@ -21,6 +26,22 @@ def mdata_augmented(mdata: md.MuData, rng: np.random.Generator):
     mdata["mod2"].obsp["test"] = rng.normal(size=(mdata["mod2"].n_obs, mdata["mod2"].n_obs))
 
     return mdata
+
+
+@pytest.fixture(scope="session")
+def mudata_json_schema():
+    schema = json.loads(resources.files(md).joinpath("acc/acc-schema-v1.json").read_text())
+    jsonschema.Draft202012Validator.check_schema(schema)
+    return schema
+
+
+@pytest.fixture(scope="session")
+def anndata_schema_registry():
+    anndata_schema_uri = "https://anndata.scverse.org/en/latest/acc-schema-v1.json"
+    with urlopen(anndata_schema_uri) as response:
+        anndata_schema = json.load(response)
+    schema = referencing.Resource.from_contents(anndata_schema)
+    return referencing.Registry().with_resource(anndata_schema_uri, schema)
 
 
 def test_anndata_accessors(mdata: md.MuData):
@@ -121,8 +142,9 @@ def test_resolve():
 
 
 @pytest.mark.parametrize("acc", [path[0] for path in PATHS if isinstance(path[0], ad.acc.AdRef)])
-def test_to_from_json(acc):
+def test_to_from_json(mudata_json_schema, anndata_schema_registry, acc):
     serialized = A.to_json(acc)
+    jsonschema.validate(serialized, mudata_json_schema, registry=anndata_schema_registry)
     if isinstance(acc.acc, md.acc.ModMapAcc):
         assert serialized[0] == f"{acc.acc.dim}map"
         assert serialized[1] == acc.idx
@@ -138,10 +160,11 @@ def test_to_from_json(acc):
     "acc",
     [path[0] for path in PATHS if isinstance(path[0], ad.acc.AdRef) and not isinstance(path[0].acc, md.acc.ModMapAcc)],
 )
-def test_to_from_json_mod(acc):
+def test_to_from_json_mod(mudata_json_schema, anndata_schema_registry, acc):
     modA = A.mod["foobar"]
 
     serialized = modA.to_json(acc)
+    jsonschema.validate(serialized, mudata_json_schema, registry=anndata_schema_registry)
     assert serialized[0] == "mod"
     assert serialized[1] == "foobar"
     assert serialized[2] == ad.acc.A.to_json(acc)

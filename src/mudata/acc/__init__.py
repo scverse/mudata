@@ -276,7 +276,10 @@ class MuAcc[R: AdRef](AdAcc[R]):
                 return super().resolve(spec, strict=strict)
 
     def to_json(self, ref: R) -> list[str | int | None]:
-        """Serialize :class:`~anndata.acc.AdRef` to a JSON-compatible list."""
+        """Serialize :class:`~anndata.acc.AdRef` to a JSON-compatible list.
+
+        Schema: `acc-schema-v1.json <../acc-schema-v1.json>`_
+        """
         if isinstance(ref.acc, ModMapAcc):
             return [f"{ref.acc.dim}map", ref.idx]
 
@@ -286,7 +289,10 @@ class MuAcc[R: AdRef](AdAcc[R]):
         return ret
 
     def from_json(self, data: Sequence[str | int | None]) -> R:
-        """Create a :class:`~anndata.acc.AdRef` from a JSON sequence."""
+        """Create a :class:`~anndata.acc.AdRef` from a JSON sequence.
+
+        Schema: `acc-schema-v1.json <../acc-schema-v1.json>`_
+        """
         match data:
             case ["mod", str() as modname, list() as inner]:
                 return self.mod[modname].from_json(inner)

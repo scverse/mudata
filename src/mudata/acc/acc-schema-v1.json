@@ -1,0 +1,31 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "array",
+    "oneOf": [
+        {
+            "title": "Modality index mapping",
+            "minItems": 2,
+            "maxItems": 2,
+            "prefixItems": [
+                { "enum": ["obsmap", "varmap"] },
+                { "type": "string" }
+            ]
+        },
+        {
+            "title": "Modality data",
+            "minItems": 3,
+            "maxItems": 3,
+            "prefixItems": [
+                { "const": "mod" },
+                { "type": "string" },
+                {
+                    "$ref": "https://anndata.scverse.org/en/latest/acc-schema-v1.json"
+                }
+            ]
+        },
+        {
+            "title": "Global metadata",
+            "$ref": "https://anndata.scverse.org/en/latest/acc-schema-v1.json"
+        }
+    ]
+}
