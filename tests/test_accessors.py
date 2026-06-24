@@ -25,7 +25,7 @@ def mdata_augmented(mdata: md.MuData, rng: np.random.Generator):
 
 def test_anndata_accessors(mdata: md.MuData):
     assert ad.acc.A.obs["arange"] in mdata
-    assert (mdata[ad.acc.A.obs["arange"]] == mdata.obs["arange"]).all()
+    assert mdata[ad.acc.A.obs["arange"]] is mdata.obs["arange"]
     with pytest.raises(KeyError, match="test"):
         mdata[ad.acc.A.var["test"]]
     with pytest.raises(KeyError, match="there is one in"):
