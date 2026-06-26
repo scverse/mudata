@@ -1,5 +1,7 @@
 """Multimodal datasets"""
 
+from contextlib import suppress
+
 from anndata import AnnData
 from scverse_misc import ExtensionNamespace
 from scverse_misc import make_register_namespace_decorator as _make_register_namespace_decorator
@@ -51,3 +53,8 @@ __all__ = [
     "register_mudata_namespace",
     "ExtensionNamespace",
 ]
+
+with suppress(ImportError):
+    from . import acc
+
+    __all__.append("acc")

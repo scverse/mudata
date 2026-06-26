@@ -15,6 +15,7 @@ from sphinxcontrib import katex
 
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE / "extensions"))
+acc_schema = HERE.parent / "src/mudata/acc/acc-schema-v1.json"
 
 
 # -- Project information -----------------------------------------------------
@@ -120,6 +121,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "**.ipynb_checkpoints"]
 #
 html_theme = "sphinx_book_theme"
 html_static_path = ["_static"]
+html_extra_path = [str(acc_schema)]
 html_logo = "_static/img/mudata.svg"
 html_css_files = ["css/custom.css"]
 
@@ -135,8 +137,11 @@ html_theme_options = {
 pygments_style = "default"
 katex_prerender = shutil.which(katex.NODEJS_BINARY) is not None
 
-nitpick_ignore = [
+nitpick_ignore = (
     # If building the documentation fails because of a missing link that is outside your control,
     # you can add an exception to this list.
     #     ("py:class", "igraph.Graph"),
-]
+    ("py:obj", "typing.R"),
+    ("py:obj", "anndata.acc.Axes"),
+    ("py:class", "AdRef"),
+)
