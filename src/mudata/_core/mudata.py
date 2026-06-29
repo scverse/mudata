@@ -1405,7 +1405,7 @@ class MuData:
 
             # prepend modality prefix to column names if requested via arguments and there are no skipped modalities with
             # the same column name (prefixing those columns may cause problems with future pulls or pushes)
-            mod_df.rename(
+            mod_df = mod_df.rename(
                 columns={
                     col.derived_name: col.name
                     for col in modcols
@@ -1420,8 +1420,7 @@ class MuData:
                         )
                         and derived_name_count[col.derived_name] == col.count
                     )
-                },
-                inplace=True,
+                }
             )
 
             # reorder modality DF to conform to global order
