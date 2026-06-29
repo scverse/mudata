@@ -42,6 +42,7 @@ def test_set_obs_names(mdata: md.MuData):  # https://github.com/scverse/mudata/i
         mdata.obs = pd.DataFrame()
 
 
+@pytest.mark.filterwarnings("ignore:.*obs_vector.*deprecated:FutureWarning")
 def test_obs_vector(mdata: md.MuData):
     assert (mdata.obs["arange"] == mdata.obs_vector("arange")).all()
     with pytest.raises(KeyError, match="There is no key foo in MuData"):
@@ -97,6 +98,7 @@ def test_set_var_names(mdata: md.MuData):  # https://github.com/scverse/mudata/i
         mdata.var = pd.DataFrame()
 
 
+@pytest.mark.filterwarnings("ignore:.*var_vector.*deprecated:FutureWarning")
 def test_var_vector(rng: np.random.Generator, mdata: md.MuData):
     mdata.var["test"] = rng.uniform(size=mdata.n_vars)
     assert (mdata.var["test"] == mdata.var_vector("test")).all()
@@ -117,7 +119,7 @@ def test_names_make_unique(mdata: md.MuData):
     namesattr = f"{oattr}_names"
     namesfun = getattr(mdata, f"{oattr}_names_make_unique")
 
-    mods = mdata.mod_names
+    mods = list(mdata.mod.keys())
     names = getattr(mdata.mod[mods[0]], namesattr)
     nameslist = names.to_list()
     nameslist[1] = nameslist[0]

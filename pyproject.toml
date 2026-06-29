@@ -134,6 +134,12 @@ lint.pydocstyle.convention = "numpy"
 addopts = [
   "--import-mode=importlib", # allow using test files with same name
 ]
+filterwarnings = [
+  "error",
+  "ignore:Writing zarr v2 data will no longer be the default",
+  "ignore:Only some AnnData objects have `.raw` attribute",
+  "ignore::scipy.sparse.SparseEfficiencyWarning",
+]
 strict = true
 testpaths = [ "tests" ]
 

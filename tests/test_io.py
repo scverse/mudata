@@ -108,7 +108,7 @@ def test_h5mu_backed_to_memory(mdata: md.MuData, filepath_h5mu: str | Path):
     mdata_.filename = None
     assert not mdata_.isbacked
 
-    for modname in mdata.mod_names:
+    for modname in mdata.mod:
         assert isinstance(mdata_.mod[modname].X, np.ndarray) or issparse(mdata_.mod[modname].X)
         assert (mdata_.mod[modname].X == mdata.mod[modname].X).all()
 

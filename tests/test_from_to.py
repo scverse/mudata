@@ -25,6 +25,6 @@ def test_from_anndata(rng: np.random.Generator):
     adata.var["feature_types"] = rng.choice(["mod1", "mod2", "mod3"], size=adata.n_vars)
     mdata = MuData(adata)
     assert mdata.n_mod == 3
-    assert sorted(mdata.mod_names) == ["mod1", "mod2", "mod3"]
+    assert sorted(mdata.mod.keys()) == ["mod1", "mod2", "mod3"]
     for m, mod in mdata.mod.items():
         assert (mod.var_names == adata.var_names[adata.var.feature_types == m]).all()

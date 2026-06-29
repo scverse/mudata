@@ -1,6 +1,6 @@
 import json
 from dataclasses import fields
-from importlib import resources
+from importlib import metadata, resources
 from urllib.request import urlopen
 
 import anndata as ad
@@ -13,7 +13,7 @@ from packaging.version import Version
 
 import mudata as md
 
-if Version(ad.__version__) < Version("0.13dev0"):
+if Version(metadata.version("anndata")) < Version("0.13dev0"):
     pytest.skip("anndata version too old, no accessor support", allow_module_level=True)
 
 from mudata.acc import A
