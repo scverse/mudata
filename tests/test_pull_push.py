@@ -1,10 +1,13 @@
 from collections.abc import Callable, Generator
+from contextlib import nullcontext
+from importlib import metadata
 from typing import Literal
 
 import numpy as np
 import pandas as pd
 import pytest
 from anndata import AnnData
+from packaging.version import Version
 
 from mudata import MuData
 
@@ -12,10 +15,13 @@ type Axis = Literal[0, 1]
 type AxisAttr = Literal["obs", "var"]
 
 
+PANDAS_VERSION = Version(metadata.version("pandas"))
+
+
 @pytest.fixture(autouse=True)
 def _pandas_cow() -> Generator[None]:
     """Make sure that we test pandas 3’s copy-on-write behavior."""
-    with pd.option_context("mode.copy_on_write", True):
+    with pd.option_context("mode.copy_on_write", True) if PANDAS_VERSION.major < 3 else nullcontext():
         yield
 
 
