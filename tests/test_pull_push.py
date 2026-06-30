@@ -47,8 +47,6 @@ def mdata(
         i1 = i + 1
         m = f"mod{i1}"
         mods[m] = AnnData(X=rng.normal(size=1000 * i1).reshape(-1, 10 * i1))
-        mods[m].obs_names = f"{m}-" + mods[m].obs_names
-        mods[m].var_names = f"{m}-" + mods[m].var_names
         mods[m].obs["mod"] = m
         mods[m].var["mod"] = m
         mods[m].obs["assert-bool"] = True
