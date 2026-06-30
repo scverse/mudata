@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from typing import Literal
 
 import numpy as np
@@ -10,6 +10,13 @@ from mudata import MuData
 
 type Axis = Literal[0, 1]
 type AxisAttr = Literal["obs", "var"]
+
+
+@pytest.fixture(autouse=True)
+def _pandas_cow() -> Generator[None]:
+    """Make sure that we test pandas 3’s copy-on-write behavior."""
+    with pd.option_context("mode.copy_on_write", True):
+        yield
 
 
 @pytest.fixture(params=(0, 1))
