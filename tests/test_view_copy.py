@@ -203,6 +203,7 @@ def _test_view_after_setattr(mdata: md.MuData, mdata_ref: md.MuData, skip: Seque
                 assert (v.columns == mdata_ref.varm[k].columns).all()
 
 
+@pytest.mark.filterwarnings("ignore::anndata.ImplicitModificationWarning")
 def test_view_setattr(mdata_with_obsp: md.MuData):
     view = mdata_with_obsp[:42, :]
     view.obs_names = [f"foo_{i}" for i in range(len(view))]

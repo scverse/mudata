@@ -1,9 +1,11 @@
 import numpy as np
+import pytest
 from anndata import AnnData
 
 from mudata import MuData, to_mudata
 
 
+@pytest.mark.filterwarnings("ignore:Only some AnnData objects have `.raw` attribute")
 def test_to_anndata_simple(mdata: MuData):
     adata = mdata.to_anndata()
     assert isinstance(adata, AnnData)
@@ -12,6 +14,7 @@ def test_to_anndata_simple(mdata: MuData):
     assert np.array_equal(adata.obs["arange"], np.arange(mdata.n_obs))
 
 
+@pytest.mark.filterwarnings("ignore:Only some AnnData objects have `.raw` attribute")
 def test_to_mudata_simple(mdata: MuData):
     adata = mdata.to_anndata()
     mdata_from_adata = to_mudata(adata, axis=0, by="feature_type")
@@ -25,6 +28,6 @@ def test_from_anndata(rng: np.random.Generator):
     adata.var["feature_types"] = rng.choice(["mod1", "mod2", "mod3"], size=adata.n_vars)
     mdata = MuData(adata)
     assert mdata.n_mod == 3
-    assert sorted(mdata.mod_names) == ["mod1", "mod2", "mod3"]
+    assert sorted(mdata.mod.keys()) == ["mod1", "mod2", "mod3"]
     for m, mod in mdata.mod.items():
         assert (mod.var_names == adata.var_names[adata.var.feature_types == m]).all()

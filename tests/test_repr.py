@@ -12,10 +12,10 @@ def test_repr(mdata: md.MuData):
     assert rep[1].lstrip().startswith("obs:")
 
     for col in mdata.obs.columns:
-        if not any(col.startswith(f"{mod}:") for mod in mdata.mod_names):
+        if not any(col.startswith(f"{mod}:") for mod in mdata.mod):
             assert col in rep[1]
     for col in mdata.var.columns:
-        if not any(col.startswith(f"{mod}:") for mod in mdata.mod_names):
+        if not any(col.startswith(f"{mod}:") for mod in mdata.mod):
             assert col in rep[2]
 
     assert rep[2].strip() == f"{mdata.n_mod} modalities"

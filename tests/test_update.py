@@ -13,6 +13,12 @@ from mudata import MuData
 type Axis = Literal[0, 1]
 
 
+pytestmark = [
+    pytest.mark.filterwarnings(r"ignore:(obs|var)_names.*not unique"),
+    pytest.mark.filterwarnings(r"ignore:Duplicated (obs|var)_names should not be present in different modalities"),
+]
+
+
 @pytest.fixture(params=(0, 1))
 def axis(request: pytest.FixtureRequest) -> Axis:
     return request.param
@@ -60,30 +66,29 @@ def modalities(
         if across != "intersecting":
             raise NotImplementedError("Tests for non-intersecting obs_names are not implemented")
 
-    if mod:
-        if mod == "duplicated":
-            obsnames2 = mods["mod2"].obs_names.to_numpy()
-            obsnames3 = mods["mod3"].obs_names.to_numpy()
-            varnames2 = mods["mod2"].var_names.to_numpy()
-            varnames3 = mods["mod3"].var_names.to_numpy()
-            obsnames2[0] = obsnames2[1] = obsnames3[1] = "testobs"
-            varnames2[0] = varnames2[1] = varnames3[1] = "testvar"
-            mods["mod2"].obs_names = obsnames2
-            mods["mod3"].obs_names = obsnames3
-            mods["mod2"].var_names = varnames2
-            mods["mod3"].var_names = varnames3
-        elif mod == "extreme_duplicated":  # integer overflow: https://github.com/scverse/mudata/issues/107
-            obsnames2 = mods["mod2"].obs_names.to_numpy()
-            varnames2 = mods["mod2"].var_names.to_numpy()
-            obsnames2[:-1] = obsnames2[0] = "testobs"
-            varnames2[:-1] = varnames2[0] = "testvar"
-            mods["mod2"].obs_names = obsnames2
-            mods["mod2"].var_names = varnames2
+    if mod == "duplicated":
+        obsnames2 = mods["mod2"].obs_names.to_numpy()
+        obsnames3 = mods["mod3"].obs_names.to_numpy()
+        varnames2 = mods["mod2"].var_names.to_numpy()
+        varnames3 = mods["mod3"].var_names.to_numpy()
+        obsnames2[0] = obsnames2[1] = obsnames3[1] = "testobs"
+        varnames2[0] = varnames2[1] = varnames3[1] = "testvar"
+        mods["mod2"].obs_names = obsnames2
+        mods["mod3"].obs_names = obsnames3
+        mods["mod2"].var_names = varnames2
+        mods["mod3"].var_names = varnames3
+    elif mod == "extreme_duplicated":  # integer overflow: https://github.com/scverse/mudata/issues/107
+        obsnames2 = mods["mod2"].obs_names.to_numpy()
+        varnames2 = mods["mod2"].var_names.to_numpy()
+        obsnames2[:-1] = obsnames2[0] = "testobs"
+        varnames2[:-1] = varnames2[0] = "testvar"
+        mods["mod2"].obs_names = obsnames2
+        mods["mod2"].var_names = varnames2
 
     return mods
 
 
-def add_mdata_global_columns(md: MuData, rng: np.random.Generator):
+def add_mdata_global_columns(md: MuData, rng: np.random.Generator) -> MuData:
     md.obs["batch"] = rng.choice(["a", "b", "c"], size=md.shape[0])
     md.var["batch"] = rng.choice(["d", "e", "f"], size=md.shape[1])
 
@@ -130,7 +135,7 @@ def assert_dtypes(df: pd.DataFrame):
     assert pd.api.types.is_integer_dtype(df["dtype-int"])
     assert pd.api.types.is_float_dtype(df["dtype-float"])
     assert pd.api.types.is_bool_dtype(df["dtype-bool"])
-    assert pd.api.types.is_categorical_dtype(df["dtype-categorical"])
+    assert isinstance(df["dtype-categorical"].array, pd.Categorical)
     assert pd.api.types.is_string_dtype(df["batch"]) or df["batch"].dtype == object
 
 
