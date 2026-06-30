@@ -1,9 +1,11 @@
 import numpy as np
+import pytest
 from anndata import AnnData
 
 from mudata import MuData, to_mudata
 
 
+@pytest.mark.filterwarnings("ignore:Only some AnnData objects have `.raw` attribute")
 def test_to_anndata_simple(mdata: MuData):
     adata = mdata.to_anndata()
     assert isinstance(adata, AnnData)
@@ -12,6 +14,7 @@ def test_to_anndata_simple(mdata: MuData):
     assert np.array_equal(adata.obs["arange"], np.arange(mdata.n_obs))
 
 
+@pytest.mark.filterwarnings("ignore:Only some AnnData objects have `.raw` attribute")
 def test_to_mudata_simple(mdata: MuData):
     adata = mdata.to_anndata()
     mdata_from_adata = to_mudata(adata, axis=0, by="feature_type")
