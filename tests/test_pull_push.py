@@ -91,7 +91,8 @@ def mdata(
             idx = (mod2_which, slice(None)) if axis == 0 else (slice(None), mod2_which)
             mods["mod2"] = mods["mod2"][idx].copy()
 
-    return MuData(mods, axis=axis)
+    with pytest.warns(UserWarning, match=r"(obs|var)_names are not unique"):
+        return MuData(mods, axis=axis)
 
 
 @pytest.fixture
