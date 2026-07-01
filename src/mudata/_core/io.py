@@ -366,7 +366,7 @@ def write(filename: str | PathLike, data: MuData | AnnData):
 
 
 def read_h5mu(
-    filename: str | PathLike | io.IOBase | fsspec.OpenFile, backed: Literal["r", "r+"] | bool | None = None
+    filename: str | PathLike | io.IOBase | fsspec.core.OpenFile, backed: Literal["r", "r+"] | bool | None = None
 ) -> MuData:
     """Read an `.h5mu`-formatted HDF5 file.
 
@@ -495,7 +495,9 @@ def _read_h5mu_mod(g: h5py.Group, manager: MuDataFileManager = None, backed: boo
 
 
 def read_h5ad(
-    filename: str | PathLike | io.IOBase | fsspec.OpenFile, mod: str | None, backed: Literal["r", "r+"] | bool = False
+    filename: str | PathLike | io.IOBase | fsspec.core.OpenFile,
+    mod: str | None,
+    backed: Literal["r", "r+"] | bool = False,
 ) -> AnnData:
     """Read a modality from inside a .h5mu file or from a standalone .h5ad file (mod=None).
 
@@ -541,7 +543,7 @@ def read_h5ad(
 read_anndata = read_h5ad
 
 
-def read(filename: str | PathLike | io.IOBase | fsspec.OpenFile, **kwargs) -> MuData | AnnData:
+def read(filename: str | PathLike | io.IOBase | fsspec.core.OpenFile, **kwargs) -> MuData | AnnData:
     """Read an `.h5mu` formatted HDF5 file or a single modality inside it.
 
     This function is designed to enhance I/O ease of use.
@@ -572,7 +574,7 @@ def read(filename: str | PathLike | io.IOBase | fsspec.OpenFile, **kwargs) -> Mu
     """
     if isinstance(filename, io.IOBase):
         raise TypeError(
-            "Use format-specific functions (read_h5mu, read_zarr) to read from opened files or provide an fsspec.OpenFile instance."
+            "Use format-specific functions (read_h5mu, read_zarr) to read from opened files or provide an fsspec.core.OpenFile instance."
         )
     elif _is_openfile(filename):
         fname = filename.path
