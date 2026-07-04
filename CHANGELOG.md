@@ -22,12 +22,18 @@ and this project adheres to [Semantic Versioning][].
 - The settings API has changed. Use e.g. `mudata.settings.pull_on_update = True` instead of `mudata.set_options(pull_on_update=True)` and use
   `mudata.settings.override` as context manager for local settings overrides.
 
+## [0.3.10] (Unreleased)
+
+### Fixed
+
+- More complete support for AnnData 0.13 accessors.
+
 ## [0.3.9]
 
 ### Fixed
 
 - `make_obs_names_unique` and `make_var_names_unique` now preserve the `.obs.index.name` / `.var.index.name` of each modality and of the MuData object.
-- compatibility with anndata 0.13
+- Compatibility with AnnData 0.13.
 
 ## [0.3.8]
 
@@ -48,13 +54,13 @@ and this project adheres to [Semantic Versioning][].
 
 ### Fixed
 
-- `.obsmap` and `.varmap` are once again writeable
+- `.obsmap` and `.varmap` are once again writeable.
 
 ## [0.3.5]
 
 ### Fixed
 
-- `zarr` is once again an optional dependency
+- `zarr` is once again an optional dependency.
 
 ## [0.3.4]
 
@@ -64,7 +70,7 @@ and this project adheres to [Semantic Versioning][].
 
 ### Fixed
 
-- `update()`, `push_obs()`, `push_var()`, `pull_obs()`, and `pull_var()` now try harder to preserve the dtype of the dataframe columns
+- `update()`, `push_obs()`, `push_var()`, `pull_obs()`, and `pull_var()` now try harder to preserve the dtype of the dataframe columns.
 
 ### Deprecated
 
@@ -78,37 +84,37 @@ and this project adheres to [Semantic Versioning][].
 - Fixed an [issue](https://github.com/scverse/mudata/issues/103) in `update()` with duplicate obs_names and dataframes in obsm.
 - Fixed an [issue](https://github.com/scverse/mudata/issues/109) with column ordering in `push_obs()`.
 - Fixed an [issue](https://github.com/scverse/mudata/issues/107) in `update()` when there are more than 255 duplicates of an obs_name or var_name.
-- Fixed an [issue](https://github.com/scverse/mudata/issues/112) where setting global `obs_names` or `var_names` would reorder modality-specific names
+- Fixed an [issue](https://github.com/scverse/mudata/issues/112) where setting global `obs_names` or `var_names` would reorder modality-specific names.
 - Pandas 3 compatibility.
 
 ## [0.3.2]
 
 ### Fixed
 
-- Fixed an [issue](https://github.com/scverse/mudata/issues/99) in `update()`
+- Fixed an [issue](https://github.com/scverse/mudata/issues/99) in `update()`.
 
 ## [0.3.1]
 
 ### Fixed
 
-- compatibility with anndata 0.10.9
+- compatibility with anndata 0.10.9.
 
 ## [0.3.0]
 
 ### Added
 
-- Pull/push interface for annotations: `pull_obs()`, `pull_var()`, `push_obs()`, `push_var()`
-- Conversion functions: `to_anndata()`, `to_mudata()`
-- Concatenation of MuData objects
-- `MuData.mod_names` attribute
-- Pretty-printing for `MuData.mod`
+- Pull/push interface for annotations: `pull_obs()`, `pull_var()`, `push_obs()`, `push_var()`.
+- Conversion functions: `to_anndata()`, `to_mudata()`.
+- Concatenation of MuData objects.
+- `MuData.mod_names` attribute.
+- Pretty-printing for `MuData.mod`.
 - `fsspec` support for readers.
 
 ### Fixed
 
 - Improved performance and behavior of `update()`.
   For compatibility reasons, this release keeps the old behaviour of pulling annotations on read/update as default.
-- `read_zarr()` now supports `mod-order`
+- `read_zarr()` now supports `mod-order`.
 - Correct handling of the `uns` attribute by views.
 
 ### Note
@@ -127,21 +133,21 @@ To copy the annotations explicitly, you will need to use `pull_obs()` and/or `pu
 
 ### Fixed
 
-- Compatibility with numpy 2.0
-- Compatibility with anndata 0.11
+- Compatibility with numpy 2.0.
+- Compatibility with anndata 0.11.
 
 ## [0.2.3]
 
 ### Fixed
 
 - Fixes and improvements for backed objects, views, nested MuData objects, I/O and HTML representation.
-- Pandas 2.0 compatibility
+- Pandas 2.0 compatibility.
 
 ## [0.2.2]
 
 ### Fixed
 
-- `Path` objects now work in `mudata.read()`
+- `Path` objects now work in `mudata.read()`.
 
 ## [0.2.1]
 
@@ -158,7 +164,7 @@ To copy the annotations explicitly, you will need to use `pull_obs()` and/or `pu
 
 ### Fixed
 
-- Improvements and optimizations to `update()`
+- Improvements and optimizations to `update()`.
 
 ## [0.2.0]
 
@@ -186,13 +192,14 @@ To copy the annotations explicitly, you will need to use `pull_obs()` and/or `pu
 
 ## [0.1.1]
 
-- Various stability and bug fixes
+- Various stability and bug fixes.
 
 ## [0.1.0]
 
 Initial `mudata` release with `MuData`, previously a part of the `muon` framework.
 
 [0.4.0]: https://github.com/scverse/mudata/releases/tag/v0.4.0
+[0.3.10]: https://github.com/scverse/mudata/releases/tag/v0.3.10
 [0.3.9]: https://github.com/scverse/mudata/releases/tag/v0.3.9
 [0.3.8]: https://github.com/scverse/mudata/releases/tag/v0.3.8
 [0.3.7]: https://github.com/scverse/mudata/releases/tag/v0.3.7
