@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 import pandas as pd
 from anndata.acc import (
+    _NO_IDX,
     AdAcc,
     AdRef,
     Axes,
@@ -19,6 +20,7 @@ from anndata.acc import (
     MultiAcc,
     MultiMapAcc,
     RefAcc,
+    _NoIdx,
 )
 from anndata.compat import XVariable
 from anndata.typing import InMemoryArray
@@ -43,7 +45,7 @@ class _ModalityMapAcc[I, R](_ModalityMixin):
         else:
             return super().isin(mdata.mod[self.mod], idx)
 
-    def get(self, mdata: MuData, idx: I, /) -> R:
+    def get(self, mdata: MuData, idx: I | _NoIdx = _NO_IDX, /) -> R:
         return super().get(mdata.mod[self.mod], idx)
 
 
@@ -147,9 +149,11 @@ class ModMapAcc[R: AdRef[str]](RefAcc[R, str, MuData]):
         m = getattr(mdata, f"{self.dim}map")
         return idx is None or idx in m
 
-    def get(self, mdata: MuData, idx: str, /) -> InMemoryArray:
+    def get(self, mdata: MuData, idx: str | _NoIdx = _NO_IDX, /) -> InMemoryArray:
         """Get the referenced array from the :class:`~mudata.MuData` object."""
         m = getattr(mdata, f"{self.dim}map")
+        if isinstance(idx, _NoIdx):
+            return m
         return m[idx]
 
 

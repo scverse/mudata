@@ -1,4 +1,5 @@
 import json
+from collections.abc import Mapping
 from dataclasses import fields
 from importlib import metadata, resources
 from urllib.request import urlopen
@@ -47,10 +48,13 @@ def anndata_schema_registry():
 def test_anndata_accessors(mdata: md.MuData):
     assert ad.acc.A.obs["arange"] in mdata
     assert (mdata[ad.acc.A.obs["arange"]] == mdata.obs["arange"]).all()
+    assert mdata[ad.acc.A.obs] is mdata.obs
     with pytest.raises(KeyError, match="test"):
         mdata[ad.acc.A.var["test"]]
     with pytest.raises(KeyError, match="there is one in"):
         mdata[ad.acc.A.var["assert-bool"]]
+    with pytest.raises(IndexError, match="not a path to an array"):
+        mdata[ad.acc.A.varm]
 
 
 PATHS = [
@@ -105,16 +109,24 @@ def test_not_in(mdata: md.MuData, acc):
     assert acc not in mdata
 
 
-@pytest.mark.parametrize("acc_expected", [path for path in PATHS if isinstance(path[0], ad.acc.AdRef)])
+def assert_equal(val, expected):
+    if isinstance(expected, pd.DataFrame | pd.Series | np.ndarray):
+        assert np.all(val == expected)
+    elif isinstance(expected, Mapping):
+        assert expected.keys() == val.keys()
+        for k, v in expected.items():
+            assert_equal(v, expected[k])
+    else:
+        assert val == expected
+
+
+@pytest.mark.parametrize("acc_expected", [path for path in PATHS if isinstance(path[0], ad.acc.AdRef | ad.acc.RefAcc)])
 def test_get(mdata_augmented: md.MuData, acc_expected):
     acc, expected = acc_expected
 
     val = mdata_augmented[acc]
     expected = expected(mdata_augmented)
-    if isinstance(expected, pd.DataFrame | pd.Series | np.ndarray):
-        assert np.all(val == expected)
-    else:
-        assert val == expected
+    assert_equal(val, expected)
 
 
 def test_no_data():
