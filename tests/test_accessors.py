@@ -14,10 +14,11 @@ from packaging.version import Version
 
 import mudata as md
 
-if Version(metadata.version("anndata")) < Version("0.13dev0"):
+ad_version = Version(metadata.version("anndata"))
+if ad_version < Version("0.13dev0"):
     pytest.skip("anndata version too old, no accessor support", allow_module_level=True)
 
-from mudata.acc import A
+from mudata.acc import A  # noqa: E402
 
 
 @pytest.fixture
@@ -120,7 +121,14 @@ def assert_equal(val, expected):
         assert val == expected
 
 
-@pytest.mark.parametrize("acc_expected", [path for path in PATHS if isinstance(path[0], ad.acc.AdRef | ad.acc.RefAcc)])
+@pytest.mark.parametrize(
+    "acc_expected",
+    [
+        path
+        for path in PATHS
+        if isinstance(path[0], ad.acc.AdRef) or ad_version >= Version("0.13rc4") and isinstance(path[0], ad.acc.RefAcc)
+    ],
+)
 def test_get(mdata_augmented: md.MuData, acc_expected):
     acc, expected = acc_expected
 
