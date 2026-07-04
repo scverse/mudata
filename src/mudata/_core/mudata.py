@@ -536,7 +536,7 @@ class MuData:
             return self._mod[index]
 
         with suppress(ImportError):
-            from anndata.acc import AdRef
+            from anndata.acc import AdRef, MapAcc, RefAcc
 
             if isinstance(index, AdRef):
                 try:
@@ -549,6 +549,10 @@ class MuData:
                                     f"There is no key {index.idx} in MuData .{index.acc.dim} but there is one in {modname} .{index.acc.dim}. Consider running `pull_{index.acc.dim}()` to update global .{index.acc.dim}."
                                 ) from e
                     raise
+            elif isinstance(index, RefAcc):
+                return index.get(self)
+            elif isinstance(index, MapAcc):
+                raise IndexError(f"Cannot index with {index} because this is not a path to an array-like structure.")
         return MuData(self, as_view=True, index=index)
 
     def __contains__(self, key) -> bool:

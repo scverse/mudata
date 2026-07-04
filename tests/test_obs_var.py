@@ -142,7 +142,10 @@ def test_names_make_unique(mdata: md.MuData):
 def test_accessors(mdata: md.MuData):
     assert ad.acc.A.obs["arange"] in mdata
     assert (mdata[ad.acc.A.obs["arange"]] == mdata.obs["arange"]).all()
+    assert mdata[ad.acc.A.obs] is mdata.obs
     with pytest.raises(KeyError, match="test"):
         mdata[ad.acc.A.var["test"]]
     with pytest.raises(KeyError, match="there is one in"):
         mdata[ad.acc.A.var["mod2_unique"]]
+    with pytest.raises(IndexError, match="not a path to an array"):
+        mdata[ad.acc.A.varm]
