@@ -50,7 +50,7 @@ dev = [
 ]
 test = [ "coverage>=7.10", "jsonschema", "mudata[io]", "packaging", "pytest", "referencing" ]
 doc = [
-  "anndata>=0.13rc1",
+  "anndata>=0.13",
   "docutils>=0.8,!=0.18.*,!=0.19.*",
   "ipykernel",
   "ipython",
