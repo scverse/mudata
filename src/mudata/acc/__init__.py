@@ -151,7 +151,7 @@ class ModMapAcc[R: AdRef[str]](RefAcc[R, str, MuData]):
     def get(self, mdata: MuData, idx: str | NO_IDX = NO_IDX, /) -> InMemoryArray:
         """Get the referenced array from the :class:`~mudata.MuData` object."""
         m = getattr(mdata, f"{self.dim}map")
-        if isinstance(idx, NO_IDX):
+        if idx is NO_IDX:
             return m
         return m[idx]
 
