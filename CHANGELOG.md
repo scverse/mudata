@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning][].
 - The settings API has changed. Use e.g. `mudata.settings.pull_on_update = True` instead of `mudata.set_options(pull_on_update=True)` and use
   `mudata.settings.override` as context manager for local settings overrides.
 
-## [0.3.10] (Unreleased)
+## [0.3.10]
 
 ### Fixed
 
