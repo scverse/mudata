@@ -335,6 +335,33 @@ def test_update_intersecting(rng: np.random.Generator, modalities: Mapping[str, 
     assert (getattr(mdata, f"{attr}_names") == axisnames).all()
 
 
+def test_update_intersecting_after_filtering(mdata):
+    oattr = "var" if mdata.axis == 0 else "obs"
+    orig_shape = mdata.shape
+
+    for mod in mdata.mod.values():
+        setattr(mod, f"{oattr}_names", [f"{oattr}{j}" for j in range(mod.shape[1 - mdata.axis])])
+    mdata.update()
+
+    subset = (slice(None), slice(5))
+    subset = subset[mdata.axis], subset[1 - mdata.axis]
+    mdata.mod["mod1"] = mdata["mod1"][subset].copy()
+
+    getattr(mdata.mod["mod1"], oattr)["true"] = True
+    getattr(mdata.mod["mod2"], oattr)["false"] = False
+    getattr(mdata.mod["mod3"], oattr)["false"] = False
+
+    assert mdata["mod1"].shape[1 - mdata.axis] == 5
+    mdata.update()
+    getattr(mdata, f"pull_{oattr}")(prefix_unique=False, join_nonunique=True)
+    assert mdata.shape[mdata.axis] == orig_shape[mdata.axis]
+    assert mdata.shape[1 - mdata.axis] == sum(mod.shape[1 - mdata.axis] for mod in mdata.mod.values())
+    assert getattr(mdata, oattr)["true"].sum() == 5
+    assert (~getattr(mdata, oattr)["false"]).sum() == (~getattr(mdata.mod["mod2"], oattr)["false"]).sum() + (
+        ~getattr(mdata.mod["mod3"], oattr)["false"]
+    ).sum()
+
+
 def test_update_after_filter_obs_adata(mdata: MuData, axis: Axis):
     """
     Check for https://github.com/scverse/muon/issues/44
