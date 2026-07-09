@@ -629,7 +629,9 @@ class MuData:
         attrmap = getattr(self, f"_{attr}map")
 
         dfs = [
-            getattr(a, attr).loc[:, []].assign(**{f"{m}:{rowcol}": np.arange(getattr(a, attr).shape[0])})
+            getattr(a, attr)
+            .loc[:, []]
+            .assign(**{f"{m}:{rowcol}": lambda x: pd.Series(np.arange(x.shape[0]), index=x.index).convert_dtypes()})
             for m, a in self._mod.items()
         ]
 
@@ -642,7 +644,7 @@ class MuData:
             # we could use a pandas.array, which has missing values support, but then we get an Exception upon hdf5 write
             # also, this is compatible to Muon.jl
             col = data_mod[colname] + 1
-            col.replace(np.nan, 0, inplace=True)
+            col.replace(pd.NA, 0, inplace=True)
             data_mod[colname] = col.astype(np.uint32)
             return colname
 
