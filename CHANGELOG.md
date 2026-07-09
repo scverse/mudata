@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning][].
 - The settings API has changed. Use e.g. `mudata.settings.pull_on_update = True` instead of `mudata.set_options(pull_on_update=True)` and use
   `mudata.settings.override` as context manager for local settings overrides.
 
+### Fixed
+
+- `read_zarr()` now correctly restores the `axis` attribute.
+
 ## [0.3.10]
 
 ### Fixed

@@ -22,7 +22,6 @@ from anndata import AnnData
 from anndata.compat import _read_attr
 from anndata.experimental import read_dispatched
 from anndata.io import read_elem, write_elem
-from anndata.io import read_zarr as anndata_read_zarr
 from scipy import sparse
 
 from .file_backing import AnnDataFileManager, MuDataFileManager
@@ -461,7 +460,7 @@ def read_zarr(store: str | PathLike | MutableMapping | zarr.Group | zarr.abc.sto
             mods = {}
             gmods = f[k]
             for m in gmods.keys():
-                mods[m] = anndata_read_zarr(gmods[m])
+                mods[m] = read_elem(gmods[m])
 
             mod_order = None
             if "mod-order" in gmods.attrs:
@@ -472,6 +471,8 @@ def read_zarr(store: str | PathLike | MutableMapping | zarr.Group | zarr.abc.sto
             d[k] = mods
         else:  # Base case
             d[k] = read_elem(f[k])
+    if "axis" in f.attrs:
+        d["axis"] = f.attrs["axis"]
 
     mu = MuData._init_from_dict_(**d)
     mu.file = MuDataFileManager()

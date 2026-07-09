@@ -27,6 +27,7 @@ def test_initial_order(mdata: md.MuData):
     ("write_func", "read_func", "open_func", "filepath"),
     (("write", "read_h5mu", h5py.File, "filepath_h5mu"), ("write_zarr", "read_zarr", zarr.open, "filepath_zarr")),
 )
+@pytest.mark.parametrize("mdata", (0, 1), indirect=True)
 def test_write_read_basic(
     mdata: md.MuData,
     write_func: str,
@@ -39,6 +40,7 @@ def test_write_read_basic(
 
     getattr(mdata, write_func)(filepath)
     mdata_ = getattr(md, read_func)(filepath)
+    assert mdata.axis == mdata_.axis
     assert list(mdata_.mod.keys()) == ["mod2", "mod1"]
     assert (mdata.obs_names == mdata_.obs_names).all()
     assert (mdata.var_names == mdata_.var_names).all()
