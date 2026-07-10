@@ -44,4 +44,4 @@ if __name__ == "__main__":
     for axis in (0, 1):
         mdata = generate_reference(axis)
         write_h5mu(f"mdata_axis{axis}.h5mu", mdata, compression="gzip", compression_opts=9)
-        write_zarr(zarr.storage.ZipStore(f"mdata_axis{axis}.zarr.zip"), mdata)
+        write_zarr(zarr.storage.ZipStore(f"mdata_axis{axis}.zarr.zip", mode="w"), mdata)

@@ -41,10 +41,8 @@ def assert_mdata_equal(a: md.MuData, b: object, *, exact: bool = False):
 
 ARCHIVE_PATH = Path(__file__).parent / "data" / "archives"
 
-ARCHIVES = tuple(ARCHIVE_PATH.glob("v*"))
 
-
-@pytest.fixture(params=ARCHIVES, ids=lambda x: x.name)
+@pytest.fixture(params=tuple(ARCHIVE_PATH.glob("v*")), ids=lambda x: x.name)
 def archive_dir(request: pytest.FixtureRequest):
     return request.param
 
