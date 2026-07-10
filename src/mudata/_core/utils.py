@@ -123,7 +123,7 @@ def try_convert_series_to_numpy_dtype(col: pd.Series) -> pd.Series:
                 col = col.astype(bool)
             case pd.core.arrays.integer.IntegerDtype(type=dtype) | pd.core.arrays.floating.FloatingDtype(type=dtype):
                 col = col.astype(dtype)
-            case pd.StringDtype():
+            case pd.StringDtype() if pd.__version__ < "3":
                 col = col.astype(object)
     return col
 
