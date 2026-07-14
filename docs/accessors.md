@@ -8,7 +8,7 @@
 See the corresponding [AnnData documentation](inv:anndata:*:doc#accessors).
 
 :::{important}
-This functionality requires AnnData 0.13 or newer.
+This functionality requires AnnData 0.13.2 or newer.
 :::
 
 The central [accessor](inv:anndata:*:term#accessor) is [](#A).

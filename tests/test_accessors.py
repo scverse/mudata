@@ -1,5 +1,6 @@
 import json
 from collections.abc import Mapping
+from contextlib import nullcontext
 from dataclasses import fields
 from importlib import metadata, resources
 from urllib.request import urlopen
@@ -139,16 +140,27 @@ def test_no_data():
         assert field.name not in ("X", "layers")
 
 
-def test_resolve():
-    assert A.resolve("mod.rna.X[:, ACT1]") == A.mod["rna"].X[:, "ACT1"]
-    assert A.resolve("obsmap.rna") == A.obsmap["rna"]
+@pytest.mark.parametrize("vec", [None, True, False])
+def test_resolve_vec_true(vec: bool):
+    with pytest.raises(ValueError, match="refers to a vector/") if vec is False else nullcontext():
+        assert A.resolve("mod.rna.X[:, ACT1]", vec=vec) == A.mod["rna"].X[:, "ACT1"]
+        assert A.resolve("obsmap.rna", vec=vec) == A.obsmap["rna"]
 
+
+@pytest.mark.parametrize("vec", [None, True, False])
+def test_resolve_vec_false(vec: bool):
+    with pytest.raises(ValueError, match="refers to a whole container") if vec is True else nullcontext():
+        assert A.resolve("mod.rna.X", vec=vec) == A.mod["rna"].X
+        assert A.resolve("mod.rna", vec=vec) == A.mod["rna"]
+        assert A.resolve("mod", vec=vec) == A.mod
+        assert A.resolve("obsmap", vec=vec) == A.obsmap
+
+
+def test_resolve_raises():
     with pytest.raises(ValueError, match="Unknown accessor"):
         A.resolve("rna.X[:, :]")
-
     with pytest.raises(ValueError, match="empty modality"):
         A.resolve("mod..X[:, :]")
-
     with pytest.raises(ValueError, match="period-separated"):
         A.resolve("abcd")
 

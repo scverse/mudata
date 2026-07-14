@@ -21,6 +21,7 @@ from anndata.acc import (
     MultiMapAcc,
     RefAcc,
 )
+from anndata.acc._parse_str import _check_vec
 from anndata.compat import XVariable
 from anndata.typing import InMemoryArray
 
@@ -250,33 +251,56 @@ class MuAcc[R: AdRef](AdAcc[R]):
     def __repr__(self) -> str:
         return "A"
 
-    def resolve(self, spec: str, *, strict: bool = True) -> R | None:
+    def resolve(
+        self, spec: str, *, strict: bool = True, vec: bool | None = None
+    ) -> (
+        R
+        | ModLayerAcc[R]
+        | ModMultiAcc[R]
+        | ModGraphAcc[R]
+        | MultiAcc[R]
+        | ModMapAcc[R]
+        | GraphAcc[R]
+        | ModAcc[R]
+        | None
+    ):
         """Create :class:`~anndata.acc.AdRef` from a simplified string."""
         if not strict:
             try:
-                self.resolve(spec)
+                self.resolve(spec, vec=vec)
             except ValueError:
                 return None
 
         firstdot = spec.find(".")
         if firstdot < 0:
-            raise ValueError(f"Cannot parse accessor {spec!r} that is not period-separated.")
+            firstdot = None
         firstattr = spec[:firstdot]
         match firstattr:
             case "mod":
+                do_vec = firstdot is not None
+                if not do_vec:
+                    _check_vec(spec, vec=vec, actual=do_vec)
+                    return self.mod
+
                 modend = spec.find(".", firstdot + 1)
+                do_vec = modend >= 0
+                if not do_vec:
+                    modend = None
+                    _check_vec(spec, vec=vec, actual=do_vec)
                 mod = spec[firstdot + 1 : modend]
                 if not mod:
                     raise ValueError(f"Cannot parse accessor{spec!r} that has an empty modality.")
                 acc = self.mod[mod]
-                return super().resolve.__func__(acc, spec[modend + 1 :], strict=strict)
+                return super().resolve.__func__(acc, spec[modend + 1 :], strict=strict, vec=vec) if do_vec else acc
             case "obsmap" | "varmap":
-                if firstdot == len(spec):
-                    raise ValueError(f"Cannot parse accessor{spec!r} that has an empty modality.")
+                do_vec = firstdot is not None and firstdot < len(spec)
+                _check_vec(spec, vec=vec, actual=do_vec)
+                if not do_vec:
+                    return getattr(self, firstattr)
                 mod = spec[firstdot + 1 :]
                 return getattr(self, firstattr)[mod]
             case _:
-                return super().resolve(spec, strict=strict)
+                return super().resolve(spec, strict=strict, vec=vec)
 
     def to_json(self, ref: R) -> list[str | int | None]:
         """Serialize :class:`~anndata.acc.AdRef` to a JSON-compatible list.
