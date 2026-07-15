@@ -21,7 +21,6 @@ from anndata.acc import (
     MultiMapAcc,
     RefAcc,
 )
-from anndata.acc._parse_str import _check_vec
 from anndata.compat import XVariable
 from anndata.typing import InMemoryArray
 
@@ -273,30 +272,19 @@ class MuAcc[R: AdRef](AdAcc[R]):
 
         firstdot = spec.find(".")
         if firstdot < 0:
-            firstdot = None
+            raise ValueError(f"Cannot parse accessor {spec!r} that is not period-separated.")
         firstattr = spec[:firstdot]
         match firstattr:
             case "mod":
-                do_vec = firstdot is not None
-                if not do_vec:
-                    _check_vec(spec, vec=vec, actual=do_vec)
-                    return self.mod
-
                 modend = spec.find(".", firstdot + 1)
-                do_vec = modend >= 0
-                if not do_vec:
-                    modend = None
-                    _check_vec(spec, vec=vec, actual=do_vec)
                 mod = spec[firstdot + 1 : modend]
                 if not mod:
                     raise ValueError(f"Cannot parse accessor{spec!r} that has an empty modality.")
                 acc = self.mod[mod]
-                return super().resolve.__func__(acc, spec[modend + 1 :], strict=strict, vec=vec) if do_vec else acc
+                return super().resolve.__func__(acc, spec[modend + 1 :], strict=strict, vec=vec)
             case "obsmap" | "varmap":
-                do_vec = firstdot is not None and firstdot < len(spec)
-                _check_vec(spec, vec=vec, actual=do_vec)
-                if not do_vec:
-                    return getattr(self, firstattr)
+                if firstdot == len(spec):
+                    raise ValueError(f"Cannot parse accessor{spec!r} that has an empty modality.")
                 mod = spec[firstdot + 1 :]
                 return getattr(self, firstattr)[mod]
             case _:
