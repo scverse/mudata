@@ -6,8 +6,14 @@ on:
       - "v?[0-9]+.[0-9]+.[0-9]+**"
   workflow_dispatch:
 
-# Use "trusted publishing", see https://docs.pypi.org/trusted-publishers/
+permissions:
+  contents: read
+
+env:
+  ref_name: ${{ github.ref_name }}
+
 jobs:
+  # Use "trusted publishing", see https://docs.pypi.org/trusted-publishers/
   release:
     name: Upload release to PyPI
     runs-on: ubuntu-latest
@@ -30,3 +36,89 @@ jobs:
         run: uv build
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+
+  is-prerelease:
+    name: Check if this is a pre-release
+    runs-on: ubuntu-slim
+    outputs:
+      is_prerelease: ${{ steps.check_prerelease.outputs.is_prerelease }}
+    steps:
+      - name: Check if this is a pre-release
+        id: check_prerelease
+        run: |
+          PRE=$(echo "$ref_name" | sed -E 's/^v[0-9]+\.[0-9]+\.[0-9]+(.+?)$/\1/' | wc -w)
+          if [ $PRE = 0 ] ; then
+              PRE=false
+          else
+              PRE=true
+          fi
+          echo "is_prerelease=$PRE" | tee $GITHUB_OUTPUT
+
+  generate-test-data:
+    name: Generate test files for backwards compatibility testing
+    needs: is-prerelease
+    if: ${{ needs.is-prerelease.outputs.is_prerelease == 'false' && github.event_name == 'push' && github.event.created && github.ref_type == 'tag' }}
+    runs-on: ubuntu-slim
+    env:
+      data_path: ./tests/data/archives/${{ github.ref_name }}
+      default_branch: ${{ github.event.repository.default_branch }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          filter: blob:none
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          enable-cache: false
+      - name: Get environment
+        # get the test environment with the oldest Python
+        id: get-env
+        run: |
+          ENV=$(uvx hatch env show --json | jq -r '[to_entries[] | select(.key | startswith("hatch-test") and (contains("pre") | not))]
+            | sort_by(.value.python)[0].key')
+          echo "hatch_env=${ENV}" | tee $GITHUB_ENV
+      - name: create hatch environment
+        run: uvx hatch env create "$hatch_env"
+      - name: generate output directory
+        run: mkdir -p "$data_path"
+      - name: generate files
+        working-directory: ${{ env.data_path }}
+        run: |
+          uvx hatch run "$hatch_env":../../../../src/mudata/tests/reference.py
+          uvx hatch run "$hatch_env":sh -c "uv pip freeze | uv pip compile - -o pylock.toml"
+      - name: configure git
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          BRANCH=$(git branch --show-current)
+          if [ ! "$BRANCH" ] ; then
+              BRANCH=$(git branch -a --contains "$ref_name" | tail -n 1 | sed 's/^\s*remotes\/origin\///')
+          fi
+          echo branch=${BRANCH} | tee $GITHUB_ENV
+      - name: commit and push
+        if: ${{ env.branch != '' }}
+        working-directory: ${{ env.data_path }}
+        run: |
+          git checkout "$branch"
+          git add .
+          git commit -m "add backwards compat test files for $ref_name"
+          git push
+          if [ "$branch" != "$default_branch" ] ; then
+              git checkout "$default_branch"
+              git pull
+              git cherry-pick -x "$branch"
+              git push
+          fi
+      - name: commit and push
+        if: ${{ env.branch == '' }}
+        working-directory: ${{ env.data_path }}
+        run: |
+          git checkout "$default_branch"
+          git pull
+          git add .
+          git commit -m "add backwards compat test files for $ref_name"
+          git push
