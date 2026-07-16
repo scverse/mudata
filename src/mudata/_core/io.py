@@ -66,10 +66,12 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
         if write_data or not adata.isbacked:
             write_elem(group, "X", adata.X, dataset_kwargs=kwargs)
         if adata.raw is not None:
-            if not adata.isbacked:
+            if not adata.isbacked or write_data:
                 write_elem(group, "raw", adata.raw, dataset_kwargs=kwargs)
             else:
                 rawgrp = group.require_group("raw")
+                rawgrp.attrs["encoding-type"] = "anndata"
+                rawgrp.attrs["encoding-version"] = __anndataversion__
                 write_elem(rawgrp, "var", adata.raw.var, dataset_kwargs=kwargs)
                 write_elem(rawgrp, "varm", dict(adata.raw.varm), dataset_kwargs=kwargs)
 
@@ -176,6 +178,8 @@ def write_zarr(
                     write_elem(group, "raw", adata.raw, dataset_kwargs=kwargs)
                 else:
                     rawgrp = group.require_group("raw")
+                    rawgrp.attrs["encoding-type"] = "anndata"
+                    rawgrp.attrs["encoding-version"] = __anndataversion__
                     write_elem(rawgrp, "var", adata.raw.var, dataset_kwargs=kwargs)
                     write_elem(rawgrp, "varm", dict(adata.raw.varm), dataset_kwargs=kwargs)
 
@@ -483,15 +487,23 @@ def read_zarr(store: str | PathLike | MutableMapping | zarr.Group | zarr.abc.sto
 def _read_h5mu_mod(g: h5py.Group, manager: MuDataFileManager = None, backed: bool = False) -> AnnData:
     modname = Path(g.name).name
     Xpath = g.name + "/X"
-    rawXpath = g.name + "/raw/X"
+    rawpath = g.name + "/raw"
+    rawXpath = rawpath + "/X"
 
-    def callback(func, elem_name, elem, iospec):
-        if not backed or elem_name not in (Xpath, rawXpath):
+    def ad_callback(func, elem_name, elem, iospec):
+        if not backed or elem_name not in (Xpath, rawpath):
             return func(elem)
 
-    ad = read_dispatched(g, callback=callback)
+    def raw_callback(func, elem_name, elem, iospec):
+        if not backed or elem_name != rawXpath:
+            return func(elem)
+
+    ad = read_dispatched(g, callback=ad_callback)
     if manager is not None:
         ad.file = AnnDataFileManager(ad, modname, manager)
+
+    if "raw" in g:
+        ad.raw = read_dispatched(g["raw"], callback=raw_callback)
     return ad
 
 

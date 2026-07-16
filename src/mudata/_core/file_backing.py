@@ -97,6 +97,8 @@ class AnnDataFileManager(ad._core.file_backing.AnnDataFileManager):
 
     def _to_memory_mode(self):
         X = self._adata.X[()]
+        if self._adata.raw is not None:
+            self._adata.raw._X = self._adata.raw.X[()]
         self.close()
         self.filename = None
         if hasattr(self._adata, "_X"):  # anndata < 0.13

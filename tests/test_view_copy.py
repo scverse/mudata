@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
+from anndata.tests.helpers import assert_equal
 from scipy import sparse
 
 import mudata as md
@@ -33,11 +34,7 @@ def mdata_with_obsp(mdata: md.MuData):
 
 def test_copy(mdata: md.MuData):
     mdata_copy = mdata.copy()
-    assert mdata.shape == mdata_copy.shape
-    assert np.array_equal(mdata.obs_names.values, mdata_copy.obs_names.values)
-    assert np.array_equal(mdata.var_names.values, mdata_copy.var_names.values)
-    assert np.array_equal(mdata.obs.columns.values, mdata_copy.obs.columns.values)
-    assert np.array_equal(mdata.var.columns.values, mdata_copy.var.columns.values)
+    assert_equal(mdata, mdata_copy, exact=True)
 
 
 def test_view_attributes(mdata: md.MuData):
@@ -72,7 +69,7 @@ def test_view_copy(mdata: md.MuData):
     assert mdata_view.n_obs == view_n_obs
     mdata_copy = mdata_view.copy()
     assert not mdata_copy.is_view
-    assert mdata_copy.n_obs == view_n_obs
+    assert_equal(mdata_view, mdata_copy, exact=True)
 
 
 def test_view_view(mdata: md.MuData):
@@ -107,9 +104,10 @@ def test_view_view(mdata: md.MuData):
 def test_backed_copy(mdata: md.MuData, filepath_h5mu: str | Path, filepath2_h5mu: str | Path):
     mdata.write(filepath_h5mu)
     mdata_b = md.read_h5mu(filepath_h5mu, backed="r")
-    assert mdata_b.n_obs == mdata.n_obs
+    assert_equal(mdata, mdata_b, exact=True)
     mdata_b_copy = mdata_b.copy(filepath2_h5mu)
     assert mdata_b_copy.file._filename.name == Path(filepath2_h5mu).name
+    assert_equal(mdata_b, mdata_b_copy, exact=True)
 
 
 def test_obsp_slicing(mdata_with_obsp: md.MuData):
