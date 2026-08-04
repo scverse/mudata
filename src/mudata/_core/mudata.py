@@ -702,6 +702,7 @@ class MuData:
         if index_order is not None:
             if can_update:
                 for mx_key, mx in attrm.items():
+                    update_mask = index_order == -1
                     if mx_key not in self._mod.keys():  # not a modality name
                         if isinstance(mx, pd.DataFrame):
                             mx = mx.iloc[index_order, :]
@@ -709,7 +710,14 @@ class MuData:
                             mx.index = data_mod.index
                         else:
                             mx = mx[index_order]
-                            mx[index_order == -1] = np.nan
+                            if update_mask.sum() > 0:
+                                if not issubclass(mx.dtype.type, np.floating):
+                                    mx = np.ma.MaskedArray(
+                                        mx,
+                                        mask=np.broadcast_to(update_mask.reshape(-1, *([1] * (mx.ndim - 1))), mx.shape),
+                                    )
+                                else:
+                                    mx[index_order == -1] = np.nan
                         attrm[mx_key] = mx
 
                 # Update .obsp/.varp (size might have changed)

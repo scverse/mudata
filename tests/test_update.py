@@ -107,6 +107,9 @@ def add_mdata_global_columns(md: MuData, rng: np.random.Generator) -> MuData:
     md.obsm["test"] = rng.normal(size=(md.n_obs, 2))
     md.varm["test"] = rng.normal(size=(md.n_vars, 2))
 
+    md.obsm["test-int"] = rng.poisson(size=(md.n_obs, 2))
+    md.varm["test-int"] = rng.poisson(size=(md.n_vars, 2))
+
     md.obsm["test_df"] = pd.DataFrame(rng.normal(size=(md.n_obs, 2)), columns=["col1", "col2"], index=md.obs_names)
     md.varm["test_df"] = pd.DataFrame(rng.normal(size=(md.n_vars, 2)), columns=["col1", "col2"], index=md.var_names)
 
