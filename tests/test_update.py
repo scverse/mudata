@@ -118,6 +118,9 @@ def add_mdata_global_columns(md: MuData, rng: np.random.Generator) -> MuData:
     md.obsp["sparse"] = csr_array(rng.poisson(size=(md.n_obs, md.n_obs)))
     md.varp["sparse"] = csc_array(rng.poisson(size=(md.n_vars, md.n_vars)))
 
+    md.obsp["sparse-float"] = csr_array(rng.poisson(size=(md.n_obs, md.n_obs)), dtype=np.float32)
+    md.varp["sparse-float"] = csc_array(rng.poisson(size=(md.n_vars, md.n_vars)), dtype=np.float32)
+
     return md
 
 

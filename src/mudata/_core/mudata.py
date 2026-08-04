@@ -701,30 +701,37 @@ class MuData:
 
         if index_order is not None:
             if can_update:
+                update_mask = index_order == -1
+                need_missing = update_mask.sum() > 0
                 for mx_key, mx in attrm.items():
-                    update_mask = index_order == -1
                     if mx_key not in self._mod.keys():  # not a modality name
                         if isinstance(mx, pd.DataFrame):
                             mx = mx.iloc[index_order, :]
-                            mx.iloc[index_order == -1, :] = pd.NA
+                            if need_missing:
+                                mx.iloc[update_mask, :] = pd.NA
                             mx.index = data_mod.index
                         else:
                             mx = mx[index_order]
-                            if update_mask.sum() > 0:
-                                if not issubclass(mx.dtype.type, np.floating):
+                            if need_missing:
+                                if issubclass(mx.dtype.type, np.floating):
+                                    mx[update_mask] = np.nan
+                                else:
                                     mx = np.ma.MaskedArray(
                                         mx,
-                                        mask=np.broadcast_to(update_mask.reshape(-1, *([1] * (mx.ndim - 1))), mx.shape),
+                                        mask=np.broadcast_to(
+                                            np.expand_dims(update_mask, axis=tuple(range(1, mx.ndim))), mx.shape
+                                        ),
                                     )
-                                else:
-                                    mx[index_order == -1] = np.nan
                         attrm[mx_key] = mx
 
                 # Update .obsp/.varp (size might have changed)
                 for mx_key, mx in attrp.items():
                     mx = mx[index_order[:, None], index_order[None, :]]
-                    mx[index_order == -1, :] = -1
-                    mx[:, index_order == -1] = -1
+
+                    if need_missing:
+                        fill_value = np.nan if issubclass(mx.dtype.type, np.floating) else -1
+                        mx[update_mask, :] = fill_value
+                        mx[:, update_mask] = fill_value
                     attrp[mx_key] = mx
             else:
                 raise NotImplementedError(
