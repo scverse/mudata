@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import warnings
 from collections import Counter, abc
-from collections.abc import ItemsView, Iterable, Mapping, MutableMapping, Sequence, ValuesView
+from collections.abc import ItemsView, Mapping, MutableMapping, Sequence, ValuesView
 from contextlib import suppress
-from copy import deepcopy
+from copy import copy, deepcopy
 from functools import reduce
 from hashlib import sha1
 from itertools import chain, combinations
@@ -183,8 +183,7 @@ class MuData:
             # Initialize an empty MuData object
             pass
         elif isinstance(data, abc.Mapping):
-            for k, v in data.items():
-                self._mod[k] = v
+            self._mod.update(data)
         elif isinstance(data, AnnData):
             # Get the list of modalities
             if "feature_types" in data.var.columns:
@@ -206,62 +205,25 @@ class MuData:
 
         self._check_duplicated_names()
 
-        # When creating from a dictionary with _init_from_dict_
-        if len(kwargs) > 0:
-            # Get global observations
-            self._obs = kwargs.get("obs", None)
-            if isinstance(self._obs, abc.Mapping) or self._obs is None:
-                self._obs = pd.DataFrame(self._obs)
-
-            # Get global variables
-            self._var = kwargs.get("var", None)
-            if isinstance(self._var, abc.Mapping) or self._var is None:
-                self._var = pd.DataFrame(self._var)
-
-            # Ensure no keys are missing
-            for key in ("obsm", "varm", "obsp", "varp", "obsmap", "varmap"):
-                kwargs[key] = kwargs.get(key) or {}
-
-            # Map each attribute to its class and axis value
-            attr_to_axis_arrays = {
-                "obsm": (AxisArrays, 0),
-                "varm": (AxisArrays, 1),
-                "obsp": (PairwiseArrays, 0),
-                "varp": (PairwiseArrays, 1),
-                "obsmap": (ModalityMapAxisArrays, 0),
-                "varmap": (ModalityMapAxisArrays, 1),
-            }
-
-            # Initialise each attribute
-            for attr, (cls, axis) in attr_to_axis_arrays.items():
-                setattr(self, f"_{attr}", cls(self, axis=axis, store=kwargs[attr]))
-
-            self._axis = kwargs.get("axis") or 0
-
-            # Restore proper .obs and .var
-            self.update()
-
-            self._uns = kwargs.get("uns") or {}
-
-            return
-
         # Initialize global observations
-        self._obs = pd.DataFrame()
+        self._obs = pd.DataFrame(kwargs.get("obs"))
 
         # Initialize global variables
-        self._var = pd.DataFrame()
+        self._var = pd.DataFrame(kwargs.get("var"))
 
         # Make obs map for each modality
-        self._obsm = AxisArrays(self, axis=0, store={})
-        self._obsp = PairwiseArrays(self, axis=0, store={})
-        self._obsmap = ModalityMapAxisArrays(self, axis=0, store={})
+        self._obsm = AxisArrays(self, axis=0, store=convert_to_dict(kwargs.get("obsm")))
+        self._obsp = PairwiseArrays(self, axis=0, store=convert_to_dict(kwargs.get("obsp")))
+        self._obsmap = ModalityMapAxisArrays(self, axis=0, store=convert_to_dict(kwargs.get("obsmap")))
 
         # Make var map for each modality
-        self._varm = AxisArrays(self, axis=1, store={})
-        self._varp = PairwiseArrays(self, axis=1, store={})
-        self._varmap = ModalityMapAxisArrays(self, axis=1, store={})
+        self._varm = AxisArrays(self, axis=1, store=convert_to_dict(kwargs.get("varm")))
+        self._varp = PairwiseArrays(self, axis=1, store=convert_to_dict(kwargs.get("varp")))
+        self._varmap = ModalityMapAxisArrays(self, axis=1, store=convert_to_dict(kwargs.get("varmap")))
 
-        self._axis = 0
+        self._uns = convert_to_dict(kwargs.get("uns", {}))
+
+        self._axis = kwargs.get("axis", 0)
 
         # Only call update() if there are modalities
         self.update()
@@ -347,7 +309,7 @@ class MuData:
         self._is_view = True
         self.file = mudata_ref.file
         self._axis = mudata_ref._axis
-        self._uns = mudata_ref._uns
+        self._uns = copy(mudata_ref._uns)
         self._oidx = obsidx
         self._vidx = varidx
 
@@ -369,44 +331,6 @@ class MuData:
         self._varmap = ModalityMapAxisArrays(self, axis=1, store=convert_to_dict(data.varmap))
         self._uns = data._uns
         self._axis = data._axis
-
-    @classmethod
-    def _init_from_dict_(
-        cls,
-        mod: Mapping[str, Mapping | AnnData] | None = None,
-        obs: pd.DataFrame | Mapping[str, Iterable[Any]] | None = None,
-        var: pd.DataFrame | Mapping[str, Iterable[Any]] | None = None,
-        uns: Mapping[str, Any] | None = None,
-        obsm: np.ndarray | Mapping[str, Sequence[Any]] | None = None,
-        varm: np.ndarray | Mapping[str, Sequence[Any]] | None = None,
-        obsp: np.ndarray | Mapping[str, Sequence[Any]] | None = None,
-        varp: np.ndarray | Mapping[str, Sequence[Any]] | None = None,
-        obsmap: Mapping[str, Sequence[int]] | None = None,
-        varmap: Mapping[str, Sequence[int]] | None = None,
-        axis: Literal[0, 1] = 0,
-    ):
-        return cls(
-            data={
-                k: (
-                    v
-                    if isinstance(v, AnnData) or isinstance(v, MuData)
-                    else MuData(**v)
-                    if "mod" in v
-                    else AnnData(**v)
-                )
-                for k, v in mod.items()
-            },
-            obs=obs,
-            var=var,
-            uns=uns,
-            obsm=obsm,
-            varm=varm,
-            obsp=obsp,
-            varp=varp,
-            obsmap=obsmap,
-            varmap=varmap,
-            axis=axis,
-        )
 
     def _check_duplicated_attr_names(self, attr: str):
         if any(not getattr(self._mod[mod_i], attr + "_names").astype(str).is_unique for mod_i in self._mod):
@@ -486,18 +410,18 @@ class MuData:
             mod = {}
             for k, v in self._mod.items():
                 mod[k] = v.copy()
-            return self._init_from_dict_(
-                mod,
-                self.obs.copy(),
-                self.var.copy(),
-                deepcopy(self.uns),  # this should always be an empty dict
-                self.obsm.copy(),
-                self.varm.copy(),
-                self.obsp.copy(),
-                self.varp.copy(),
-                self.obsmap.copy(),
-                self.varmap.copy(),
-                self.axis,
+            return __class__(
+                data=mod,
+                obs=self.obs.copy(),
+                var=self.var.copy(),
+                uns=deepcopy(self.uns),  # this should always be an empty dict
+                obsm=self.obsm.copy(),
+                varm=self.varm.copy(),
+                obsp=self.obsp.copy(),
+                varp=self.varp.copy(),
+                obsmap=self.obsmap.copy(),
+                varmap=self.varmap.copy(),
+                axis=self.axis,
             )
         else:
             if filename is None:

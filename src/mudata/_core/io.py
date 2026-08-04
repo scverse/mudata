@@ -427,7 +427,7 @@ def read_h5mu(
                         if mod_order is not None and all(m in gmods for m in mod_order):
                             mods = {k: mods[k] for k in mod_order}
 
-                        d[k] = mods
+                        d["data"] = mods
                     else:
                         d[k] = read_elem(f[k])
 
@@ -439,7 +439,7 @@ def read_h5mu(
             else:
                 raise
 
-    mu = MuData._init_from_dict_(**d)
+    mu = MuData(**d)
     mu.file = manager
     return mu
 
@@ -472,13 +472,13 @@ def read_zarr(store: str | PathLike | MutableMapping | zarr.Group | zarr.abc.sto
             if mod_order is not None and all(m in gmods for m in mod_order):
                 mods = {k: mods[k] for k in mod_order}
 
-            d[k] = mods
+            d["data"] = mods
         else:  # Base case
             d[k] = read_elem(f[k])
     if "axis" in f.attrs:
         d["axis"] = f.attrs["axis"]
 
-    mu = MuData._init_from_dict_(**d)
+    mu = MuData(**d)
     mu.file = MuDataFileManager()
 
     return mu
