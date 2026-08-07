@@ -1,7 +1,9 @@
 import json
+import os
 from collections.abc import Mapping
 from dataclasses import fields
 from importlib import metadata, resources
+from urllib.error import HTTPError
 from urllib.request import urlopen
 
 import anndata as ad
@@ -39,8 +41,14 @@ def mudata_json_schema():
 @pytest.fixture(scope="session")
 def anndata_schema_registry():
     anndata_schema_uri = "https://anndata.scverse.org/en/latest/acc-schema-v1.json"
-    with urlopen(anndata_schema_uri) as response:
-        anndata_schema = json.load(response)
+    try:
+        with urlopen(anndata_schema_uri) as response:
+            anndata_schema = json.load(response)
+    except HTTPError as e:
+        if e.code == 429 and "CI" in os.environ:
+            pytest.skip("running in CI and hitting server rate limit.")
+        else:
+            raise
     schema = referencing.Resource.from_contents(anndata_schema)
     return referencing.Registry().with_resource(anndata_schema_uri, schema)
 
