@@ -46,6 +46,7 @@ def anndata_schema_registry():
             anndata_schema = json.load(response)
     except HTTPError as e:
         if e.code == 429 and "CI" in os.environ:
+            e.close()
             pytest.skip("running in CI and hitting server rate limit.")
         else:
             raise
