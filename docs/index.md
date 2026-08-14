@@ -60,6 +60,7 @@ A flagship framework for multimodal omics analysis — `muon` — has been built
    io/output
    io/spec
    api
+   interoperability
    changelog
    contributing
    references
