@@ -127,6 +127,8 @@ def add_mdata_global_columns(md: MuData, rng: np.random.Generator) -> MuData:
 @pytest.fixture
 def mdata(rng: np.random.Generator, modalities: Mapping[str, AnnData], axis: Axis):
     md = MuData(modalities, axis=axis)
+    md.obs.index.name = "obs_idx"
+    md.var.index.name = "var_idx"
 
     return add_mdata_global_columns(md, rng)
 
@@ -188,12 +190,21 @@ def test_update_simple(mdata: MuData, axis: Axis):
         getattr(mdata, f"{attr}_names")[: mdata["mod1"].shape[axis]] == getattr(mdata["mod1"], f"{attr}_names")
     ).all()
 
+    mdata.update()
+    assert getattr(mdata, attr).index.name == f"{attr}_idx"
+    assert getattr(mdata, oattr).index.name == f"{oattr}_idx"
+
 
 def test_update_simple_empty_modalities(modalities: Mapping[str, AnnData], axis: Axis):
+    attr = "obs" if axis == 0 else "var"
+    oattr = "var" if axis == 0 else "obs"
+
     for mod in modalities.values():
         mod.obs = pd.DataFrame(index=mod.obs_names)
         mod.var = pd.DataFrame(index=mod.var_names)
     mdata = MuData(modalities)
+    getattr(mdata, attr).index.name = f"{attr}_idx"
+    getattr(mdata, oattr).index.name = f"{oattr}_idx"
 
     old_obsnames = mdata.obs_names
     old_varnames = mdata.var_names
@@ -205,6 +216,8 @@ def test_update_simple_empty_modalities(modalities: Mapping[str, AnnData], axis:
 
     assert (old_obsnames == mdata.obs_names).all()
     assert (old_varnames == mdata.var_names).all()
+    assert getattr(mdata, attr).index.name == f"{attr}_idx"
+    assert getattr(mdata, oattr).index.name == f"{oattr}_idx"
 
 
 def test_update_add_modality(rng: np.random.Generator, modalities: Mapping[str, AnnData], axis: Axis):
@@ -212,9 +225,11 @@ def test_update_add_modality(rng: np.random.Generator, modalities: Mapping[str, 
     mdata = add_mdata_global_columns(
         MuData({modname: modalities[modname] for modname in modnames[:-2]}, axis=axis), rng
     )
-
     attr = "obs" if axis == 0 else "var"
     oattr = "var" if axis == 0 else "obs"
+
+    getattr(mdata, attr).index.name = f"{attr}_idx"
+    getattr(mdata, oattr).index.name = f"{oattr}_idx"
 
     for i in (-2, -1):
         old_attrnames = getattr(mdata, f"{attr}_names")
@@ -226,6 +241,8 @@ def test_update_add_modality(rng: np.random.Generator, modalities: Mapping[str, 
 
         mdata.mod[modnames[i]] = modalities[modnames[i]]
         mdata.update()
+        assert getattr(mdata, attr).index.name == f"{attr}_idx"
+        assert getattr(mdata, oattr).index.name == f"{oattr}_idx"
 
         for mod in mdata.mod.keys():
             assert mdata.obsmap[mod].dtype.kind == "u"
@@ -272,6 +289,8 @@ def test_update_delete_modality(mdata: MuData, axis: Axis):
 
     del mdata.mod[modnames[0]]
     mdata.update()
+    assert getattr(mdata, attr).index.name == f"{attr}_idx"
+    assert getattr(mdata, oattr).index.name == f"{oattr}_idx"
 
     for mod in mdata.mod.keys():
         assert mdata.obsmap[mod].dtype.kind == "u"
@@ -295,6 +314,8 @@ def test_update_delete_modality(mdata: MuData, axis: Axis):
 
     del mdata.mod[modnames[2]]
     mdata.update()
+    assert getattr(mdata, attr).index.name == f"{attr}_idx"
+    assert getattr(mdata, oattr).index.name == f"{oattr}_idx"
 
     assert mdata.shape[1 - axis] == sum(mod.shape[1 - axis] for mod in mdata.mod.values())
     assert (getattr(mdata, oattr)["batch"] == fullobatch[keptomask]).all()
@@ -340,14 +361,23 @@ def test_update_intersecting(rng: np.random.Generator, modalities: Mapping[str, 
     assert mdata.shape[axis] == axisnames.shape[0]
     assert (getattr(mdata, f"{attr}_names") == axisnames).all()
 
+    getattr(mdata, attr).index.name = f"{attr}_idx"
+    getattr(mdata, oattr).index.name = f"{oattr}_idx"
+    mdata.update()
+    assert getattr(mdata, attr).index.name == f"{attr}_idx"
+    assert getattr(mdata, oattr).index.name == f"{oattr}_idx"
+
 
 def test_update_intersecting_after_filtering(mdata):
+    attr = "obs" if mdata.axis == 0 else "var"
     oattr = "var" if mdata.axis == 0 else "obs"
     orig_shape = mdata.shape
 
     for mod in mdata.mod.values():
         setattr(mod, f"{oattr}_names", [f"{oattr}{j}" for j in range(mod.shape[1 - mdata.axis])])
     mdata.update()
+    assert getattr(mdata, attr).index.name == f"{attr}_idx"
+    assert getattr(mdata, oattr).index.name == f"{oattr}_idx"
 
     subset = (slice(None), slice(5))
     subset = subset[mdata.axis], subset[1 - mdata.axis]
@@ -359,6 +389,8 @@ def test_update_intersecting_after_filtering(mdata):
 
     assert mdata["mod1"].shape[1 - mdata.axis] == 5
     mdata.update()
+    assert getattr(mdata, attr).index.name == f"{attr}_idx"
+    assert getattr(mdata, oattr).index.name == f"{oattr}_idx"
     getattr(mdata, f"pull_{oattr}")(prefix_unique=False, join_nonunique=True)
     assert mdata.shape[mdata.axis] == orig_shape[mdata.axis]
     assert mdata.shape[1 - mdata.axis] == sum(mod.shape[1 - mdata.axis] for mod in mdata.mod.values())
@@ -368,12 +400,15 @@ def test_update_intersecting_after_filtering(mdata):
     ).sum()
 
 
-def test_update_after_filter_obs_adata(mdata: MuData, axis: Axis):
+def test_update_after_filter_obs_adata(mdata: MuData):
     """
     Check for https://github.com/scverse/muon/issues/44
     """
     # Replicate in-place filtering in muon:
     # mu.pp.filter_obs(mdata['mod1'], 'min_count', lambda x: (x < -2))
+
+    attr = "obs" if mdata.axis == 0 else "var"
+    oattr = "var" if mdata.axis == 0 else "obs"
 
     old_obsnames = mdata.obs_names
     old_varnames = mdata.var_names
@@ -388,6 +423,8 @@ def test_update_after_filter_obs_adata(mdata: MuData, axis: Axis):
 
     mdata.mod["mod3"] = mdata["mod3"][mdata["mod3"].obs["min_count"] < -2].copy()
     mdata.update()
+    assert getattr(mdata, attr).index.name == f"{attr}_idx"
+    assert getattr(mdata, oattr).index.name == f"{oattr}_idx"
 
     for mod in mdata.mod.keys():
         assert mdata.obsmap[mod].dtype.kind == "u"
@@ -411,12 +448,17 @@ def test_update_after_obs_reordered(mdata: MuData):
     """
     Update should work if obs are reordered.
     """
+    attr = "obs" if mdata.axis == 0 else "var"
+    oattr = "var" if mdata.axis == 0 else "obs"
+
     some_obs_names = mdata.obs_names.values[:2]
 
     true_obsm_values = get_attrm_values(mdata, "obs", "test", some_obs_names)
 
     mdata.mod["mod1"] = mdata["mod1"][::-1].copy()
     mdata.update()
+    assert getattr(mdata, attr).index.name == f"{attr}_idx"
+    assert getattr(mdata, oattr).index.name == f"{oattr}_idx"
 
     for mod in mdata.mod.keys():
         assert mdata.obsmap[mod].dtype.kind == "u"

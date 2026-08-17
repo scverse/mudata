@@ -541,6 +541,7 @@ class MuData:
 
         data_global = getattr(self, attr)
         prev_index = data_global.index
+        prev_index_name = prev_index.name
 
         attr_duplicated = not data_global.index.is_unique or self._check_duplicated_attr_names(attr)
         attr_intersecting = self._check_intersecting_attr_names(attr)
@@ -604,6 +605,7 @@ class MuData:
         if not attr_duplicated:
             # Shared axis
             data_mod = pd.concat(dfs, join="outer", axis=1 if axis == self._axis or self._axis == -1 else 0, sort=False)
+            data_mod.index.name = prev_index_name
             for mod in self._mod.keys():
                 fix_attrmap_col(data_mod, mod, rowcol)
 
@@ -671,8 +673,7 @@ class MuData:
 
             data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
             data_global.reset_index(level=list(range(1, data_global.index.nlevels)), inplace=True)
-            data_mod.index.set_names(None, inplace=True)
-            data_global.index.set_names(None, inplace=True)
+            data_mod.index.set_names(prev_index_name, inplace=True)
 
         # get adata positions and remove columns from the data frame
         mdict = {}
