@@ -7,16 +7,16 @@ default_stages:
 minimum_pre_commit_version: 2.16.0
 repos:
   - repo: https://github.com/biomejs/pre-commit
-    rev: 3e8b293b5e343b39246e76fed741691f0206b3d4  # frozen: v2.5.8
+    rev: 08eb05de15ce57c7eb9c9ef536540ad13098d687  # frozen: v2.5.10
     hooks:
       - id: biome-format
         exclude: ^\.cruft\.json$ # inconsistent indentation with cruft - file never to be modified manually.
   - repo: https://github.com/tox-dev/pyproject-fmt
-    rev: 67cd950188cc8e2611e9ac21d1b032fdd446c601  # frozen: v2.28.0
+    rev: cc0b0f8d4107cfe80d6571644e639b05aee29128  # frozen: v2.28.1
     hooks:
       - id: pyproject-fmt
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: 65dbdb59d2f2d9c3bdc343c566821ad3319ddaa3  # frozen: v0.16.3
+    rev: aab412d509121cb5f7533134b7e67f9fab59c682  # frozen: v0.16.4
     hooks:
       - id: ruff-check
         types_or: [python, pyi, jupyter]
