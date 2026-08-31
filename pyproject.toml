@@ -103,8 +103,8 @@ line-length = 120
 src = [ "src" ]
 extend-include = [ "*.ipynb" ]
 format.skip-magic-trailing-comma = true
-format.exclude = [ "*.ipynb" ]
 format.docstring-code-format = true
+format.exclude = [ "*.ipynb" ]
 lint.select = [
   "B",      # flake8-bugbear
   "BLE",    # flake8-blind-except
