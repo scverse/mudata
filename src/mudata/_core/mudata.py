@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 from anndata import AnnData
 from anndata._core.aligned_mapping import AlignedView, AxisArrays, AxisArraysBase, PairwiseArrays
+from anndata._core.index import _normalize_indices
 from anndata._core.views import DataFrameView
 from anndata.utils import convert_to_dict
 from scverse_misc import Deprecation, deprecated
@@ -242,9 +243,6 @@ class MuData:
         self._is_view = False
 
     def _init_as_view(self, mudata_ref: MuData, index):
-        from anndata._core.index import _normalize_indices
-        from anndata._core.views import _resolve_idxs
-
         obsidx, varidx = _normalize_indices(index, mudata_ref.obs.index, mudata_ref.var.index)
 
         # to handle single-element subsets, otherwise when subsetting a Dataframe
@@ -259,35 +257,11 @@ class MuData:
             cobsidx, cvaridx = mudata_ref.obsmap[m][obsidx], mudata_ref.varmap[m][varidx]
             cobsidx, cvaridx = cobsidx[cobsidx > 0] - 1, cvaridx[cvaridx > 0] - 1
             if len(cobsidx) > 0 and len(cvaridx) > 0:
-                if np.all(np.diff(cobsidx) == 1):
-                    if a.is_view:
-                        if (
-                            isinstance(a, MuData)
-                            and len(cobsidx) == a._mudata_ref.n_obs
-                            or isinstance(a, AnnData)
-                            and len(cobsidx) == a._adata_ref.n_obs
-                        ):
-                            cobsidx = slice(None)
-                    elif len(cobsidx) == a.n_obs:
-                        cobsidx = slice(None)
-                if np.all(np.diff(cvaridx) == 1):
-                    if a.is_view:
-                        if (
-                            isinstance(a, MuData)
-                            and len(cvaridx) == a._mudata_ref.n_vars
-                            or isinstance(a, AnnData)
-                            and len(cvaridx) == a._adata_ref.n_vars
-                        ):
-                            cvaridx = slice(None)
-                    elif len(cvaridx) == a.n_vars:
-                        cvaridx = slice(None)
-            if a.is_view:
-                if isinstance(a, MuData):
-                    self._mod[m] = a._mudata_ref[_resolve_idxs((a._oidx, a._vidx), (cobsidx, cvaridx), a._mudata_ref)]
-                else:
-                    self._mod[m] = a._adata_ref[_resolve_idxs((a._oidx, a._vidx), (cobsidx, cvaridx), a._adata_ref)]
-            else:
-                self._mod[m] = a[cobsidx, cvaridx]
+                if len(cobsidx) == a.n_obs and np.all(np.diff(cobsidx) == 1):
+                    cobsidx = slice(None)
+                if len(cvaridx) == a.n_vars and np.all(np.diff(cvaridx) == 1):
+                    cvaridx = slice(None)
+            self._mod[m] = a[cobsidx, cvaridx]
 
         self._obs = DataFrameView(mudata_ref.obs.iloc[obsidx, :], view_args=(self, "obs"))
         self._obsm = mudata_ref.obsm._view(self, (obsidx,))
