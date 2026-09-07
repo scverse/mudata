@@ -29,6 +29,7 @@ dynamic = [ "version" ]
 dependencies = [
   "anndata>=0.11",
   "h5py",
+  "legacy-api-wrap",
   "numpy",
   "pandas>=1.4",
   "scipy",

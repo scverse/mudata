@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import warnings
 from collections import Counter, abc
-from collections.abc import ItemsView, Mapping, MutableMapping, Sequence, ValuesView
+from collections.abc import ItemsView, Iterable, Mapping, MutableMapping, Sequence, ValuesView
 from contextlib import suppress
 from copy import copy, deepcopy
 from functools import reduce
@@ -20,7 +20,9 @@ from anndata import AnnData
 from anndata._core.aligned_mapping import AlignedView, AxisArrays, AxisArraysBase, PairwiseArrays
 from anndata._core.index import _normalize_indices
 from anndata._core.views import DataFrameView
+from anndata.typing import Index
 from anndata.utils import convert_to_dict
+from legacy_api_wrap import legacy_api
 from scverse_misc import Deprecation, deprecated
 
 from .file_backing import AnnDataFileManager, MuDataFileManager
@@ -137,41 +139,64 @@ class ModDict(dict):
 
 class MuData:
     """
-    Multimodal data object
+    A multimodal data object.
 
-    MuData represents modalities as collections of AnnData objects
-    as well as includes multimodal annotations
-    such as embeddings and neighbours graphs learned jointly
-    on multiple modalities and generalised sample
+    MuData represents modalities as collections of AnnData objects and includes multimodal annotations
+    such as embeddings and neighbours graphs learned jointly on multiple modalities and generalised sample
     and feature metadata tables.
 
     Parameters
     ----------
     data
-        AnnData object or dictionary with AnnData objects as values.
-        If a dictionary is passed, the keys will be used as modality names.
-        If None, creates an empty MuData object.
+        :class:`~anndata.AnnData` object or dictionary with :class:`~anndata.AnnData` objects as values.
+        If a dictionary is passed, the keys will be used as modality names. If `None`, creates an empty
+        MuData object.
     feature_types_names
         Dictionary to map feature types encoded in data.var["feature_types"] to modality names.
-        Only relevant when data is an AnnData object.
-        Default: {"Gene Expression": "rna", "Peaks": "atac", "Antibody Capture": "prot"}
-    as_view
-        Create a view of the MuData object.
-    index
-        Index to slice the MuData object when creating the view.
-    **kwargs
-        Additional arguments to create a MuData object.
+        Only relevant when data is an :class:`~anndata.AnnData` object.
+    axis
+        Axis of the object. The axis defines how the individual :class:`~anndata.AnnData` objects are aligned.
+        See also :doc:`/notebooks/axes`.
+
+        - `0`: Observations are shared, variables are stacked (multimodal data).
+        - `1`: Observations are stacked, variables are shared (multidataset mode).
+        - `-1`: Both observations and variables are shared (different views on one modality).
+    obs
+        Key-indexed one-dimensional observations annotation of length #observations.
+    var
+        Key-indexed one-dimensional variables annotation of length #variables.
+    obsm
+        Key-indexed multi-dimensional observations annotation of length #observations.
+    varm
+        Key-indexed multi-dimensional observations annotation of length #variables.
+    obsp
+        Key-indexed multi-dimensional observations annotation of shape (#observations, #observations).
+    varp
+        Key-indexed multi-dimensional variables annotation of shape (#variables, #variables).
+    uns
+        Key-indexed unstructured annotations.
     """
 
+    @legacy_api("feature_types_names", "as_view", "index")
     def __init__(
         self,
         data: AnnData | Mapping[str, AnnData] | MuData | None = None,
+        *,
         feature_types_names: Mapping[str, str] | None = MappingProxyType(
             {"Gene Expression": "rna", "Peaks": "atac", "Antibody Capture": "prot"}
         ),
+        axis: Literal[0, 1, -1] = 0,
+        obs: pd.DataFrame | pd.Series | pd.Index | Mapping[str, Iterable[Any]] | None = None,
+        var: pd.DataFrame | pd.Series | pd.Index | Mapping[str, Iterable[Any]] | None = None,
+        obsm: np.ndarray | Mapping[str, Sequence[Any]] = None,
+        varm: np.ndarray | Mapping[str, Sequence[Any]] = None,
+        obsp: np.ndarray | Mapping[str, Sequence[Any]] = None,
+        varp: np.ndarray | Mapping[str, Sequence[Any]] = None,
+        uns: Mapping[str, Any] | None = None,
+        obsmap: Mapping[str, np.ndarray[tuple[int]], np.dtype[np.unsignedinteger]] | None = None,
+        varmap: Mapping[str, np.ndarray[tuple[int]], np.dtype[np.unsignedinteger]] | None = None,
         as_view: bool = False,
-        index: tuple[slice | int, slice | int] | slice | int | None = None,
-        **kwargs,
+        index: tuple[Index, Index] | Index | None = None,
     ):
         self._init_common()
         if as_view:
@@ -207,33 +232,30 @@ class MuData:
         self._check_duplicated_names()
 
         # Initialize global observations
-        self._obs = pd.DataFrame(kwargs.get("obs"))
+        self._obs = pd.DataFrame(obs)
 
         # Initialize global variables
-        self._var = pd.DataFrame(kwargs.get("var"))
+        self._var = pd.DataFrame(var)
 
         # Make obs map for each modality
-        self._obsm = AxisArrays(self, axis=0, store=convert_to_dict(kwargs.get("obsm")))
-        self._obsp = PairwiseArrays(self, axis=0, store=convert_to_dict(kwargs.get("obsp")))
-        self._obsmap = ModalityMapAxisArrays(self, axis=0, store=convert_to_dict(kwargs.get("obsmap")))
+        self._obsm = AxisArrays(self, axis=0, store=convert_to_dict(obsm))
+        self._obsp = PairwiseArrays(self, axis=0, store=convert_to_dict(obsp))
+        self._obsmap = ModalityMapAxisArrays(self, axis=0, store=convert_to_dict(obsmap))
 
         # Make var map for each modality
-        self._varm = AxisArrays(self, axis=1, store=convert_to_dict(kwargs.get("varm")))
-        self._varp = PairwiseArrays(self, axis=1, store=convert_to_dict(kwargs.get("varp")))
-        self._varmap = ModalityMapAxisArrays(self, axis=1, store=convert_to_dict(kwargs.get("varmap")))
+        self._varm = AxisArrays(self, axis=1, store=convert_to_dict(varm))
+        self._varp = PairwiseArrays(self, axis=1, store=convert_to_dict(varp))
+        self._varmap = ModalityMapAxisArrays(self, axis=1, store=convert_to_dict(varmap))
 
-        self._uns = convert_to_dict(kwargs.get("uns", {}))
+        self._uns = convert_to_dict(uns)
 
-        self._axis = kwargs.get("axis", 0)
+        self._axis = axis
 
         # Only call update() if there are modalities
         self.update()
 
     def _init_common(self):
         self._mudata_ref = None
-
-        # Unstructured annotations
-        self._uns = {}
 
         # For compatibility with calls requiring AnnData slots
         self.raw = None
