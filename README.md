@@ -8,7 +8,7 @@
 [![Powered by NumFOCUS][badge-numfocus]][numfocus]
 
 [badge-pypi]: https://img.shields.io/pypi/v/mudata
-[badge-tests]: https://img.shields.io/github/actions/workflow/status/scverse/mudata/test.yaml?branch=main
+[badge-tests]: https://github.com/Scverse/mudata/actions/workflows/test.yaml/badge.svg
 [badge-codecov]: https://codecov.io/gh/scverse/mudata/graph/badge.svg?token=L0Gek3V26p
 [badge-docs]: https://app.readthedocs.org/projects/mudata/badge/?version=latest
 [badge-numfocus]: https://img.shields.io/badge/powered%20by-NumFOCUS-orange.svg?style=flat&colorA=E1523D&colorB=007D8A

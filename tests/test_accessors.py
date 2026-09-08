@@ -16,7 +16,7 @@ from packaging.version import Version
 
 import mudata as md
 
-if Version(metadata.version("anndata")) < Version("0.13"):
+if (anndata_version := Version(metadata.version("anndata"))) < Version("0.13"):
     pytest.skip("anndata version too old, no accessor support", allow_module_level=True)
 
 from mudata.acc import A
@@ -40,9 +40,11 @@ def mudata_json_schema():
 
 @pytest.fixture(scope="session")
 def anndata_schema_registry():
-    anndata_schema_uri = "https://anndata.scverse.org/en/latest/acc-schema-v1.json"
+    anndata_schema_uri = "https://anndata.scverse.org/page/acc-schema-v1.json"
     try:
-        with urlopen(anndata_schema_uri) as response:
+        with urlopen(
+            anndata_schema_uri.replace("page", "en/latest" if anndata_version.is_prerelease else "en/stable")
+        ) as response:
             anndata_schema = json.load(response)
     except HTTPError as e:
         if e.code == 429 and "CI" in os.environ:

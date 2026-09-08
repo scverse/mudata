@@ -687,7 +687,7 @@ class MuData:
         if index_order is not None:
             if can_update:
                 update_mask = index_order == -1
-                need_missing = update_mask.sum() > 0
+                need_missing = update_mask.any()
                 for mx_key, mx in attrm.items():
                     if mx_key not in self._mod.keys():  # not a modality name
                         if isinstance(mx, pd.DataFrame):

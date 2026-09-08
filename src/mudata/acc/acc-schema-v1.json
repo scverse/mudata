@@ -19,13 +19,13 @@
                 { "const": "mod" },
                 { "type": "string" },
                 {
-                    "$ref": "https://anndata.scverse.org/en/latest/acc-schema-v1.json"
+                    "$ref": "https://anndata.scverse.org/page/acc-schema-v1.json"
                 }
             ]
         },
         {
             "title": "Global metadata",
-            "$ref": "https://anndata.scverse.org/en/latest/acc-schema-v1.json"
+            "$ref": "https://anndata.scverse.org/page/acc-schema-v1.json"
         }
     ]
 }
