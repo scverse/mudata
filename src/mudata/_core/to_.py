@@ -2,6 +2,7 @@ from typing import Literal
 
 import anndata
 from anndata import AnnData
+from scverse_misc import arg_alias
 
 from mudata import MuData
 
@@ -35,28 +36,25 @@ def to_anndata(mdata: MuData, **kwargs) -> AnnData:
     return adata
 
 
-def to_mudata(adata: AnnData, axis: Literal[0, 1], by: str) -> MuData:
+@arg_alias("axis")
+def to_mudata(adata: AnnData, axis: Literal[0, "obs"] | Literal[1, "var"], by: str) -> MuData:
     """
     Convert :class:`~anndata.AnnData` to :class:`MuData` by splitting it along obs or var.
 
     Axis signifies the shared axis.
-    Use `axis=0` for getting :class:`MuData` with shared observations (axis=0),
-    and `axis=1` for getting :class:`MuData` with shared variables (axis=1).
 
     Parameters
     ----------
     adata
         Object to convert to MuData.
     axis
-        Shared axis: `0` for observations, `1` for features.
+        Shared axis: `0` for observations, `1` for features. See also :doc:`/notebooks/axes`.
     by
         Key in `adata.var` (if axis=0) or `adata.obs` (if axis=1) to split by
     """
     # Use AnnData.split_by() when it's ready
     # https://github.com/scverse/anndata/pull/613
-    attr = "var" if axis == 0 else "obs" if axis == 1 else None
-    if attr is None:
-        raise ValueError(f"Axis should be 0 or 1, not {axis}")
+    attr = "var" if axis == 0 else "obs"
     df = getattr(adata, attr)
     groupby = df[by].astype("category")
     mkeys = groupby.cat.categories

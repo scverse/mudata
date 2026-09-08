@@ -23,7 +23,7 @@ from anndata._core.views import DataFrameView
 from anndata.typing import Index
 from anndata.utils import convert_to_dict
 from legacy_api_wrap import legacy_api
-from scverse_misc import Deprecation, deprecated
+from scverse_misc import Deprecation, arg_alias, deprecated
 
 from .file_backing import AnnDataFileManager, MuDataFileManager
 from .repr import MUDATA_CSS, block_matrix, details_block_table
@@ -158,9 +158,9 @@ class MuData:
         Axis of the object. The axis defines how the individual :class:`~anndata.AnnData` objects are aligned.
         See also :doc:`/notebooks/axes`.
 
-        - `0`: Observations are shared, variables are stacked (multimodal data).
-        - `1`: Observations are stacked, variables are shared (multidataset mode).
-        - `-1`: Both observations and variables are shared (different views on one modality).
+        - `0` or `"obs"`: Observations are shared, variables are stacked (multimodal data).
+        - `1` or `"var"`: Observations are stacked, variables are shared (multidataset mode).
+        - `-1` or `"both"`: Both observations and variables are shared (different views of one modality).
     obs
         Key-indexed one-dimensional observations annotation of length #observations.
     var
@@ -177,6 +177,7 @@ class MuData:
         Key-indexed unstructured annotations.
     """
 
+    @arg_alias("axis")
     @legacy_api("feature_types_names", "as_view", "index")
     def __init__(
         self,
@@ -185,7 +186,7 @@ class MuData:
         feature_types_names: Mapping[str, str] | None = MappingProxyType(
             {"Gene Expression": "rna", "Peaks": "atac", "Antibody Capture": "prot"}
         ),
-        axis: Literal[0, 1, -1] = 0,
+        axis: Literal[0, "obs"] | Literal[1, "var"] | Literal[-1, "both"] = 0,
         obs: pd.DataFrame | pd.Series | pd.Index | Mapping[str, Iterable[Any]] | None = None,
         var: pd.DataFrame | pd.Series | pd.Index | Mapping[str, Iterable[Any]] | None = None,
         obsm: np.ndarray | Mapping[str, Sequence[Any]] = None,
@@ -203,46 +204,36 @@ class MuData:
             self._init_as_view(data, index)
             return
 
-        # Add all modalities to a MuData object
         self._mod = ModDict()
-        if data is None:
-            # Initialize an empty MuData object
-            pass
-        elif isinstance(data, abc.Mapping):
+        if isinstance(data, abc.Mapping):
             self._mod.update(data)
         elif isinstance(data, AnnData):
-            # Get the list of modalities
             if "feature_types" in data.var.columns:
-                if data.var.feature_types.dtype.name == "category:":
-                    mod_names = data.var.feature_types.cat.categories.values
+                if data.var["feature_types"].dtype == "category":
+                    mod_names = data.var["feature_types"].cat.categories.values
                 else:
-                    mod_names = data.var.feature_types.unique()
+                    mod_names = data.var["feature_types"].unique()
 
                 for name in mod_names:
                     alias = name
                     if feature_types_names is not None:
                         if name in feature_types_names.keys():
                             alias = feature_types_names[name]
-                    self._mod[alias] = data[:, data.var.feature_types == name].copy()
+                    self._mod[alias] = data[:, data.var["feature_types"] == name].copy()
             else:
                 self._mod["data"] = data
-        else:
-            raise TypeError("Expected AnnData object or dictionary with AnnData objects as values")
+        elif data is not None:
+            raise TypeError(f"Expected AnnData object or dictionary with AnnData objects as values, got {type(data)}.")
 
         self._check_duplicated_names()
 
-        # Initialize global observations
         self._obs = pd.DataFrame(obs)
-
-        # Initialize global variables
         self._var = pd.DataFrame(var)
 
-        # Make obs map for each modality
         self._obsm = AxisArrays(self, axis=0, store=convert_to_dict(obsm))
         self._obsp = PairwiseArrays(self, axis=0, store=convert_to_dict(obsp))
         self._obsmap = ModalityMapAxisArrays(self, axis=0, store=convert_to_dict(obsmap))
 
-        # Make var map for each modality
         self._varm = AxisArrays(self, axis=1, store=convert_to_dict(varm))
         self._varp = PairwiseArrays(self, axis=1, store=convert_to_dict(varp))
         self._varmap = ModalityMapAxisArrays(self, axis=1, store=convert_to_dict(varmap))
@@ -251,7 +242,6 @@ class MuData:
 
         self._axis = axis
 
-        # Only call update() if there are modalities
         self.update()
 
     def _init_common(self):
@@ -262,7 +252,6 @@ class MuData:
         self.X = None
         self.layers = None
         self.file = MuDataFileManager()
-        self._is_view = False
 
     def _init_as_view(self, mudata_ref: MuData, index):
         obsidx, varidx = _normalize_indices(index, mudata_ref.obs.index, mudata_ref.var.index)
@@ -302,7 +291,6 @@ class MuData:
                 posmap[mod] = cposmap
             setattr(self, "_" + attr + "map", ModalityMapAxisArrays(self, axis=axis, store=posmap))
 
-        self._is_view = True
         self.file = mudata_ref.file
         self._axis = mudata_ref._axis
         self._uns = copy(mudata_ref._uns)
@@ -501,7 +489,7 @@ class MuData:
     @property
     def is_view(self) -> bool:
         """Whether the object is a view of another :class:`MuData` object."""
-        return self._is_view
+        return self._mudata_ref is not None
 
     @property
     def shape(self) -> tuple[int, int]:

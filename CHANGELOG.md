@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning][].
 [keep a changelog]: https://keepachangelog.com/en/1.1.0/
 [semantic versioning]: https://semver.org/spec/v2.0.0.html
 
+## [0.4.2] (Unreleased)
+
+### Added
+
+- `axis` arguments throughout mudata now accept semantic identifiers: Instead of `axis=0` you can write `axis="obs"` and similarly for other `axis` values.
+
 ## [0.4.1]
 
 ### Fixed
@@ -208,6 +214,7 @@ To copy the annotations explicitly, you will need to use `pull_obs()` and/or `pu
 
 Initial `mudata` release with `MuData`, previously a part of the `muon` framework.
 
+[0.4.2]: https://github.com/scverse/mudata/releases/tag/v0.4.2
 [0.4.1]: https://github.com/scverse/mudata/releases/tag/v0.4.1
 [0.4.0]: https://github.com/scverse/mudata/releases/tag/v0.4.0
 [0.3.10]: https://github.com/scverse/mudata/releases/tag/v0.3.10
