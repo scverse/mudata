@@ -14,7 +14,7 @@ import io
 import re
 from contextlib import ExitStack
 from pathlib import Path
-from warnings import warn
+from warnings import catch_warnings, filterwarnings, warn
 
 import anndata as ad
 import h5py
@@ -131,7 +131,9 @@ def write_zarr(
 
     from .. import __anndataversion__, __mudataversion__, __version__
 
-    zarr_format = getattr(ad.settings, "zarr_write_format", 2)
+    with catch_warnings():
+        filterwarnings("ignore", message="This setting will be removed", category=DeprecationWarning)
+        zarr_format = getattr(ad.settings, "zarr_write_format", 3)
 
     if isinstance(data, AnnData):
         adata = data
