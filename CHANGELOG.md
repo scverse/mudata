@@ -190,7 +190,7 @@ To copy the annotations explicitly, you will need to use `pull_obs()` and/or `pu
 
 ### Changed
 
-- new I/O serialisation of [AnnData v0.8](https://anndata.readthedocs.io/en/latest/release-notes/index.html#th-march-2022).
+- new I/O serialisation of [AnnData v0.8](https://anndata.scverse.org/page/release-notes/index.html#th-march-2022).
 
 ### Fixed
 

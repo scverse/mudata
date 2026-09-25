@@ -4,18 +4,18 @@
 .. module:: mudata.acc
 ```
 
-[](#mudata.acc) provides [accessors](inv:anndata:*:term#accessor) that create [references](inv:anndata:*:term#reference) to axis-aligned 1D and 2D arrays in [MuData](#mudata.MuData) objects.
-See the corresponding [AnnData documentation](inv:anndata:*:doc#accessors).
+[](#mudata.acc) provides {term}`accessors <anndata:accessor>` that create {term}`references <anndata:reference>` to axis-aligned 1D and 2D arrays in [MuData](#mudata.MuData) objects.
+See the corresponding {doc}`AnnData documentation <anndata:accessors>`.
 
 :::{important}
 This functionality requires AnnData 0.13.2 or newer.
 :::
 
-The central [accessor](inv:anndata:*:term#accessor) is [](#A).
+The central {term}`anndata:accessor` is [](#A).
 ```{eval-rst}
 .. autodata:: A
 ```
-See [](#MuAcc) and [AdAcc](#anndata.acc.AdAcc) for examples of how to use it to create [references](inv:anndata:*:term#reference) (i.e. [AdRefs](#anndata.acc.AdRef)).
+See [](#MuAcc) and [AdAcc](#anndata.acc.AdAcc) for examples of how to use it to create {term}`references <anndata:reference>` (i.e. [AdRefs](#anndata.acc.AdRef)).
 
 ```{eval-rst}
 .. autosummary::
