@@ -40,7 +40,7 @@ dependencies = [
 ]
 optional-dependencies.io = [ "fsspec", "zarr" ]
 # https://docs.pypi.org/project_metadata/#project-urls
-urls.Documentation = "https://mudata.readthedocs.io/"
+urls.Documentation = "https://mudata.scverse.org/"
 urls.Homepage = "https://muon.scverse.org"
 urls.Source = "https://github.com/scverse/mudata"
 

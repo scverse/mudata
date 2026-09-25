@@ -36,7 +36,7 @@ MuData objects feature an AnnData-like interface and familiar concepts such as *
 
 ## Handling MuData objects
 
-A flagship framework for multimodal omics analysis — `muon` — has been built around the MuData format. Find more information on it [in its documentation](https://muon.readthedocs.io/en/latest/) and [on the tutorials page](https://muon-tutorials.readthedocs.io/en/latest/) as well as in the corresponding publication{cite:p}`bredikhin_2022`.
+A flagship framework for multimodal omics analysis — `muon` — has been built around the MuData format. Find more information on it [in its documentation](https://muon.scverse.org/en/latest/) and [on the tutorials page](https://muon-tutorials.readthedocs.io/en/latest/) as well as in the corresponding publication{cite:p}`bredikhin_2022`.
 
 ```{eval-rst}
 .. toctree::

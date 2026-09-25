@@ -28,5 +28,5 @@ pip install git+https://github.com/scverse/mudata
 
 ## Troubleshooting
 
-Please consult the details on installing `scanpy` and its dependencies [here](https://scanpy.readthedocs.io/en/stable/installation.html).
+Please consult the details on installing `scanpy` and its dependencies in {doc}`scanpy:installation`.
 If there are issues that have not been described, addressed, or documented, please consider [opening an issue](https://github.com/scverse/mudata/issues).

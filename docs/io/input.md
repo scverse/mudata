@@ -33,11 +33,11 @@ from anndata import AnnData
 adata = AnnData(X=matrix, obs=metadata_df, var=features_df)
 ```
 
-Please see more details on how to operate on AnnData objects [in the anndata documentation](https://anndata.readthedocs.io/).
+Please see more details on how to operate on AnnData objects {doc}`in the anndata documentation <anndata:index>`.
 
 ## Omics data
 
-When data fromats specific to genomics are of interest, specialised readers can be found in analysis frameworks such as [muon](https://muon.readthedocs.io/). These functions, including the ones for Cell Ranger count matrices as well as Snap files, [are described here](https://muon.readthedocs.io/en/latest/io/input.html).
+When data fromats specific to genomics are of interest, specialised readers can be found in analysis frameworks such as [muon](https://muon.scverse.org/). These functions, including the ones for Cell Ranger count matrices as well as Snap files, [are described here](https://muon.scverse.org/en/stable/io/input.html).
 
 
 ## Remote storage

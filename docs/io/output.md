@@ -47,7 +47,7 @@ mudata.write("mudata.h5mu/rna", adata)
 
 The function [](#mudata.read) automatically decides based on the input if [](#mudata.read_h5mu) or rather [](#mudata.read_h5ad) should be called.
 
-Learn more about the on-disk format specification shared by MuData and AnnData [in the AnnData documentation](https://anndata.readthedocs.io/en/latest/fileformat-prose.html).
+Learn more about the on-disk format specification shared by MuData and AnnData {doc}`in the AnnData documentation <anndata:fileformat-prose>`.
 
 ## `.zarr` files
 

@@ -1,6 +1,6 @@
 # MuData specification [RFC]
 
-Building on top of the [AnnData spec](https://anndata.readthedocs.io/en/latest/fileformat-prose.html), this document provides details on the `MuData` on-disk format. For user-facing features, please see (this document)[mudata.md].
+Building on top of the {doc}`AnnData spec <anndata:fileformat-prose>`, this document provides details on the `MuData` on-disk format. For user-facing features, please see (this document)[mudata.md].
 
 ```python-console
 >>> import h5py

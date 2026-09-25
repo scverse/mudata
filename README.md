@@ -125,8 +125,8 @@ If you like scverse® and want to support our mission, please consider making a 
 
 [tests]: https://github.com/scverse/mudata/actions/workflows/test.yaml
 [codecov]: https://codecov.io/gh/scverse/mudata
-[documentation]: https://mudata.readthedocs.io
-[changelog]: https://mudata.readthedocs.io/latest/changelog.html
+[documentation]: https://mudata.scverse.org
+[changelog]: https://mudata.scverse.org/latest/changelog.html
 [pypi]: https://pypi.org/project/mudata
 [numfocus]: https://numfocus.org
 [scverse]: https://scverse.org
