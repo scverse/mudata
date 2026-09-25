@@ -37,7 +37,7 @@ Please see more details on how to operate on AnnData objects {doc}`in the anndat
 
 ## Omics data
 
-When data fromats specific to genomics are of interest, specialised readers can be found in analysis frameworks such as [muon](https://muon.scverse.org/). These functions, including the ones for Cell Ranger count matrices as well as Snap files, [are described here](https://muon.scverse.org/en/stable/io/input.html).
+When data fromats specific to genomics are of interest, specialised readers can be found in analysis frameworks such as [muon](https://muon.scverse.org/). These functions, including the ones for Cell Ranger count matrices as well as Snap files, [are described here](https://muon.scverse.org/page/io/input.html).
 
 
 ## Remote storage
