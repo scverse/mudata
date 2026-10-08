@@ -478,3 +478,29 @@ def test_push_drop(mdata_for_push: MuData, push_func: Callable[..., None], push_
         for dtype in ("int", "float", "bool", "string"):
             assert f"dtype-{dtype}-pushed" not in mdf.columns
             assert f"mod2_dtype-{dtype}-pushed" not in mdf.columns
+
+
+@pytest.mark.parametrize("attr", ["obs", "var"])
+def test_pull_drop_from_view_modality(rng: np.random.Generator, attr: AxisAttr):
+    """Pulling with `drop=True` from an AnnData view turns it into an actual AnnData, leaving its parent untouched."""
+    parent = AnnData(
+        rng.normal(size=(6, 5)),
+        obs=pd.DataFrame(index=[f"cell{i}" for i in range(6)]),
+        var=pd.DataFrame(index=[f"gene{i}" for i in range(5)]),
+    )
+    getattr(parent, attr)["col"] = np.arange(parent.n_obs if attr == "obs" else parent.n_vars)
+    view = parent[:4] if attr == "obs" else parent[:, :3]
+    other = AnnData(
+        rng.normal(size=(4, 2)),
+        obs=pd.DataFrame(index=[f"cell{i}" for i in range(4)]),
+        var=pd.DataFrame(index=[f"peak{i}" for i in range(2)]),
+    )
+    mdata = MuData({"mod1": view, "mod2": other})
+    assert mdata["mod1"].is_view
+
+    getattr(mdata, f"pull_{attr}")(drop=True)
+
+    assert "col" not in getattr(mdata["mod1"], attr).columns
+    assert not mdata["mod1"].is_view
+    assert any(c.endswith("col") for c in getattr(mdata, attr).columns)
+    assert "col" in getattr(parent, attr).columns

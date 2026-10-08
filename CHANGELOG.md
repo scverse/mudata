@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning][].
 
 - `axis` arguments throughout mudata now accept semantic identifiers: Instead of `axis=0` you can write `axis="obs"` and similarly for other `axis` values.
 
+### Fixed
+
+- `update()`, `pull_obs()`/`pull_var()` and `push_obs()`/`push_var()` no longer use the `inplace` argument of pandas methods, which is deprecated as of pandas 3.1. With `drop=True`, columns are still removed from the existing data frames in place.
+
 ## [0.4.1]
 
 ### Fixed
