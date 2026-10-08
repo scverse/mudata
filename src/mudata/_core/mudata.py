@@ -30,6 +30,7 @@ from .repr import MUDATA_CSS, block_matrix, details_block_table
 from .settings import settings
 from .utils import (
     MetadataColumn,
+    _drop_columns_inplace,
     _make_index_unique,
     _restore_index,
     _update_and_concat,
@@ -626,8 +627,8 @@ class MuData:
                         modmask.sum() == getattr(amod, attr).shape[0]
                         and (getattr(amod, attr).index[modmap[modmask] - 1] == prev_index[modmask]).all()
                     ):
-                        data_mod.set_index(colname, append=True, inplace=True)
-                        data_global.set_index(attrmap[mod].reshape(-1), append=True, inplace=True)
+                        data_mod = data_mod.set_index(colname, append=True)
+                        data_global = data_global.set_index(attrmap[mod].reshape(-1), append=True)
                         data_global.index.set_names(colname, level=-1, inplace=True)
 
             if data_global.shape[0] > 0:
@@ -636,7 +637,7 @@ class MuData:
                         f"{attr}_names is not unique, global {attr} is present, and {attr}map is empty. The update() is not well-defined, verify if global {attr} map to the correct modality-specific {attr}.",
                         stacklevel=2,
                     )
-                    data_mod.reset_index(data_mod.index.names.difference(data_global.index.names), inplace=True)
+                    data_mod = data_mod.reset_index(data_mod.index.names.difference(data_global.index.names))
                 # after inserting a new modality with duplicates, but no duplicates before:
                 # data_mod.index is not unique
                 # after deleting a modality with duplicates: data_global.index is not unique, but
@@ -655,8 +656,8 @@ class MuData:
                     data_mod = _restore_index(data_mod)
                     data_global = _restore_index(data_global)
 
-            data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)), inplace=True)
-            data_global.reset_index(level=list(range(1, data_global.index.nlevels)), inplace=True)
+            data_mod = data_mod.reset_index(level=list(range(1, data_mod.index.nlevels)))
+            data_global = data_global.reset_index(level=list(range(1, data_global.index.nlevels)))
             data_mod.index.set_names(prev_index_name, inplace=True)
 
         # get adata positions and remove columns from the data frame
@@ -664,7 +665,7 @@ class MuData:
         for m in self._mod.keys():
             colname = m + ":" + rowcol
             mdict[m] = data_mod[colname].to_numpy()
-            data_mod.drop(colname, axis=1, inplace=True)
+        data_mod = data_mod.drop(columns=[m + ":" + rowcol for m in self._mod.keys()])
 
         if not data_mod.index.is_unique:
             warnings.warn(
@@ -1331,11 +1332,11 @@ class MuData:
 
             mod_df = getattr(mod, attr)[[col.derived_name for col in modcols]]
             if drop:
-                getattr(mod, attr).drop(columns=mod_df.columns, inplace=True)
+                _drop_columns_inplace(mod, attr, mod_df.columns)
 
             # prepend modality prefix to column names if requested via arguments and there are no skipped modalities with
             # the same column name (prefixing those columns may cause problems with future pulls or pushes)
-            mod_df.rename(
+            mod_df = mod_df.rename(
                 columns={
                     col.derived_name: col.name
                     for col in modcols
@@ -1350,8 +1351,7 @@ class MuData:
                         )
                         and derived_name_count[col.derived_name] == col.count
                     )
-                },
-                inplace=True,
+                }
             )
 
             # reorder modality DF to conform to global order
@@ -1639,8 +1639,7 @@ class MuData:
                 setattr(mod, attr, mod_df)
 
         if drop:
-            for col in cols:
-                getattr(self, attr).drop(col.name, axis=1, inplace=True)
+            _drop_columns_inplace(self, attr, [col.name for col in cols])
 
     def push_obs(
         self,
