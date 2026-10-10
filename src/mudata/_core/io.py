@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     import fsspec
     import zarr
 
+import importlib
 import io
 import re
 from contextlib import ExitStack
@@ -36,6 +37,46 @@ _pattern = re.compile(r"^(.+\.h5mu)/([^/]+)(/([^/]+))?$")
 
 def _is_openfile(obj) -> bool:
     return obj.__class__.__name__ == "OpenFile" and obj.__class__.__module__.startswith("fsspec.")
+
+
+# Attribute naming the AnnData subclass a modality was written from, as "module:qualname".
+_MOD_CLASS_ATTR = "mudata-modality-class"
+
+
+def _write_mod_extras(group, adata: AnnData, kwargs) -> None:
+    """Let an AnnData subclass store the elements AnnData does not have.
+
+    A subclass opts in by defining ``_write_mudata_extras(group, *, dataset_kwargs)``,
+    which writes its extra elements into the modality group, and the classmethod
+    ``_read_mudata_extras(group, adata)``, which rebuilds the subclass from the AnnData
+    read from that group.
+    """
+    write_extras = getattr(adata, "_write_mudata_extras", None)
+    if write_extras is None:
+        return
+    write_extras(group, dataset_kwargs=kwargs)
+    cls = type(adata)
+    group.attrs[_MOD_CLASS_ATTR] = f"{cls.__module__}:{cls.__qualname__}"
+
+
+def _read_mod_extras(group, adata: AnnData) -> AnnData:
+    """Rebuild the AnnData subclass a modality was written from, if it is installed."""
+    cls_path = group.attrs.get(_MOD_CLASS_ATTR)
+    if cls_path is None:
+        return adata
+    module, _, name = str(cls_path).partition(":")
+    try:
+        cls = getattr(importlib.import_module(module), name)
+    except (ImportError, AttributeError):
+        cls = None
+    if not (isinstance(cls, type) and issubclass(cls, AnnData) and hasattr(cls, "_read_mudata_extras")):
+        warn(
+            f"Modality {group.name!r} was written from {cls_path}, which is not available; reading it as AnnData.",
+            stacklevel=2,
+            skip_file_prefixes=(str(Path(__file__).parent),),
+        )
+        return adata
+    return cls._read_mudata_extras(group, adata)
 
 
 def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
@@ -83,6 +124,7 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
         write_elem(group, "varp", dict(adata.varp), dataset_kwargs=kwargs)
         write_elem(group, "layers", {k: v for k, v in adata.layers.items() if k is not None}, dataset_kwargs=kwargs)
         write_elem(group, "uns", dict(adata.uns), dataset_kwargs=kwargs)
+        _write_mod_extras(group, adata, kwargs)
 
         attrs = group.attrs
         attrs["encoding-type"] = "anndata"
@@ -193,6 +235,7 @@ def write_zarr(
             write_elem(group, "varp", dict(adata.varp), dataset_kwargs=kwargs)
             write_elem(group, "layers", {k: v for k, v in adata.layers.items() if k is not None}, dataset_kwargs=kwargs)
             write_elem(group, "uns", dict(adata.uns), dataset_kwargs=kwargs)
+            _write_mod_extras(group, adata, kwargs)
 
             attrs = group.attrs
             attrs["encoding-type"] = "anndata"
@@ -294,6 +337,7 @@ def write_h5ad(filename: str | PathLike, mod: str, data: MuData | AnnData):
         write_elem(fmd, "varp", dict(adata.varp))
         write_elem(fmd, "layers", {k: v for k, v in adata.layers.items() if k is not None})
         write_elem(fmd, "uns", dict(adata.uns))
+        _write_mod_extras(fmd, adata, {})
 
         attrs = fmd.attrs
         attrs["encoding-type"] = "anndata"
@@ -466,7 +510,7 @@ def read_zarr(store: str | PathLike | MutableMapping | zarr.Group | zarr.abc.sto
             mods = {}
             gmods = f[k]
             for m in gmods.keys():
-                mods[m] = read_elem(gmods[m])
+                mods[m] = _read_mod_extras(gmods[m], read_elem(gmods[m]))
 
             mod_order = None
             if "mod-order" in gmods.attrs:
@@ -500,7 +544,7 @@ def _read_h5mu_mod(g: h5py.Group, manager: MuDataFileManager = None, backed: boo
         if not backed or elem_name != rawXpath:
             return func(elem)
 
-    ad = read_dispatched(g, callback=ad_callback)
+    ad = _read_mod_extras(g, read_dispatched(g, callback=ad_callback))
     if manager is not None:
         ad.file = AnnDataFileManager(ad, modname, manager)
 
