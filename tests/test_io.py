@@ -18,6 +18,28 @@ def filepath_h5ad(tmp_path: Path) -> Path:
     return tmp_path / "test.h5ad"
 
 
+class AnnDataWithExtra(ad.AnnData):
+    """An AnnData subclass with an element AnnData does not have, stored via mudata's modality hooks."""
+
+    extra: str | None = None
+
+    def _write_mudata_extras(self, group, *, dataset_kwargs):
+        ad.io.write_elem(group, "extra", self.extra, dataset_kwargs=dataset_kwargs)
+
+    @classmethod
+    def _read_mudata_extras(cls, group, adata: ad.AnnData) -> "AnnDataWithExtra":
+        new = cls(adata)
+        new.extra = ad.io.read_elem(group["extra"])
+        return new
+
+
+@pytest.fixture
+def mdata_subclass(mdata: md.MuData) -> md.MuData:
+    mod1 = AnnDataWithExtra(mdata["mod1"])
+    mod1.extra = "foo"
+    return md.MuData({"mod2": mdata["mod2"], "mod1": mod1}, axis=mdata.axis)
+
+
 def test_initial_order(mdata: md.MuData):
     mods = list(mdata.mod.keys())
     assert len(mods) == 2
@@ -194,3 +216,53 @@ def test_validate(mdata: md.MuData, filepath_h5mu: str | Path):
         f.write("foo")
     with pytest.raises(ValueError, match="not an HDF5 file"):
         md.read_h5mu(filepath_h5mu)
+
+
+@pytest.mark.parametrize(
+    ("write_func", "read_func", "open_func", "filepath"),
+    (("write", "read_h5mu", h5py.File, "filepath_h5mu"), ("write_zarr", "read_zarr", zarr.open, "filepath_zarr")),
+)
+def test_write_read_anndata_subclass(
+    mdata_subclass: md.MuData, write_func: str, read_func: str, open_func, filepath: str, request: pytest.FixtureRequest
+):
+    filepath = request.getfixturevalue(filepath)
+
+    getattr(mdata_subclass, write_func)(filepath)
+    mdata_ = getattr(md, read_func)(filepath)
+    assert_equal(mdata_subclass, mdata_, exact=True)
+    assert type(mdata_["mod1"]) is AnnDataWithExtra
+    assert mdata_["mod1"].extra == "foo"
+    assert type(mdata_["mod2"]) is ad.AnnData
+
+    f = open_func(filepath, mode="r")
+    assert f["mod/mod1"].attrs["mudata-modality-class"] == f"{__name__}:AnnDataWithExtra"
+    assert "mudata-modality-class" not in f["mod/mod2"].attrs
+
+
+def test_h5mu_backed_anndata_subclass(mdata_subclass: md.MuData, filepath_h5mu: Path):
+    mdata_subclass.write(filepath_h5mu)
+    mdata_ = md.read_h5mu(filepath_h5mu, backed="r")
+    assert type(mdata_["mod1"]) is AnnDataWithExtra
+    assert mdata_["mod1"].isbacked
+    assert mdata_["mod1"].extra == "foo"
+    assert_equal(mdata_subclass, mdata_, exact=True)
+
+
+def test_write_read_h5ad_anndata_subclass(mdata: md.MuData, mdata_subclass: md.MuData, filepath_h5mu: Path):
+    mdata.write(filepath_h5mu)
+    md.write_h5ad(filepath_h5mu, "mod1", mdata_subclass)
+    adata_ = md.read_h5ad(filepath_h5mu, "mod1")
+    assert type(adata_) is AnnDataWithExtra
+    assert adata_.extra == "foo"
+    assert_equal(mdata_subclass["mod1"], adata_, exact=True)
+
+
+def test_read_anndata_subclass_unavailable(mdata_subclass: md.MuData, filepath_h5mu: Path):
+    mdata_subclass.write(filepath_h5mu)
+    with h5py.File(filepath_h5mu, "r+") as f:
+        f["mod/mod1"].attrs["mudata-modality-class"] = "not_an_installed_module:AnnDataWithExtra"
+
+    with pytest.warns(UserWarning, match="not_an_installed_module:AnnDataWithExtra, which is not available"):
+        mdata_ = md.read_h5mu(filepath_h5mu)
+    assert type(mdata_["mod1"]) is ad.AnnData
+    assert_equal(mdata_subclass, mdata_, exact=True)
