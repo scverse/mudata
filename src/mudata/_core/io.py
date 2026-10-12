@@ -94,7 +94,7 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
     mod_attrs["mod-order"] = list(mdata.mod.keys())
 
     attrs = file.attrs
-    attrs["encoding-type"] = "MuData"
+    attrs["encoding-type"] = "mudata"
     attrs["encoding-version"] = __mudataversion__
     attrs["encoder"] = "mudata"
     attrs["encoder-version"] = __version__
@@ -204,7 +204,7 @@ def write_zarr(
         mod_attrs["mod-order"] = list(mdata.mod.keys())
 
         attrs = file.attrs
-        attrs["encoding-type"] = "MuData"
+        attrs["encoding-type"] = "mudata"
         attrs["encoding-version"] = __mudataversion__
         attrs["encoder"] = "mudata"
         attrs["encoder-version"] = __version__
@@ -298,7 +298,7 @@ def write_h5ad(filename: str | PathLike, mod: str, data: MuData | AnnData):
         attrs = fmd.attrs
         attrs["encoding-type"] = "anndata"
         attrs["encoding-version"] = __anndataversion__
-        attrs["encoder"] = "muon"
+        attrs["encoder"] = "mudata"
         attrs["encoder-version"] = __version__
 
 
