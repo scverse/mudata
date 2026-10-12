@@ -665,7 +665,7 @@ class MuData:
         for m in self._mod.keys():
             colname = m + ":" + rowcol
             mdict[m] = data_mod[colname].to_numpy()
-        data_mod = data_mod.drop(columns=[m + ":" + rowcol for m in self._mod.keys()])
+            data_mod = data_mod.drop(colname, axis=1)
 
         if not data_mod.index.is_unique:
             warnings.warn(
