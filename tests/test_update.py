@@ -67,10 +67,10 @@ def modalities(
             raise NotImplementedError("Tests for non-intersecting obs_names are not implemented")
 
     if mod == "duplicated":
-        obsnames2 = mods["mod2"].obs_names.to_numpy()
-        obsnames3 = mods["mod3"].obs_names.to_numpy()
-        varnames2 = mods["mod2"].var_names.to_numpy()
-        varnames3 = mods["mod3"].var_names.to_numpy()
+        obsnames2 = mods["mod2"].obs_names.to_numpy(copy=True)
+        obsnames3 = mods["mod3"].obs_names.to_numpy(copy=True)
+        varnames2 = mods["mod2"].var_names.to_numpy(copy=True)
+        varnames3 = mods["mod3"].var_names.to_numpy(copy=True)
         obsnames2[0] = obsnames2[1] = obsnames3[1] = "testobs"
         varnames2[0] = varnames2[1] = varnames3[1] = "testvar"
         mods["mod2"].obs_names = obsnames2
@@ -78,8 +78,8 @@ def modalities(
         mods["mod2"].var_names = varnames2
         mods["mod3"].var_names = varnames3
     elif mod == "extreme_duplicated":  # integer overflow: https://github.com/scverse/mudata/issues/107
-        obsnames2 = mods["mod2"].obs_names.to_numpy()
-        varnames2 = mods["mod2"].var_names.to_numpy()
+        obsnames2 = mods["mod2"].obs_names.to_numpy(copy=True)
+        varnames2 = mods["mod2"].var_names.to_numpy(copy=True)
         obsnames2[:-1] = obsnames2[0] = "testobs"
         varnames2[:-1] = varnames2[0] = "testvar"
         mods["mod2"].obs_names = obsnames2
