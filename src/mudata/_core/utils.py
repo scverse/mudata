@@ -6,12 +6,9 @@ from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import pandas as pd
-from anndata import AnnData
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping, Sequence
-
-    from .mudata import MuData
+    from collections.abc import Mapping, Sequence
 
 
 def _make_index_unique(df: pd.DataFrame, force: bool = False) -> pd.DataFrame:
@@ -31,21 +28,6 @@ def _make_index_unique(df: pd.DataFrame, force: bool = False) -> pd.DataFrame:
             dup_idx[dup] = newval
         cnt[idxval] = newval
     return df.set_index(dup_idx, append=True)
-
-
-def _drop_columns_inplace(obj: AnnData | MuData, attr: Literal["obs", "var"], columns: Iterable[str]) -> None:
-    """Remove columns from `obj.obs` or `obj.var` in place.
-
-    Replaces `DataFrame.drop(columns=..., inplace=True)`, whose `inplace` argument is deprecated
-    as of pandas 3.1 (PDEP-8), while keeping its semantics: references to the data frame see the change.
-    """
-    if isinstance(obj, AnnData) and obj.is_view:
-        # assigning to a view initializes it as an actual AnnData, as dropping in place did
-        setattr(obj, attr, getattr(obj, attr).drop(columns=columns))
-    else:
-        df = getattr(obj, attr)
-        for col in columns:
-            del df[col]
 
 
 def _restore_index(df: pd.DataFrame) -> pd.DataFrame:

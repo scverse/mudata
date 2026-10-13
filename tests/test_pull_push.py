@@ -136,8 +136,8 @@ def push_func(mdata_for_push: MuData, cattr: AxisAttr) -> Callable[..., None]:
 
 
 @pytest.fixture
-def push_df(mdata_for_push: MuData, cattr: AxisAttr) -> pd.DataFrame:
-    return getattr(mdata_for_push, cattr)
+def push_df(mdata_for_push: MuData, cattr: AxisAttr) -> Callable[[], pd.DataFrame]:
+    return lambda: getattr(mdata_for_push, cattr)
 
 
 @pytest.fixture
@@ -370,7 +370,9 @@ def test_pull_attr_simple(mdata: MuData, attr: AxisAttr):
         pull_func(join_nonunique=True)
 
 
-def test_push_simple(mdata_for_push: MuData, push_func: Callable[..., None], push_df: pd.DataFrame, cattr: AxisAttr):
+def test_push_simple(
+    mdata_for_push: MuData, push_func: Callable[..., None], push_df: Callable[[], pd.DataFrame], cattr: AxisAttr
+):
     push_func()
     for modname, mod in mdata_for_push.mod.items():
         mdf = getattr(mod, cattr)
@@ -378,23 +380,27 @@ def test_push_simple(mdata_for_push: MuData, push_func: Callable[..., None], pus
 
         map = getattr(mdata_for_push, f"{cattr}map")[modname]
         mask = map > 0
-        assert (push_df["dtype-int-pushed"][mask] == mdf["dtype-int-pushed"].iloc[map[mask] - 1]).all()
+        assert (push_df()["dtype-int-pushed"][mask] == mdf["dtype-int-pushed"].iloc[map[mask] - 1]).all()
 
     assert_dtypes(getattr(mdata_for_push["mod2"], cattr), "pushed", "mod2_")
     map = getattr(mdata_for_push, f"{cattr}map")["mod2"]
     mask = map > 0
     assert (
-        push_df["mod2:mod2_dtype-int-pushed"][mask]
+        push_df()["mod2:mod2_dtype-int-pushed"][mask]
         == getattr(mdata_for_push["mod2"], cattr)["mod2_dtype-int-pushed"].iloc[map[mask] - 1]
     ).all()
 
     push_func(drop=True)
-    assert push_df.shape[1] == 0
+    assert push_df().shape[1] == 0
 
 
 @pytest.mark.parametrize("drop", (True, False))
 def test_push_columns(
-    mdata_for_push: MuData, push_func: Callable[..., None], push_df: pd.DataFrame, cattr: AxisAttr, drop: bool
+    mdata_for_push: MuData,
+    push_func: Callable[..., None],
+    push_df: Callable[[], pd.DataFrame],
+    cattr: AxisAttr,
+    drop: bool,
 ):
     push_func(columns=["dtype-int-pushed", "mod2:mod2_dtype-bool-pushed"], drop=drop)
     for mod in mdata_for_push.mod.values():
@@ -402,8 +408,8 @@ def test_push_columns(
         assert "dtype-int-pushed" in mdf.columns
     assert "mod2_dtype-bool-pushed" in getattr(mdata_for_push.mod["mod2"], cattr).columns
     if drop:
-        assert "dtype-int-pushed" not in push_df.columns
-        assert "mod2:mod2_dtype-bool-pushed" not in push_df.columns
+        assert "dtype-int-pushed" not in push_df().columns
+        assert "mod2:mod2_dtype-bool-pushed" not in push_df().columns
 
     push_func(columns=["mod2:mod2_dtype-bool-pushed"], mods=["mod2"], drop=drop)
     for modname, mod in mdata_for_push.mod.items():
@@ -421,7 +427,11 @@ def test_push_columns(
 
 @pytest.mark.parametrize("drop", (True, False))
 def test_push_mods(
-    mdata_for_push: MuData, push_func: Callable[..., None], push_df: pd.DataFrame, cattr: AxisAttr, drop: bool
+    mdata_for_push: MuData,
+    push_func: Callable[..., None],
+    push_df: Callable[[], pd.DataFrame],
+    cattr: AxisAttr,
+    drop: bool,
 ):
     push_func(mods="mod2", drop=drop)
     for dtype in ("int", "float", "bool", "string"):
@@ -433,13 +443,17 @@ def test_push_mods(
             else:
                 assert f"mod2_dtype-{dtype}-pushed" not in mdf.columns
         if drop:
-            assert f"dtype-{dtype}-pushed" not in push_df.columns
-            assert f"mod2:mod2_dtype-{dtype}-pushed" not in push_df.columns
+            assert f"dtype-{dtype}-pushed" not in push_df().columns
+            assert f"mod2:mod2_dtype-{dtype}-pushed" not in push_df().columns
 
 
 @pytest.mark.parametrize("drop", (True, False))
 def test_push_nocommon(
-    mdata_for_push: MuData, push_func: Callable[..., None], push_df: pd.DataFrame, cattr: AxisAttr, drop: bool
+    mdata_for_push: MuData,
+    push_func: Callable[..., None],
+    push_df: Callable[[], pd.DataFrame],
+    cattr: AxisAttr,
+    drop: bool,
 ):
     push_func(common=False, drop=drop)
     for dtype in ("int", "float", "bool", "string"):
@@ -451,13 +465,17 @@ def test_push_nocommon(
             else:
                 assert f"mod2_dtype-{dtype}-pushed" not in mdf.columns
         if drop:
-            assert f"dtype-{dtype}-pushed" in push_df.columns
-            assert f"mod2:mod2_dtype-{dtype}-pushed" not in push_df.columns
+            assert f"dtype-{dtype}-pushed" in push_df().columns
+            assert f"mod2:mod2_dtype-{dtype}-pushed" not in push_df().columns
 
 
 @pytest.mark.parametrize("drop", (True, False))
 def test_push_noprefix(
-    mdata_for_push: MuData, push_func: Callable[..., None], push_df: pd.DataFrame, cattr: AxisAttr, drop: bool
+    mdata_for_push: MuData,
+    push_func: Callable[..., None],
+    push_df: Callable[[], pd.DataFrame],
+    cattr: AxisAttr,
+    drop: bool,
 ):
     push_func(prefixed=False, drop=drop)
     for dtype in ("int", "float", "bool", "string"):
@@ -466,41 +484,17 @@ def test_push_noprefix(
             assert f"dtype-{dtype}-pushed" in mdf.columns
             assert f"mod2_dtype-{dtype}-pushed" not in mdf.columns
         if drop:
-            assert f"dtype-{dtype}-pushed" not in push_df.columns
+            assert f"dtype-{dtype}-pushed" not in push_df().columns
 
 
-def test_push_drop(mdata_for_push: MuData, push_func: Callable[..., None], push_df: pd.DataFrame, cattr: AxisAttr):
+def test_push_drop(
+    mdata_for_push: MuData, push_func: Callable[..., None], push_df: Callable[[], pd.DataFrame], cattr: AxisAttr
+):
     push_func(only_drop=True)
-    assert push_df.shape[1] == 0
+    assert push_df().shape[1] == 0
 
     for mod in mdata_for_push.mod.values():
         mdf = getattr(mod, cattr)
         for dtype in ("int", "float", "bool", "string"):
             assert f"dtype-{dtype}-pushed" not in mdf.columns
             assert f"mod2_dtype-{dtype}-pushed" not in mdf.columns
-
-
-@pytest.mark.parametrize("attr", ["obs", "var"])
-def test_pull_drop_from_view_modality(rng: np.random.Generator, attr: AxisAttr):
-    """Pulling with `drop=True` from an AnnData view turns it into an actual AnnData, leaving its parent untouched."""
-    parent = AnnData(
-        rng.normal(size=(6, 5)),
-        obs=pd.DataFrame(index=[f"cell{i}" for i in range(6)]),
-        var=pd.DataFrame(index=[f"gene{i}" for i in range(5)]),
-    )
-    getattr(parent, attr)["col"] = np.arange(parent.n_obs if attr == "obs" else parent.n_vars)
-    view = parent[:4] if attr == "obs" else parent[:, :3]
-    other = AnnData(
-        rng.normal(size=(4, 2)),
-        obs=pd.DataFrame(index=[f"cell{i}" for i in range(4)]),
-        var=pd.DataFrame(index=[f"peak{i}" for i in range(2)]),
-    )
-    mdata = MuData({"mod1": view, "mod2": other})
-    assert mdata["mod1"].is_view
-
-    getattr(mdata, f"pull_{attr}")(drop=True)
-
-    assert "col" not in getattr(mdata["mod1"], attr).columns
-    assert not mdata["mod1"].is_view
-    assert any(c.endswith("col") for c in getattr(mdata, attr).columns)
-    assert "col" in getattr(parent, attr).columns

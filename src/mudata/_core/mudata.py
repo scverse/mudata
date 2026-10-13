@@ -30,7 +30,6 @@ from .repr import MUDATA_CSS, block_matrix, details_block_table
 from .settings import settings
 from .utils import (
     MetadataColumn,
-    _drop_columns_inplace,
     _make_index_unique,
     _restore_index,
     _update_and_concat,
@@ -1332,7 +1331,7 @@ class MuData:
 
             mod_df = getattr(mod, attr)[[col.derived_name for col in modcols]]
             if drop:
-                _drop_columns_inplace(mod, attr, mod_df.columns)
+                setattr(mod, attr, getattr(mod, attr).drop(columns=mod_df.columns))
 
             # prepend modality prefix to column names if requested via arguments and there are no skipped modalities with
             # the same column name (prefixing those columns may cause problems with future pulls or pushes)
@@ -1639,7 +1638,7 @@ class MuData:
                 setattr(mod, attr, mod_df)
 
         if drop:
-            _drop_columns_inplace(self, attr, [col.name for col in cols])
+            setattr(self, attr, getattr(self, attr).drop(columns=[col.name for col in cols]))
 
     def push_obs(
         self,
