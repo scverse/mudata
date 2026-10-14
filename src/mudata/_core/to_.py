@@ -1,10 +1,11 @@
-from typing import Literal
+from collections.abc import Mapping
+from typing import Literal, cast
 
 import anndata
 from anndata import AnnData
 from scverse_misc import arg_alias
 
-from mudata import MuData
+from .mudata import MuData
 
 
 def to_anndata(mdata: MuData, **kwargs) -> AnnData:
@@ -24,9 +25,11 @@ def to_anndata(mdata: MuData, **kwargs) -> AnnData:
         Additional arguments for :func:`anndata.concat`.
     """
     if mdata.axis == -1:
-        raise ValueError("Only MuData with axis=0 and axis=1 are supported in `to_anndata()`")
+        raise ValueError("MuData objects with `axis=-1` are not supported.")
+    if any(not isinstance(v, AnnData) for v in mdata.mod.values()):
+        raise ValueError("The MuData object must only contain AnnData objects.")
     # data.axis shows which axis is shared so we concatenate along the other axis
-    adata = anndata.concat(mdata.mod, axis=1 - mdata.axis, **kwargs)
+    adata = anndata.concat(cast(Mapping[str, AnnData], mdata.mod), axis=cast(Literal[0, 1], 1 - mdata.axis), **kwargs)
     # Add columns from mdata.attr to individual modalities
     for attr in ["obs", "var"]:
         df = getattr(adata, attr)
