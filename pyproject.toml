@@ -47,6 +47,7 @@ urls.Source = "https://github.com/scverse/mudata"
 [dependency-groups]
 dev = [
   "mudata[io]",
+  "mypy",
   "prek",
   "twine>=4.0.2",
 ]
@@ -141,6 +142,25 @@ lint.per-file-ignores."docs/*" = [ "D", "I" ]
 lint.per-file-ignores."docs/notebooks/*" = [ "D", "F403", "F405" ]
 lint.per-file-ignores."tests/*" = [ "D" ]
 lint.pydocstyle.convention = "numpy"
+
+[tool.mypy]
+python_version = "3.12"
+warn_redundant_casts = true
+
+# Dependencies without a py.typed marker whose source mypy can follow.
+[[tool.mypy.overrides]]
+module = [
+  "h5py.*",
+]
+follow_untyped_imports = true
+
+# Dependencies that ship no type information (absent or `Incomplete` annotations).
+[[tool.mypy.overrides]]
+module = [
+  "pandas.*",
+  "scipy.*",
+]
+ignore_missing_imports = true
 
 [tool.pytest]
 addopts = [

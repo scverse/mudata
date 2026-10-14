@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Collection, Mapping
 
 
 def _make_index_unique(df: pd.DataFrame, force: bool = False) -> pd.DataFrame:
@@ -36,11 +36,12 @@ def _restore_index(df: pd.DataFrame) -> pd.DataFrame:
 
 class MetadataColumn:
     __slots__ = ("prefix", "derived_name", "count", "_allowed_prefixes", "_strip_prefix")
+    derived_name: str
 
     def __init__(
         self,
         *,
-        allowed_prefixes: Sequence[str],
+        allowed_prefixes: Collection[str],
         prefix: str | None = None,
         name: str | None = None,
         count: int = 0,
@@ -64,7 +65,7 @@ class MetadataColumn:
             return self.derived_name
 
     @name.setter
-    def name(self, new_name):
+    def name(self, new_name) -> None:
         if (
             not self._strip_prefix
             or len(name_split := new_name.split(":", 1)) < 2

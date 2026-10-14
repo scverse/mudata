@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import warnings
 from collections import Counter, abc
-from collections.abc import ItemsView, Iterable, Mapping, MutableMapping, Sequence, ValuesView
+from collections.abc import ItemsView, Iterable, Iterator, Mapping, MutableMapping, Sequence, ValuesView
 from contextlib import suppress
 from copy import copy, deepcopy
 from functools import reduce
@@ -12,12 +12,12 @@ from numbers import Integral
 from random import choices
 from string import ascii_letters, digits
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, Self, cast
 
 import numpy as np
 import pandas as pd
 from anndata import AnnData
-from anndata._core.aligned_mapping import AlignedView, AxisArrays, AxisArraysBase, PairwiseArrays
+from anndata._core.aligned_mapping import AxisArrays, AxisArraysView, PairwiseArrays
 from anndata._core.index import _normalize_indices
 from anndata._core.views import DataFrameView
 from anndata.typing import Index
@@ -41,42 +41,45 @@ if TYPE_CHECKING:
     from os import PathLike
     from pathlib import Path
 
-    import zarr
+    from anndata._core.aligned_mapping import _AlignedAny
+    from anndata.acc import Array
+    from anndata.typing import AlignedArray
+    from zarr.abc.store import Store as ZarrStore
 
 
 class ModalityMapItemsView(ItemsView):
-    def __iter__(self):
+    def __iter__(self) -> Iterator[tuple[str, np.ndarray]]:
         for k, v in super().__iter__():
             yield k, v.ravel()
 
 
 class ModalityMapValuesView(ValuesView):
-    def __iter__(self):
+    def __iter__(self) -> Iterator[np.ndarray]:
         for v in super().__iter__():
             yield v.ravel()
 
 
-class ModalityMapAxisArraysView(AlignedView, AxisArraysBase):
-    def __getitem__(self, key: str):
-        return super().__getitem__(key).ravel()
+class ModalityMapAxisArraysView(AxisArraysView):
+    def __getitem__(self, key: str) -> np.ndarray:
+        return cast(np.ndarray, super().__getitem__(key)).ravel()
 
-    def items(self):
+    def items(self) -> ModalityMapItemsView:
         return ModalityMapItemsView(self)
 
-    def values(self):
+    def values(self) -> ModalityMapValuesView:
         return ModalityMapValuesView(self)
 
 
 class ModalityMapAxisArrays(AxisArrays):
     _view_class = ModalityMapAxisArraysView
 
-    def __getitem__(self, key: str):
-        return super().__getitem__(key).ravel()
+    def __getitem__(self, key: str) -> np.ndarray:
+        return cast(np.ndarray, super().__getitem__(key)).ravel()
 
-    def items(self):
+    def items(self) -> ModalityMapItemsView:
         return ModalityMapItemsView(self)
 
-    def values(self):
+    def values(self) -> ModalityMapValuesView:
         return ModalityMapValuesView(self)
 
 
@@ -111,7 +114,7 @@ class ModDict(dict):
                     levels = [nest_level] + active_levels
                 else:
                     levels = [level for level in active_levels if level != nest_level]
-                descr += v.mod._repr_hierarchy(nest_level=nest_level + 1, active_levels=levels)
+                descr += cast(Self, v.mod)._repr_hierarchy(nest_level=nest_level + 1, active_levels=levels)
             elif isinstance(v, AnnData):
                 descr += f"\n{indent}{k} AnnData ({v.n_obs} x {v.n_vars}){backed_at}{is_view}"
             else:
@@ -189,18 +192,19 @@ class MuData:
         axis: Literal[0, "obs"] | Literal[1, "var"] | Literal[-1, "both"] = 0,
         obs: pd.DataFrame | pd.Series | pd.Index | Mapping[str, Iterable[Any]] | None = None,
         var: pd.DataFrame | pd.Series | pd.Index | Mapping[str, Iterable[Any]] | None = None,
-        obsm: np.ndarray | Mapping[str, Sequence[Any]] = None,
-        varm: np.ndarray | Mapping[str, Sequence[Any]] = None,
-        obsp: np.ndarray | Mapping[str, Sequence[Any]] = None,
-        varp: np.ndarray | Mapping[str, Sequence[Any]] = None,
+        obsm: np.ndarray | Mapping[str, Sequence[Any]] | None = None,
+        varm: np.ndarray | Mapping[str, Sequence[Any]] | None = None,
+        obsp: np.ndarray | Mapping[str, Sequence[Any]] | None = None,
+        varp: np.ndarray | Mapping[str, Sequence[Any]] | None = None,
         uns: Mapping[str, Any] | None = None,
-        obsmap: Mapping[str, np.ndarray[tuple[int]], np.dtype[np.unsignedinteger]] | None = None,
-        varmap: Mapping[str, np.ndarray[tuple[int]], np.dtype[np.unsignedinteger]] | None = None,
+        obsmap: Mapping[str, np.ndarray[tuple[int], np.dtype[np.unsignedinteger]]] | None = None,
+        varmap: Mapping[str, np.ndarray[tuple[int], np.dtype[np.unsignedinteger]]] | None = None,
         as_view: bool = False,
         index: tuple[Index, Index] | Index | None = None,
     ):
         self._init_common()
         if as_view:
+            assert isinstance(data, type(self))
             self._init_as_view(data, index)
             return
 
@@ -230,22 +234,22 @@ class MuData:
         self._obs = pd.DataFrame(obs)
         self._var = pd.DataFrame(var)
 
-        self._obsm = AxisArrays(self, axis=0, store=convert_to_dict(obsm))
-        self._obsp = PairwiseArrays(self, axis=0, store=convert_to_dict(obsp))
-        self._obsmap = ModalityMapAxisArrays(self, axis=0, store=convert_to_dict(obsmap))
+        self._obsm = AxisArrays(self, axis=0, store=convert_to_dict(obsm))  # type: ignore[arg-type]
+        self._obsp = PairwiseArrays(self, axis=0, store=convert_to_dict(obsp))  # type: ignore[arg-type]
+        self._obsmap = ModalityMapAxisArrays(self, axis=0, store=convert_to_dict(obsmap))  # type: ignore[arg-type]
 
-        self._varm = AxisArrays(self, axis=1, store=convert_to_dict(varm))
-        self._varp = PairwiseArrays(self, axis=1, store=convert_to_dict(varp))
-        self._varmap = ModalityMapAxisArrays(self, axis=1, store=convert_to_dict(varmap))
+        self._varm = AxisArrays(self, axis=1, store=convert_to_dict(varm))  # type: ignore[arg-type]
+        self._varp = PairwiseArrays(self, axis=1, store=convert_to_dict(varp))  # type: ignore[arg-type]
+        self._varmap = ModalityMapAxisArrays(self, axis=1, store=convert_to_dict(varmap))  # type: ignore[arg-type]
 
-        self._uns = convert_to_dict(uns)
+        self._uns: MutableMapping = convert_to_dict(uns)
 
-        self._axis = axis
+        self._axis = cast(Literal[0, 1, -1], axis)
 
         self.update()
 
-    def _init_common(self):
-        self._mudata_ref = None
+    def _init_common(self) -> None:
+        self._mudata_ref: MuData | None = None
 
         # For compatibility with calls requiring AnnData slots
         self.raw = None
@@ -253,7 +257,7 @@ class MuData:
         self.layers = None
         self.file = MuDataFileManager()
 
-    def _init_as_view(self, mudata_ref: MuData, index):
+    def _init_as_view(self, mudata_ref: MuData, index: Index | tuple[Index, Index]) -> None:
         obsidx, varidx = _normalize_indices(index, mudata_ref.obs.index, mudata_ref.var.index)
 
         # to handle single-element subsets, otherwise when subsetting a Dataframe
@@ -265,7 +269,9 @@ class MuData:
 
         self._mod = ModDict()
         for m, a in mudata_ref.mod.items():
-            cobsidx, cvaridx = mudata_ref.obsmap[m][obsidx], mudata_ref.varmap[m][varidx]
+            cobsidx: slice | np.ndarray[tuple[int]]
+            cvaridx: slice | np.ndarray[tuple[int]]
+            cobsidx, cvaridx = mudata_ref.obsmap[m][obsidx], mudata_ref.varmap[m][varidx]  # type: ignore[index]
             cobsidx, cvaridx = cobsidx[cobsidx > 0] - 1, cvaridx[cvaridx > 0] - 1
             if len(cobsidx) > 0 and len(cvaridx) > 0:
                 if len(cobsidx) == a.n_obs and np.all(np.diff(cobsidx) == 1):
@@ -274,12 +280,12 @@ class MuData:
                     cvaridx = slice(None)
             self._mod[m] = a[cobsidx, cvaridx]
 
-        self._obs = DataFrameView(mudata_ref.obs.iloc[obsidx, :], view_args=(self, "obs"))
-        self._obsm = mudata_ref.obsm._view(self, (obsidx,))
-        self._obsp = mudata_ref.obsp._view(self, (obsidx, obsidx))
-        self._var = DataFrameView(mudata_ref.var.iloc[varidx, :], view_args=(self, "var"))
-        self._varm = mudata_ref.varm._view(self, (varidx,))
-        self._varp = mudata_ref.varp._view(self, (varidx, varidx))
+        self._obs = DataFrameView(mudata_ref.obs.iloc[obsidx, :], view_args=(self, "obs"))  # type: ignore[arg-type]
+        self._obsm = mudata_ref.obsm._view(self, (obsidx,))  # type: ignore[attr-defined]
+        self._obsp = mudata_ref.obsp._view(self, (obsidx, obsidx))  # type: ignore[attr-defined]
+        self._var = DataFrameView(mudata_ref.var.iloc[varidx, :], view_args=(self, "var"))  # type: ignore[arg-type]
+        self._varm = mudata_ref.varm._view(self, (varidx,))  # type: ignore[attr-defined]
+        self._varp = mudata_ref.varp._view(self, (varidx, varidx))  # type: ignore[attr-defined]
 
         for axis, attr, idx in ((0, "obs", obsidx), (1, "var", varidx)):
             posmap = {}
@@ -289,7 +295,7 @@ class MuData:
                 cidx = mapping[idx] > 0
                 cposmap[cidx > 0] = np.arange(cidx.sum()) + 1
                 posmap[mod] = cposmap
-            setattr(self, "_" + attr + "map", ModalityMapAxisArrays(self, axis=axis, store=posmap))
+            setattr(self, "_" + attr + "map", ModalityMapAxisArrays(self, axis=axis, store=posmap))  # type: ignore[arg-type]
 
         self.file = mudata_ref.file
         self._axis = mudata_ref._axis
@@ -302,21 +308,21 @@ class MuData:
         else:
             self._mudata_ref = mudata_ref
 
-    def _init_as_actual(self, data: MuData):
+    def _init_as_actual(self, data: MuData) -> None:
         self._init_common()
-        self._mod = data.mod
+        self._mod = cast(ModDict, data.mod)
         self._obs = data.obs
         self._var = data.var
-        self._obsm = AxisArrays(self, axis=0, store=convert_to_dict(data.obsm))
-        self._obsp = PairwiseArrays(self, axis=0, store=convert_to_dict(data.obsp))
-        self._obsmap = ModalityMapAxisArrays(self, axis=0, store=convert_to_dict(data.obsmap))
-        self._varm = AxisArrays(self, axis=1, store=convert_to_dict(data.varm))
-        self._varp = PairwiseArrays(self, axis=1, store=convert_to_dict(data.varp))
-        self._varmap = ModalityMapAxisArrays(self, axis=1, store=convert_to_dict(data.varmap))
+        self._obsm = AxisArrays(self, axis=0, store=convert_to_dict(data.obsm))  # type: ignore[arg-type]
+        self._obsp = PairwiseArrays(self, axis=0, store=convert_to_dict(data.obsp))  # type: ignore[arg-type]
+        self._obsmap = ModalityMapAxisArrays(self, axis=0, store=convert_to_dict(data.obsmap))  # type: ignore[arg-type]
+        self._varm = AxisArrays(self, axis=1, store=convert_to_dict(data.varm))  # type: ignore[arg-type]
+        self._varp = PairwiseArrays(self, axis=1, store=convert_to_dict(data.varp))  # type: ignore[arg-type]
+        self._varmap = ModalityMapAxisArrays(self, axis=1, store=convert_to_dict(data.varmap))  # type: ignore[arg-type]
         self._uns = data._uns
         self._axis = data._axis
 
-    def _check_duplicated_attr_names(self, attr: str):
+    def _check_duplicated_attr_names(self, attr: str) -> bool:
         if any(not getattr(self._mod[mod_i], attr + "_names").astype(str).is_unique for mod_i in self._mod):
             # If there are non-unique attr_names, we can only handle outer joins
             # under the condition the duplicated values are restricted to one modality
@@ -339,11 +345,11 @@ class MuData:
             return True
         return False
 
-    def _check_duplicated_names(self):
+    def _check_duplicated_names(self) -> None:
         self._check_duplicated_attr_names("obs")
         self._check_duplicated_attr_names("var")
 
-    def _check_intersecting_attr_names(self, attr: str):
+    def _check_intersecting_attr_names(self, attr: str) -> bool:
         for mod_i, mod_j in combinations(self._mod, 2):
             mod_i_attr_index = getattr(self._mod[mod_i], attr + "_names")
             mod_j_attr_index = getattr(self._mod[mod_j], attr + "_names")
@@ -353,13 +359,14 @@ class MuData:
                 return True
         return False
 
-    def _check_changed_attr_names(self, attr: str, columns: bool = False):
+    def _check_changed_attr_names(self, attr: str, columns: bool = False) -> tuple[bool, bool]:
         attrhash = f"_{attr}hash"
-        attr_names_changed, attr_columns_changed = False, False
+        attr_names_changed: bool = False
+        attr_columns_changed: bool = False
         if not hasattr(self, attrhash):
             attr_names_changed, attr_columns_changed = True, True
         elif len(self._mod) < len(getattr(self, attrhash)):
-            attr_names_changed, attr_columns_changed = True, None
+            attr_names_changed, attr_columns_changed = True, False
         else:
             for m in self._mod.keys():
                 if m in getattr(self, attrhash):
@@ -371,13 +378,13 @@ class MuData:
                     if cached_hash[0] != new_hash[0]:
                         attr_names_changed = True
                         if not attr_columns_changed:
-                            attr_columns_changed = None
+                            attr_columns_changed = False
                         break
                     if columns:
                         if cached_hash[1] != new_hash[1]:
                             attr_columns_changed = True
                 else:
-                    attr_names_changed, attr_columns_changed = True, None
+                    attr_names_changed, attr_columns_changed = True, False
                     break
         return (attr_names_changed, attr_columns_changed)
 
@@ -394,17 +401,17 @@ class MuData:
             mod = {}
             for k, v in self._mod.items():
                 mod[k] = v.copy()
-            return __class__(
+            return type(self)(
                 data=mod,
-                obs=self.obs.copy(),
-                var=self.var.copy(),
+                obs=self.obs.copy(),  # type: ignore[attr-defined]
+                var=self.var.copy(),  # type: ignore[attr-defined]
                 uns=deepcopy(self.uns),  # this should always be an empty dict
-                obsm=self.obsm.copy(),
-                varm=self.varm.copy(),
-                obsp=self.obsp.copy(),
-                varp=self.varp.copy(),
-                obsmap=self.obsmap.copy(),
-                varmap=self.varmap.copy(),
+                obsm=self.obsm.copy(),  # type: ignore[attr-defined]
+                varm=self.varm.copy(),  # type: ignore[attr-defined]
+                obsp=self.obsp.copy(),  # type: ignore[attr-defined]
+                varp=self.varp.copy(),  # type: ignore[attr-defined]
+                obsmap=self.obsmap.copy(),  # type: ignore[attr-defined]
+                varmap=self.varmap.copy(),  # type: ignore[attr-defined]
                 axis=self.axis,
             )
         else:
@@ -426,30 +433,31 @@ class MuData:
             If `None`, modifies :attr:`var` and :attr:`obs` attributes of the :class:`MuData` object as well as
             each modality. Otherwise, modifies the dataframe in-place and returns it.
         """
-        AnnData.strings_to_categoricals(self, df)
+        AnnData.strings_to_categoricals(self, df)  # type: ignore[arg-type]
 
         # Call the same method on each modality
         if df is None:
             for k in self._mod:
                 self._mod[k].strings_to_categoricals()
+            return None
         else:
             return df
 
     # To increase compatibility with scanpy methods
     _sanitize = strings_to_categoricals
 
-    def __getitem__(self, index) -> AnnData | MuData:
+    def __getitem__(self, index) -> AnnData | MuData | AlignedArray | Array:
         if isinstance(index, str):
             return self._mod[index]
 
         with suppress(ImportError):
-            from anndata.acc import AdRef, MapAcc, RefAcc
+            from anndata.acc import AdRef, MapAcc, MetaAcc, RefAcc
 
             if isinstance(index, AdRef):
                 try:
                     return index.acc.get(self, index.idx)
                 except KeyError as e:
-                    if index.acc.dim in ("obs", "var"):
+                    if isinstance(index.acc, MetaAcc) and index.acc.dim in ("obs", "var"):
                         for modname, mod in self._mod.items():
                             if index in mod:
                                 raise KeyError(
@@ -473,11 +481,11 @@ class MuData:
             if isinstance(key, ModAcc | _ModalityMapAcc):
                 return key.isin(self)
             elif isinstance(key, _ModalityMixin):
-                return key in self.mod[key.mod]
+                return key in self.mod[key.mod]  # type: ignore[operator]
             elif isinstance(key, MultiModAcc):
                 return bool(self.mod)
             elif isinstance(key, AdRef | RefAcc | MapAcc):
-                return AnnData.__contains__(self, key)
+                return AnnData.__contains__(self, key)  # type: ignore[operator]
 
         raise TypeError(f"Unexpected key {key!r}.")
 
@@ -502,10 +510,10 @@ class MuData:
 
     def _update_attr(
         self,
-        attr: str,
+        attr: Literal["obs", "var"],
         axis: int,
         **kwargs,  # for _pull_attr()
-    ):
+    ) -> None:
         """
         Update global observations/variables with observations/variables for each modality.
 
@@ -759,13 +767,13 @@ class MuData:
         return self.file.filename
 
     @filename.setter
-    def filename(self, filename: str | PathLike | None):
+    def filename(self, filename: str | PathLike | None) -> None:
         if self.isbacked:
             if filename is None:
                 self.file._to_memory_mode()
             elif self.filename != filename:
                 self.write()
-                self.filename.rename(filename)
+                self.filename.rename(filename)  # type: ignore[union-attr]
                 self.file.open(filename, "r+")
         elif filename is not None:
             self.write(filename)
@@ -820,12 +828,12 @@ class MuData:
         """
         return self._attr_vector(key, "obs")
 
-    def update_obs(self):
+    def update_obs(self) -> None:
         """Update :attr:`obs` indices of the object with the data from all the modalities."""
         join_common = self.axis == 1
         self._update_attr("obs", axis=0, join_common=join_common)
 
-    def _names_make_unique(self, attr: Literal["obs", "var"]):
+    def _names_make_unique(self, attr: Literal["obs", "var"]) -> None:
         axis = 0 if attr == "obs" else 1
         if self.axis != 1 - axis:
             raise TypeError(
@@ -868,7 +876,7 @@ class MuData:
                 [getattr(mod, namesattr) for mod in self._mod.values()]
             )
 
-    def obs_names_make_unique(self):
+    def obs_names_make_unique(self) -> None:
         """
         Call :meth:`AnnData.obs_names_make_unique <anndata.AnnData.obs_names_make_unique>` on each modality.
 
@@ -876,7 +884,7 @@ class MuData:
         """
         self._names_make_unique("obs")
 
-    def _set_names(self, attr: str, axis: int, names: Sequence[str]):
+    def _set_names(self, attr: Literal["obs", "var"], axis: int, names: Sequence[str]) -> None:
         if isinstance(names, pd.Index):
             if not isinstance(names.name, str | type(None)):
                 raise ValueError(
@@ -885,8 +893,8 @@ class MuData:
                 )
         else:
             names = pd.Index(names)
-            if not isinstance(names.name, str | type(None)):
-                names.name = None
+            if not isinstance(names.name, str | type(None)):  # type: ignore[attr-defined]
+                names.name = None  # type: ignore[attr-defined]
 
         if axis != self.axis and self.axis != -1:
             mod_shape_sum = np.sum([a.shape[axis] for a in self._mod.values()])
@@ -920,7 +928,7 @@ class MuData:
         return self.obs.index
 
     @obs_names.setter
-    def obs_names(self, names: Sequence[str]):
+    def obs_names(self, names: Sequence[str]) -> None:
         self._set_names("obs", 0, names)
 
     @property
@@ -966,12 +974,12 @@ class MuData:
         """
         return self._attr_vector(key, "var")
 
-    def update_var(self):
+    def update_var(self) -> None:
         """Update :attr:`var` indices of the object with the data from all the modalities."""
         join_common = self.axis == 0
         self._update_attr("var", axis=1, join_common=join_common)
 
-    def var_names_make_unique(self):
+    def var_names_make_unique(self) -> None:
         """
         Call :meth:`AnnData.var_names_make_unique <anndata.AnnData.var_names_make_unique>` on each modality.
 
@@ -985,13 +993,13 @@ class MuData:
         return self.var.index
 
     @var_names.setter
-    def var_names(self, names: Sequence[str]):
+    def var_names(self, names: Sequence[str]) -> None:
         self._set_names("var", 1, names)
 
     # Multi-dimensional annotations (.obsm and .varm)
 
     @property
-    def obsm(self) -> MutableMapping[str]:
+    def obsm(self) -> MutableMapping[str, _AlignedAny]:
         """Multi-dimensional annotation of observations.
 
         Stores for each key a two- or higher-dimensional :class:`~numpy.ndarray` or :class:`~pandas.DataFrame` of length :attr:`n_obs`.
@@ -1000,18 +1008,18 @@ class MuData:
         return self._obsm
 
     @obsm.setter
-    def obsm(self, value: Mapping[str]):
-        obsm = AxisArrays(self, axis=0, store=convert_to_dict(value))
+    def obsm(self, value: Mapping[str, _AlignedAny]) -> None:
+        obsm = AxisArrays(self, axis=0, store=convert_to_dict(value))  # type: ignore[arg-type]
         if self.is_view:
             self._init_as_actual(self.copy())
         self._obsm = obsm
 
     @obsm.deleter
-    def obsm(self):
+    def obsm(self) -> None:
         self.obsm = {}
 
     @property
-    def obsp(self) -> MutableMapping[str]:
+    def obsp(self) -> MutableMapping[str, AlignedArray]:
         """Pairwise annotatation of observations.
 
         Stores for each key a two- or higher-dimensional :class:`~numpy.ndarray` whose first two dimensions are of liength `n_obs`.
@@ -1020,28 +1028,28 @@ class MuData:
         return self._obsp
 
     @obsp.setter
-    def obsp(self, value: Mapping[str]):
-        obsp = PairwiseArrays(self, axis=0, store=convert_to_dict(value))
+    def obsp(self, value: Mapping[str, AlignedArray]) -> None:
+        obsp = PairwiseArrays(self, axis=0, store=convert_to_dict(value))  # type: ignore[arg-type]
         if self.is_view:
             self._init_as_actual(self.copy())
         self._obsp = obsp
 
     @obsp.deleter
-    def obsp(self):
+    def obsp(self) -> None:
         self.obsp = {}
 
     @property
-    def obsmap(self) -> Mapping[str]:
+    def obsmap(self) -> Mapping[str, np.ndarray]:
         """Mapping of observation indices in the object to indices in individual modalities.
 
         Contains an entry for each modality. Each entry is an :class:`~numpy.ndarray` with shape `(n_obs, 1)`. Each element
         in the array contains the numerical index of the observation in the respective modality corresponding to the :class:`MuData`
         observation in that position. The index is 1-based, 0 indicates that the observation is missing in the modality.
         """
-        return self._obsmap
+        return cast(Mapping[str, np.ndarray], self._obsmap)
 
     @property
-    def varm(self) -> MutableMapping[str]:
+    def varm(self) -> MutableMapping[str, _AlignedAny]:
         """Multi-dimensional annotation of variables.
 
         Stores for each key a two- or higher-dimensional :class:`~numpy.ndarray` or :class:`~pandas.DataFrame` of length :attr:`n_vars`.
@@ -1050,18 +1058,18 @@ class MuData:
         return self._varm
 
     @varm.setter
-    def varm(self, value: Mapping[str]):
-        varm = AxisArrays(self, axis=1, store=convert_to_dict(value))
+    def varm(self, value: Mapping[str, _AlignedAny]) -> None:
+        varm = AxisArrays(self, axis=1, store=convert_to_dict(value))  # type: ignore[arg-type]
         if self.is_view:
             self._init_as_actual(self.copy())
         self._varm = varm
 
     @varm.deleter
-    def varm(self):
+    def varm(self) -> None:
         self.varm = {}
 
     @property
-    def varp(self) -> MutableMapping[str]:
+    def varp(self) -> MutableMapping[str, AlignedArray]:
         """Pairwise annotatation of variables.
 
         Stores for each key a two- or higher-dimensional :class:`~numpy.ndarray` whose first two dimensions are of liength `n_obs`.
@@ -1070,25 +1078,25 @@ class MuData:
         return self._varp
 
     @varp.setter
-    def varp(self, value: Mapping[str]):
-        varp = PairwiseArrays(self, axis=0, store=convert_to_dict(value))
+    def varp(self, value: Mapping[str, AlignedArray]) -> None:
+        varp = PairwiseArrays(self, axis=0, store=convert_to_dict(value))  # type: ignore[arg-type]
         if self.is_view:
             self._init_as_actual(self.copy())
         self._varp = varp
 
     @varp.deleter
-    def varp(self):
+    def varp(self) -> None:
         self.varp = {}
 
     @property
-    def varmap(self) -> Mapping[str]:
+    def varmap(self) -> Mapping[str, np.ndarray]:
         """Mapping of feature indices in the object to indices in individual modalities.
 
         Contains an entry for each modality. Each entry is an :class:`~numpy.ndarray` with shape `(n_obs, 1)`. Each element
         in the array contains the numerical index of the feature in the respective modality corresponding to the :class:`MuData`
         feature in that position. The index is 1-based, 0 indicates that the feature is missing in the modality.
         """
-        return self._varmap
+        return cast(Mapping[str, np.ndarray], self._varmap)
 
     # Unstructured annotations
 
@@ -1097,11 +1105,11 @@ class MuData:
         """Unstructured annotation (ordered dictionary)."""
         uns = self._uns
         if self.is_view:
-            uns = DictView(uns, view_args=(self, "_uns"))
+            uns = DictView(uns, view_args=(self, "_uns"))  # type: ignore[arg-type]
         return uns
 
     @uns.setter
-    def uns(self, value: MutableMapping):
+    def uns(self, value: MutableMapping) -> None:
         if not isinstance(value, MutableMapping):
             raise ValueError("Only mutable mapping types (e.g. dict) are allowed for `.uns`.")
         if isinstance(value, DictView):
@@ -1111,7 +1119,7 @@ class MuData:
         self._uns = value
 
     @uns.deleter
-    def uns(self):
+    def uns(self) -> None:
         self.uns = {}
 
     # _keys methods to increase compatibility
@@ -1142,7 +1150,7 @@ class MuData:
         """List keys of unstructured annotation."""
         return list(self._uns.keys())
 
-    def update(self):
+    def update(self) -> None:
         """Update both :attr:`obs` and :attr:`var` indices of the object with the data from all the modalities."""
         if len(self._mod) > 0:
             self.update_var()
@@ -1177,7 +1185,7 @@ class MuData:
         prefix_unique: bool = True,
         drop: bool = False,
         only_drop: bool = False,
-    ):
+    ) -> None:
         """
         Copy the data from the modalities to the global .obs/.var, existing columns to be overwritten.
 
@@ -1244,7 +1252,7 @@ class MuData:
         cols: dict[str, list[MetadataColumn]] = {}
 
         # get all columns from all modalities and count how many times each column is present
-        derived_name_counts = Counter()
+        derived_name_counts: Counter[str] = Counter()
         for prefix, mod in self._mod.items():
             modcols = getattr(mod, attr).columns
             ccols = []
@@ -1383,7 +1391,7 @@ class MuData:
         prefix_unique: bool = True,
         drop: bool = False,
         only_drop: bool = False,
-    ):
+    ) -> None:
         """
         Copy data from the :attr:`~anndata.AnnData.obs` of the modalities to the global :attr:`obs`
 
@@ -1429,7 +1437,7 @@ class MuData:
             If True, drop the columns but do not actually pull them.
             Forces drop=True.
         """
-        return self._pull_attr(
+        self._pull_attr(
             "obs",
             columns=columns,
             mods=mods,
@@ -1455,7 +1463,7 @@ class MuData:
         prefix_unique: bool = True,
         drop: bool = False,
         only_drop: bool = False,
-    ):
+    ) -> None:
         """
         Copy data from the :attr:`~anndata.AnnData.var` of the modalities to the global :attr:`var`
 
@@ -1501,7 +1509,7 @@ class MuData:
             If True, drop the columns but do not actually pull them.
             Forces drop=True.
         """
-        return self._pull_attr(
+        self._pull_attr(
             "var",
             columns=columns,
             mods=mods,
@@ -1524,7 +1532,7 @@ class MuData:
         prefixed: bool | None = None,
         drop: bool = False,
         only_drop: bool = False,
-    ):
+    ) -> None:
         """
         Copy the data from the global .obs/.var to the modalities, existing columns to be overwritten.
 
@@ -1648,7 +1656,7 @@ class MuData:
         prefixed: bool | None = None,
         drop: bool = False,
         only_drop: bool = False,
-    ):
+    ) -> None:
         """
         Copy the data from :attr:`obs` to the :attr:`~anndata.AnnData.obs` of the modalities.
 
@@ -1677,7 +1685,7 @@ class MuData:
             If True, drop the columns but do not actually pull them.
             Forces drop=True. False by default.
         """
-        return self._push_attr(
+        self._push_attr(
             "obs", columns=columns, mods=mods, common=common, prefixed=prefixed, drop=drop, only_drop=only_drop
         )
 
@@ -1689,7 +1697,7 @@ class MuData:
         prefixed: bool | None = None,
         drop: bool = False,
         only_drop: bool = False,
-    ):
+    ) -> None:
         """
         Copy the data from :attr:`var` to the :attr:`~anndata.AnnData.var` of the modalities.
 
@@ -1718,11 +1726,11 @@ class MuData:
             If True, drop the columns but do not actually pull them.
             Forces drop=True. False by default.
         """
-        return self._push_attr(
+        self._push_attr(
             "var", columns=columns, mods=mods, common=common, prefixed=prefixed, drop=drop, only_drop=only_drop
         )
 
-    def write_h5mu(self, filename: str | PathLike | None = None, **kwargs):
+    def write_h5mu(self, filename: str | PathLike | None = None, **kwargs) -> None:
         """Write the object to an HDF5 file.
 
         Parameters
@@ -1749,7 +1757,7 @@ class MuData:
 
     write = write_h5mu
 
-    def write_zarr(self, store: MutableMapping | str | PathLike | zarr.abc.store.Store, **kwargs):
+    def write_zarr(self, store: MutableMapping | str | PathLike | ZarrStore, **kwargs) -> None:
         """Write the object to a Zarr store.
 
         Parameters
@@ -1834,7 +1842,7 @@ class MuData:
     def __repr__(self) -> str:
         return self._gen_repr(self.n_obs, self.n_vars, extensive=True)
 
-    def _repr_html_(self, expand=None) -> str:
+    def _repr_html_(self, expand=None) -> str | None:
         """
         HTML formatter for MuData objects for rich display in notebooks.
 
