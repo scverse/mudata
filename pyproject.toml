@@ -156,10 +156,7 @@ follow_untyped_imports = true
 
 # Dependencies that ship no type information (absent or `Incomplete` annotations).
 [[tool.mypy.overrides]]
-module = [
-  "pandas.*",
-  "scipy.*",
-]
+module = [ "fsspec.*", "pandas.*", "scipy.*" ]
 ignore_missing_imports = true
 
 [tool.pytest]

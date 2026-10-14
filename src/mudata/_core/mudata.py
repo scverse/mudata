@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import warnings
-from collections import Counter, abc
+from collections import Counter
 from collections.abc import ItemsView, Iterable, Iterator, Mapping, MutableMapping, Sequence, ValuesView
 from contextlib import suppress
 from copy import copy, deepcopy
@@ -209,7 +209,7 @@ class MuData:
             return
 
         self._mod = ModDict()
-        if isinstance(data, abc.Mapping):
+        if isinstance(data, Mapping):
             self._mod.update(data)
         elif isinstance(data, AnnData):
             if "feature_types" in data.var.columns:

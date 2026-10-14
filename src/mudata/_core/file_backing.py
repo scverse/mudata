@@ -4,11 +4,11 @@ from typing import Literal
 
 import anndata as ad
 import h5py
-from anndata._core.file_backing import AnnDataFileManager
+from anndata._core.file_backing import AnnDataFileManager as _AnnDataFileManager
 
 
-class MuDataFileManager(AnnDataFileManager):
-    def __init__(self, filename: PathLike | None = None, filemode: Literal["r", "r+"] | None = None):
+class MuDataFileManager(_AnnDataFileManager):
+    def __init__(self, filename: str | PathLike | None = None, filemode: Literal["r", "r+"] | None = None):
         self._counter = 0
         self._children = set()
         if filename is not None:
@@ -59,12 +59,12 @@ class MuDataFileManager(AnnDataFileManager):
     def is_open(self) -> bool:
         return (self._file is not None) and bool(self._file.id)
 
-    @AnnDataFileManager.filename.setter
+    @_AnnDataFileManager.filename.setter
     def filename(self, filename: PathLike | None):
         self._filename = filename
 
 
-class AnnDataFileManager(ad._core.file_backing.AnnDataFileManager):
+class AnnDataFileManager(_AnnDataFileManager):
     _h5files = {}
 
     def __init__(self, adata: ad.AnnData, mod: str, parent: MuDataFileManager):
