@@ -17,7 +17,7 @@ def _make_index_unique(df: pd.DataFrame, force: bool = False) -> pd.DataFrame:
 
     dup_idx = np.zeros((df.shape[0],), dtype=np.uint8)
     duplicates = np.nonzero(df.index.duplicated())[0]
-    cnt = Counter()
+    cnt: Counter[int | str] = Counter()
     for dup in duplicates:
         idxval = df.index[dup]
         newval = cnt[idxval] + 1
@@ -41,9 +41,9 @@ class MetadataColumn:
     def __init__(
         self,
         *,
+        name: str,
         allowed_prefixes: Collection[str],
         prefix: str | None = None,
-        name: str | None = None,
         count: int = 0,
         strip_prefix: bool = True,
     ):
@@ -145,4 +145,4 @@ def try_convert_dataframe_to_numpy_dtypes(df: pd.DataFrame | Mapping[str, pd.Ser
     new_cols = {}
     for colname, col in df.items():
         new_cols[colname] = try_convert_series_to_numpy_dtype(col)
-    return pd.DataFrame(new_cols, index=df.index)
+    return pd.DataFrame(new_cols, index=df.index if isinstance(df, pd.DataFrame) else None)
