@@ -1,6 +1,6 @@
 from collections.abc import Callable, Collection, Mapping
 from functools import reduce
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -8,6 +8,8 @@ from anndata import AnnData
 from anndata import concat as ad_concat
 from anndata._core.merge import (
     StrategiesLiteral,
+    _resolve_axis,
+    axis_indices,
     check_combinable_cols,
     concat_pairwise_mapping,
     gen_reindexer,
@@ -21,18 +23,11 @@ from anndata._core.merge import (
     union_keys,
 )
 
-try:
-    from anndata._core.merge import _resolve_axis, axis_indices
-except ImportError:
-    # anndata < 0.10.9
-    from anndata._core.merge import _resolve_dim as _resolve_axis
-    from anndata._core.merge import dim_indices as axis_indices
-
 from .mudata import MuData
 
 
 def concat(
-    mdatas: Collection[AnnData] | Mapping[str, AnnData],
+    mdatas: Collection[MuData] | Mapping[str, MuData],
     *,
     join: Literal["inner", "outer"] = "inner",
     merge: StrategiesLiteral | Callable | None = None,
@@ -138,22 +133,27 @@ def concat(
     if keys is None:
         keys = np.arange(len(mdatas)).astype(str)
 
-    assert all(isinstance(m, MuData) for m in mdatas), "For concatenation to work, all objects should be of type MuData"
-    assert len(mdatas) > 1, "mdatas collection should have more than one MuData object"
+    if any(not isinstance(m, MuData) for m in mdatas):
+        raise ValueError("For concatenation to work, all objects should be of type MuData")
+    if len(mdatas) <= 1:
+        raise ValueError("mdatas collection should have more than one MuData object")
     if len({m.axis for m in mdatas}) != 1:
-        "All MuData objects in mdatas should have the same axis."
+        raise ValueError("All MuData objects in mdatas should have the same axis.")
 
     axis = mdatas[0].axis
+    if axis == -1:
+        raise ValueError("MuData objects with axis=-1 cannot be concatenated.")
 
     # Modalities intersection
     common_mods = reduce(np.intersect1d, [np.array(list(m.mod.keys())).astype("object") for m in mdatas])
-    assert len(common_mods) > 0, "There should be at least one common modality across all mdatas"
+    if len(common_mods) == 0:
+        raise ValueError("There should be at least one common modality across all mdatas")
 
     # Concatenate all the modalities
     modalities: dict[str, AnnData] = {}
     for m in common_mods:
         modalities[m] = ad_concat(
-            [mdata[m] for mdata in mdatas],
+            [cast(AnnData, mdata[m]) for mdata in mdatas],
             axis=axis,
             join=join,
             merge=merge,
@@ -167,7 +167,7 @@ def concat(
 
     # Then concatenate multimodal annotations
     axis, dim = _resolve_axis(axis=axis)
-    alt_axis, alt_dim = _resolve_axis(axis=1 - axis)
+    alt_axis, alt_dim = _resolve_axis(axis=cast(Literal[0, 1], (1 - axis)))
 
     # Label column
     label_col = pd.Categorical.from_codes(
@@ -175,13 +175,13 @@ def concat(
     )
 
     # Combining indexes
-    concat_indices = pd.concat([pd.Series(axis_indices(m, axis=axis)) for m in mdatas], ignore_index=True)
+    concat_indices = pd.concat([pd.Series(axis_indices(m, axis=axis)) for m in mdatas], ignore_index=True)  # type: ignore[arg-type]
     if index_unique is not None:
         concat_indices = concat_indices.str.cat(label_col.map(str), sep=index_unique)
     concat_indices = pd.Index(concat_indices)
 
-    alt_indices = merge_indices([axis_indices(m, axis=alt_axis) for m in mdatas], join=join)
-    reindexers = [gen_reindexer(alt_indices, axis_indices(m, axis=alt_axis)) for m in mdatas]
+    alt_indices = merge_indices([axis_indices(m, axis=alt_axis) for m in mdatas], join=join)  # type: ignore[arg-type]
+    reindexers = [gen_reindexer(alt_indices, axis_indices(m, axis=alt_axis)) for m in mdatas]  # type: ignore[arg-type]
 
     # Annotation for concatenation axis
     check_combinable_cols([getattr(m, dim).columns for m in mdatas], join=join)
