@@ -1,16 +1,23 @@
 #
 # Utility functions for MuData._repr_html_()
 #
+from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from numbers import Complex, Integral, Number, Real
+from typing import TYPE_CHECKING, Any
 from warnings import warn
 
 import numpy as np
 import pandas as pd
 
+if TYPE_CHECKING:
+    from anndata import AnnData
 
-def maybe_module_class(obj, sep=".", builtins=False) -> tuple[str, str]:
+    from .mudata import MuData
+
+
+def maybe_module_class(obj: Any, sep: str = ".", builtins: bool = False) -> tuple[str, str]:
     m, cl = "", obj.__class__.__name__
     try:
         m += obj.__class__.__module__
@@ -23,7 +30,7 @@ def maybe_module_class(obj, sep=".", builtins=False) -> tuple[str, str]:
     return (m, cl)
 
 
-def format_values(x):
+def format_values(x: Any) -> str:
     s = ""
     if not isinstance(x, Iterable):
         s += f"{x}"
@@ -39,10 +46,10 @@ def format_values(x):
     elif isinstance(x, str):
         s += x
     else:
-        if not len(x):
+        if not isinstance(x, Sequence) or not len(x):
             return s
         x = x[: min(100, len(x))]
-        testval = None
+        testval: str | float | None = None
         if hasattr(x, "shape"):
             if isinstance(x, np.ndarray):
                 x = x.reshape(-1)
@@ -50,10 +57,10 @@ def format_values(x):
                 x = x.to_numpy()
             else:
                 warn(f"got unknown array type {type(x)}, don't know how handle it.", stacklevel=1)
-                return type(x)
+                return repr(type(x))
             if x.dtype == object:
                 try:
-                    testval = next(filter(lambda y: ~np.isnan(y) if isinstance(y, Number) else x is not None, x))
+                    testval = next(filter(lambda y: not np.isnan(y) if isinstance(y, Number) else y is not None, x))  # type: ignore[arg-type, call-overload] # https://github.com/python/mypy/issues/12996
                 except StopIteration:
                     pass
         if testval is None:
@@ -72,7 +79,7 @@ def format_values(x):
     return s
 
 
-def block_matrix(data, attr, name):
+def block_matrix(data: AnnData, attr: str, name: str) -> str:
     obj = getattr(data, attr)
     s = ""
     s += f"<div class='title title-attr'>{name}</div><span class='hl-dim'>.{attr}</span>"
@@ -84,7 +91,9 @@ def block_matrix(data, attr, name):
     return s
 
 
-def details_block_table(data, attr, name, expand=0, dims=True, square=False):
+def details_block_table(
+    data: MuData | AnnData, attr: str, name: str, expand: int = 0, dims: bool = True, square: bool = False
+) -> str:
     obj = getattr(data, attr)
     s = ""
     # DataFrame
