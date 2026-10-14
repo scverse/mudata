@@ -10,9 +10,9 @@ import mudata as md
 @pytest.mark.parametrize("mdata", (0, 1), indirect=True)
 @pytest.mark.parametrize("pull_on_update", (False, True))
 def test_obs_global_columns(mdata: md.MuData, pull_on_update: bool, filepath_h5mu: str | Path):
-    mdata.obs.drop(columns=mdata.obs.columns, inplace=True)
+    mdata.obs = mdata.obs.drop(columns=mdata.obs.columns)
     for m, mod in mdata.mod.items():
-        mod.obs.drop(columns=mod.obs.columns, inplace=True)
+        mod.obs = mod.obs.drop(columns=mod.obs.columns)
         mod.obs["demo"] = m
     mdata.obs["demo"] = "global"
     if pull_on_update:
@@ -56,9 +56,9 @@ def test_obsmap_writeable(mdata: md.MuData):
 @pytest.mark.parametrize("mdata", (0, 1), indirect=True)
 @pytest.mark.parametrize("pull_on_update", (False, True))
 def test_var_global_columns(mdata: md.MuData, pull_on_update, filepath_h5mu: str | Path):
-    mdata.var.drop(columns=mdata.var.columns, inplace=True)
+    mdata.var = mdata.var.drop(columns=mdata.var.columns)
     for m, mod in mdata.mod.items():
-        mod.var.drop(columns=mod.var.columns, inplace=True)
+        mod.var = mod.var.drop(columns=mod.var.columns)
         mod.var["demo"] = m
     mdata.var["global"] = "global_var"
     if pull_on_update:
