@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from contextlib import suppress
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -19,7 +19,7 @@ def _make_index_unique(df: pd.DataFrame, force: bool = False) -> pd.DataFrame:
     duplicates = np.nonzero(df.index.duplicated())[0]
     cnt: Counter[int | str] = Counter()
     for dup in duplicates:
-        idxval = df.index[dup]
+        idxval = df.index[cast(int, dup)]
         newval = cnt[idxval] + 1
         try:
             dup_idx[dup] = newval
@@ -98,9 +98,7 @@ def _update_and_concat(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
             common_cats = pd.api.types.union_categoricals([df[col], df2[col]]).categories
             df[col] = df[col].cat.set_categories(common_cats)
             df2[col] = df2[col].cat.set_categories(common_cats)
-            df.update({col: df2[col]})
-        else:
-            df.update({col: df2[col]})
+        df.update(pd.DataFrame({col: df2[col]}))
     new_cols = df2.columns.difference(df1.columns)
     res = pd.concat([df, df2[new_cols]], axis=1, sort=False, verify_integrity=True)
     return res
@@ -122,7 +120,7 @@ def try_convert_series_to_numpy_dtype(col: pd.Series) -> pd.Series:
         match col.dtype:
             case pd.BooleanDtype():
                 col = col.astype(bool)
-            case pd.core.arrays.integer.IntegerDtype(type=dtype) | pd.core.arrays.floating.FloatingDtype(type=dtype):
+            case pd.core.arrays.integer.IntegerDtype(type=dtype) | pd.core.arrays.floating.FloatingDtype(type=dtype):  # type: ignore[attr-defined]
                 col = col.astype(dtype)
             case pd.StringDtype() if pd.__version__ < "3":
                 col = col.astype(object)

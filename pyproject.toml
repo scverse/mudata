@@ -45,7 +45,7 @@ urls.Homepage = "https://muon.scverse.org"
 urls.Source = "https://github.com/scverse/mudata"
 
 [dependency-groups]
-dev = [ "mudata[io]", "mypy", "prek", "scipy-stubs", "twine>=4.0.2" ]
+dev = [ "mudata[io]", "mypy", "pandas-stubs", "prek", "scipy-stubs", "twine>=4.0.2" ]
 test = [
   "coverage>=7.10",
   "fast-array-utils>=1.2.3", # for anndata.tests.helpers
@@ -151,7 +151,7 @@ follow_untyped_imports = true
 
 # Dependencies that ship no type information (absent or `Incomplete` annotations).
 [[tool.mypy.overrides]]
-module = [ "fsspec.*", "pandas.*" ]
+module = [ "fsspec.*" ]
 ignore_missing_imports = true
 
 [tool.pytest]

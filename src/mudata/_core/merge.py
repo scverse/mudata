@@ -171,11 +171,11 @@ def concat(
 
     # Label column
     label_col = pd.Categorical.from_codes(
-        np.repeat(np.arange(len(mdatas)), [m.shape[axis] for m in mdatas]), categories=keys
+        np.repeat(np.arange(len(mdatas)), [m.shape[axis] for m in mdatas]), categories=pd.Index(keys)
     )
 
     # Combining indexes
-    concat_indices = pd.concat([pd.Series(axis_indices(m, axis=axis)) for m in mdatas], ignore_index=True)  # type: ignore[arg-type]
+    concat_indices = pd.concat([pd.Series(axis_indices(m, axis=axis)) for m in mdatas], axis=0, ignore_index=True)  # type: ignore[arg-type, call-overload]
     if index_unique is not None:
         concat_indices = concat_indices.str.cat(label_col.map(str), sep=index_unique)
     concat_indices = pd.Index(concat_indices)

@@ -259,7 +259,7 @@ class MuData:
         self.layers = None
         self.file = MuDataFileManager()
 
-    def _init_as_view(self, mudata_ref: MuData, index: Index | tuple[Index, Index]) -> None:
+    def _init_as_view(self, mudata_ref: MuData, index: Index) -> None:
         obsidx, varidx = _normalize_indices(index, mudata_ref.obs.index, mudata_ref.var.index)
 
         # to handle single-element subsets, otherwise when subsetting a Dataframe
@@ -282,10 +282,10 @@ class MuData:
                     cvaridx = slice(None)
             self._mod[m] = a[cobsidx, cvaridx]
 
-        self._obs = DataFrameView(mudata_ref.obs.iloc[obsidx, :], view_args=(self, "obs"))  # type: ignore[arg-type]
+        self._obs = DataFrameView(mudata_ref.obs.iloc[obsidx, :], view_args=(self, "obs"))  # type: ignore[arg-type, index]
         self._obsm = mudata_ref.obsm._view(self, (obsidx,))  # type: ignore[attr-defined]
         self._obsp = mudata_ref.obsp._view(self, (obsidx, obsidx))  # type: ignore[attr-defined]
-        self._var = DataFrameView(mudata_ref.var.iloc[varidx, :], view_args=(self, "var"))  # type: ignore[arg-type]
+        self._var = DataFrameView(mudata_ref.var.iloc[varidx, :], view_args=(self, "var"))  # type: ignore[arg-type, index]
         self._varm = mudata_ref.varm._view(self, (varidx,))  # type: ignore[attr-defined]
         self._varp = mudata_ref.varp._view(self, (varidx, varidx))  # type: ignore[attr-defined]
 
@@ -656,7 +656,9 @@ class MuData:
                         f"{attr}_names is not unique, global {attr} is present, and {attr}map is empty. The update() is not well-defined, verify if global {attr} map to the correct modality-specific {attr}.",
                         stacklevel=2,
                     )
-                    data_mod = data_mod.reset_index(data_mod.index.names.difference(data_global.index.names))
+                    data_mod = data_mod.reset_index(
+                        pd.Index(data_mod.index.names).difference(data_global.index.names).to_list()
+                    )
                 # after inserting a new modality with duplicates, but no duplicates before:
                 # data_mod.index is not unique
                 # after deleting a modality with duplicates: data_global.index is not unique, but
@@ -896,7 +898,7 @@ class MuData:
         """
         self._names_make_unique("obs")
 
-    def _set_names(self, attr: Literal["obs", "var"], axis: int, names: Sequence[str]) -> None:
+    def _set_names(self, attr: Literal["obs", "var"], axis: int, names: Sequence[str] | pd.Index[str]) -> None:
         if isinstance(names, pd.Index):
             if not isinstance(names.name, str | type(None)):
                 raise ValueError(
@@ -940,7 +942,7 @@ class MuData:
         return self.obs.index
 
     @obs_names.setter
-    def obs_names(self, names: Sequence[str]) -> None:
+    def obs_names(self, names: pd.Index | Sequence[str]) -> None:
         self._set_names("obs", 0, names)
 
     @property
@@ -1005,7 +1007,7 @@ class MuData:
         return self.var.index
 
     @var_names.setter
-    def var_names(self, names: Sequence[str]) -> None:
+    def var_names(self, names: pd.Index | Sequence[str]) -> None:
         self._set_names("var", 1, names)
 
     # Multi-dimensional annotations (.obsm and .varm)

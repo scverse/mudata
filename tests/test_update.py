@@ -54,7 +54,7 @@ def modalities(
         mods[m] = AnnData(X=rng.normal(size=3000 * i1).reshape(-1, 10 * i1))
         mods[m].obs["mod"] = m
         mods[m].var["mod"] = m
-        mods[m].obs["min_count"] = mods[m].X.min(axis=1)  # type: ignore[union-attr]
+        mods[m].obs["min_count"] = mods[m].X.min(axis=1)  # type: ignore[union-attr, assignment]
 
     if n:
         if n == "disjoint":
@@ -73,17 +73,17 @@ def modalities(
         varnames3 = mods["mod3"].var_names.to_numpy(copy=True)
         obsnames2[0] = obsnames2[1] = obsnames3[1] = "testobs"
         varnames2[0] = varnames2[1] = varnames3[1] = "testvar"
-        mods["mod2"].obs_names = obsnames2
-        mods["mod3"].obs_names = obsnames3
-        mods["mod2"].var_names = varnames2
-        mods["mod3"].var_names = varnames3
+        mods["mod2"].obs_names = obsnames2  # type: ignore[assignment]
+        mods["mod3"].obs_names = obsnames3  # type: ignore[assignment]
+        mods["mod2"].var_names = varnames2  # type: ignore[assignment]
+        mods["mod3"].var_names = varnames3  # type: ignore[assignment]
     elif mod == "extreme_duplicated":  # integer overflow: https://github.com/scverse/mudata/issues/107
         obsnames2 = mods["mod2"].obs_names.to_numpy(copy=True)
         varnames2 = mods["mod2"].var_names.to_numpy(copy=True)
         obsnames2[:-1] = obsnames2[0] = "testobs"
         varnames2[:-1] = varnames2[0] = "testvar"
-        mods["mod2"].obs_names = obsnames2
-        mods["mod2"].var_names = varnames2
+        mods["mod2"].obs_names = obsnames2  # type: ignore[assignment]
+        mods["mod2"].var_names = varnames2  # type: ignore[assignment]
 
     return mods
 
@@ -133,7 +133,9 @@ def mdata(rng: np.random.Generator, modalities: Mapping[str, AnnData], axis: Axi
     return add_mdata_global_columns(md, rng)
 
 
-def get_attrm_values(mdata: MuData, attr: str, key: str, names: Sequence[str]):
+def get_attrm_values(
+    mdata: MuData, attr: str, key: str, names: Sequence[str] | pd.Index[str] | np.ndarray[tuple[int], np.dtype[np.str_]]
+):
     attrm = getattr(mdata, f"{attr}m")
     index = getattr(mdata, f"{attr}_names")
     return np.concatenate([np.atleast_1d(attrm[key][np.nonzero(index == name)[0]]) for name in names])
