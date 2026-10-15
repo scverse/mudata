@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal, cast
 
 import pytest
 import zarr
@@ -19,7 +20,8 @@ def archive_dir(request: pytest.FixtureRequest):
 @pytest.mark.filterwarnings("ignore::anndata.OldFormatWarning")
 def test_backwards_compat_files(subtests: pytest.Subtests, tmp_path: Path, archive_dir: Path):
     for fname in archive_dir.glob("*.h5mu"):
-        axis = int(fname.stem[-1])
+        axis = cast(Literal[0, 1], int(fname.stem[-1]))
+        assert axis in (0, 1)
         reference = generate_reference(axis)
         if Version(archive_dir.stem) < Version("0.4"):
             reference.pull_obs(unique=False, nonunique=False)
