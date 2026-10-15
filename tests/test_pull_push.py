@@ -66,7 +66,7 @@ def mdata(
         mods[m].obs[f"assert-boolean-{m}"] = False
         mods[m].var["assert-bool"] = True
         mods[m].var[f"assert-boolean-{m}"] = False
-        mods[m].obs["min_count"] = mods[m].X.min(axis=1)
+        mods[m].obs["min_count"] = mods[m].X.min(axis=1)  # type: ignore[union-attr]
 
         if unique:
             setattr(mods[m], f"{attr}_names", [f"{m}_{attr}{j}" for j in range(mods[m].shape[axis])])

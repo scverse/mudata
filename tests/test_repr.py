@@ -20,7 +20,7 @@ def test_repr(mdata: md.MuData):
 
     assert rep[2].strip() == f"{mdata.n_mod} modalities"
 
-    indentation = 1e6
+    indentation = int(1e6)
     for line in rep[3:]:
         for i, char in enumerate(line):
             if not char.isspace():
