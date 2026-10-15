@@ -186,7 +186,7 @@ class MuData:
     @legacy_api("feature_types_names", "as_view", "index")
     def __init__(
         self,
-        data: AnnData | Mapping[str, AnnData] | MuData | None = None,
+        data: AnnData | Mapping[str, AnnData | MuData] | MuData | None = None,
         *,
         feature_types_names: Mapping[str, str] | None = MappingProxyType(
             {"Gene Expression": "rna", "Peaks": "atac", "Antibody Capture": "prot"}
