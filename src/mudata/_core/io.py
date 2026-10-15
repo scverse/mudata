@@ -53,6 +53,8 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
 
     mod = file.require_group("mod")
     for k, adata in mdata.mod.items():
+        if not isinstance(adata, AnnData):
+            raise ValueError("Only AnnData modalities can be written to disk.")
         group = mod.require_group(k)
 
         adata.strings_to_categoricals()
@@ -154,6 +156,8 @@ def write_zarr(
 
         mod = file.require_group("mod")
         for k, adata in data.mod.items():
+            if not isinstance(adata, AnnData):
+                raise ValueError("Only AnnData modalities can be written to disk.")
             group = mod.require_group(k)
 
             adata.strings_to_categoricals()
