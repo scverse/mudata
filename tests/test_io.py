@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import contextlib
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import anndata as ad
 import fsspec
@@ -11,6 +14,9 @@ from anndata.tests.helpers import assert_equal
 from scipy.sparse import issparse
 
 import mudata as md
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @pytest.fixture
@@ -33,8 +39,8 @@ def test_write_read_basic(
     mdata: md.MuData,
     write_func: str,
     read_func: str,
-    open_func: str,
-    filepath: str | Path,
+    open_func: Callable[..., h5py.File | zarr.Group],
+    filepath: str,
     request: pytest.FixtureRequest,
 ):
     filepath = request.getfixturevalue(filepath)
@@ -46,7 +52,7 @@ def test_write_read_basic(
     # Test implementation (storage) as well
     f = open_func(filepath, mode="r")
     assert "mod-order" in f["mod"].attrs
-    assert list(f["mod"].attrs["mod-order"]) == ["mod2", "mod1"]
+    assert list(f["mod"].attrs["mod-order"]) == ["mod2", "mod1"]  # type: ignore[arg-type]
 
 
 def test_set_filename(mdata: md.MuData, filepath_h5mu: str | Path):
@@ -69,7 +75,7 @@ def test_write_read_zarr_adata(mdata: md.MuData, filepath_zarr: str | Path):
     (("write", "read_h5mu", "filepath_h5mu"), ("write_zarr", "read_zarr", "filepath_zarr")),
 )
 def test_write_read_mod_obs_colname(
-    mdata: md.MuData, write_func: str, read_func: str, filepath: str | Path, request: pytest.FixtureRequest
+    mdata: md.MuData, write_func: str, read_func: str, filepath: str, request: pytest.FixtureRequest
 ):
     filepath = request.getfixturevalue(filepath)
 
@@ -88,7 +94,7 @@ def test_h5mu_backed(mdata: md.MuData, filepath_h5mu: str | Path, filepath2_h5mu
 
     # When backed, the matrix is read-only
     with pytest.raises(OSError):
-        mdata_.mod["mod1"].X[10, 5] = 0
+        mdata_.mod["mod1"].X[10, 5] = 0  # type: ignore[index]
 
     mdata_.filename = filepath2_h5mu
     assert mdata_.isbacked
@@ -123,7 +129,7 @@ def test_write_read_h5ad(mdata: md.MuData, filepath_h5mu: str | Path):
     assert_equal(adata, adata_backed, exact=True)
 
 
-def test_write_read(mdata: md.MuData, tmp_path: Path, filepath_h5mu: str | Path, filepath_h5ad: str | Path):
+def test_write_read(mdata: md.MuData, tmp_path: Path, filepath_h5mu: Path, filepath_h5ad: Path):
     with pytest.raises(ValueError, match="only save MuData"):
         md.write(str(filepath_h5mu) + ".h5ad", mdata)
     with pytest.raises(ValueError, match="MuData object can be saved"):
@@ -155,7 +161,7 @@ def test_write_read(mdata: md.MuData, tmp_path: Path, filepath_h5mu: str | Path,
         md.read(filepath_h5mu / "foo" / "bar")
 
     with pytest.raises(ValueError, match="objects are accepted"):
-        md.write(tmp_path / "foo", "bar")
+        md.write(tmp_path / "foo", "bar")  # type: ignore[arg-type]
 
     md.write(filepath_h5ad, adata)
     adata_ = md.read(filepath_h5ad)
