@@ -12,7 +12,7 @@ from numbers import Integral
 from random import choices
 from string import ascii_letters, digits
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Literal, Self, cast
+from typing import TYPE_CHECKING, Any, Literal, Self, cast, overload
 
 import numpy as np
 import pandas as pd
@@ -42,9 +42,11 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from anndata._core.aligned_mapping import _AlignedAny
-    from anndata.acc import Array
-    from anndata.typing import AlignedArray
+    from anndata.acc import AdRef, Array, DataFrameLike, GraphAcc, LayerAcc, MapAcc, MetaAcc, MultiAcc, RefAcc
+    from anndata.typing import AlignedArray, Index
     from zarr.abc.store import Store as ZarrStore
+
+    from ..acc import ModAcc, MultiModAcc
 
 
 class ModalityMapItemsView(ItemsView):
@@ -446,8 +448,18 @@ class MuData:
     # To increase compatibility with scanpy methods
     _sanitize = strings_to_categoricals
 
-    def __getitem__(self, index) -> AnnData | MuData | AlignedArray | Array:
-        if isinstance(index, str):
+    @overload
+    def __getitem__(self, index: str) -> AnnData | MuData: ...  # type: ignore[overload-overlap]
+    @overload
+    def __getitem__(self, index: Index) -> MuData: ...
+    @overload
+    def __getitem__(self, index: MetaAcc) -> DataFrameLike: ...
+    @overload
+    def __getitem__(self, index: LayerAcc | MultiAcc | GraphAcc) -> AlignedArray: ...
+    @overload
+    def __getitem__(self, index: AdRef) -> Array: ...
+    def __getitem__(self, index: str | Index | AdRef | RefAcc | MapAcc) -> AnnData | MuData | AlignedArray | Array:
+        if isinstance(index, str) and index in self._mod:
             return self._mod[index]
 
         with suppress(ImportError):
@@ -470,7 +482,7 @@ class MuData:
                 raise IndexError(f"Cannot index with {index} because this is not a path to an array-like structure.")
         return MuData(self, as_view=True, index=index)
 
-    def __contains__(self, key) -> bool:
+    def __contains__(self, key: str | AdRef | RefAcc | MapAcc | ModAcc | MultiModAcc) -> bool:
         if isinstance(key, str):
             return key in self._mod
         with suppress(ImportError):
