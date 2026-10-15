@@ -50,19 +50,19 @@ if TYPE_CHECKING:
 
 
 class ModalityMapItemsView(ItemsView):
-    def __iter__(self) -> Iterator[tuple[str, np.ndarray]]:
+    def __iter__(self) -> Iterator[tuple[str, np.ndarray[tuple[int], np.dtype[np.unsignedinteger]]]]:
         for k, v in super().__iter__():
             yield k, v.ravel()
 
 
 class ModalityMapValuesView(ValuesView):
-    def __iter__(self) -> Iterator[np.ndarray]:
+    def __iter__(self) -> Iterator[np.ndarray[tuple[int], np.dtype[np.unsignedinteger]]]:
         for v in super().__iter__():
             yield v.ravel()
 
 
 class ModalityMapAxisArraysView(AxisArraysView):
-    def __getitem__(self, key: str) -> np.ndarray:
+    def __getitem__(self, key: str) -> np.ndarray[tuple[int], np.dtype[np.unsignedinteger]]:
         return cast(np.ndarray, super().__getitem__(key)).ravel()
 
     def items(self) -> ModalityMapItemsView:
@@ -75,7 +75,7 @@ class ModalityMapAxisArraysView(AxisArraysView):
 class ModalityMapAxisArrays(AxisArrays):
     _view_class = ModalityMapAxisArraysView
 
-    def __getitem__(self, key: str) -> np.ndarray:
+    def __getitem__(self, key: str) -> np.ndarray[tuple[int], np.dtype[np.unsignedinteger]]:
         return cast(np.ndarray, super().__getitem__(key)).ravel()
 
     def items(self) -> ModalityMapItemsView:
@@ -1051,14 +1051,14 @@ class MuData:
         self.obsp = {}
 
     @property
-    def obsmap(self) -> Mapping[str, np.ndarray]:
+    def obsmap(self) -> MutableMapping[str, np.ndarray[tuple[int], np.dtype[np.unsignedinteger]]]:
         """Mapping of observation indices in the object to indices in individual modalities.
 
         Contains an entry for each modality. Each entry is an :class:`~numpy.ndarray` with shape `(n_obs, 1)`. Each element
         in the array contains the numerical index of the observation in the respective modality corresponding to the :class:`MuData`
         observation in that position. The index is 1-based, 0 indicates that the observation is missing in the modality.
         """
-        return cast(Mapping[str, np.ndarray], self._obsmap)
+        return cast(MutableMapping[str, np.ndarray[tuple[int], np.dtype[np.unsignedinteger]]], self._obsmap)
 
     @property
     def varm(self) -> MutableMapping[str, _AlignedAny]:
@@ -1101,14 +1101,14 @@ class MuData:
         self.varp = {}
 
     @property
-    def varmap(self) -> Mapping[str, np.ndarray]:
+    def varmap(self) -> MutableMapping[str, np.ndarray[tuple[int], np.dtype[np.unsignedinteger]]]:
         """Mapping of feature indices in the object to indices in individual modalities.
 
         Contains an entry for each modality. Each entry is an :class:`~numpy.ndarray` with shape `(n_obs, 1)`. Each element
         in the array contains the numerical index of the feature in the respective modality corresponding to the :class:`MuData`
         feature in that position. The index is 1-based, 0 indicates that the feature is missing in the modality.
         """
-        return cast(Mapping[str, np.ndarray], self._varmap)
+        return cast(MutableMapping[str, np.ndarray[tuple[int], np.dtype[np.unsignedinteger]]], self._varmap)
 
     # Unstructured annotations
 
