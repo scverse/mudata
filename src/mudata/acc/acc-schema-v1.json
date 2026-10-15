@@ -13,7 +13,7 @@
         },
         {
             "title": "Modality data",
-            "minItems": 3,
+            "minItems": 2,
             "maxItems": 3,
             "prefixItems": [
                 { "const": "mod" },

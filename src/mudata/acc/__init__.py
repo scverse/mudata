@@ -10,6 +10,7 @@ from anndata.acc import (
     AdAcc,
     AdRef,
     Axes,
+    DataFrameLike,
     GraphAcc,
     GraphMapAcc,
     Idx2D,
@@ -42,14 +43,14 @@ class _ModalityMapAcc[I, R](_ModalityMixin):
         if self.mod not in mdata.mod:
             return False
         else:
-            return super().isin(mdata.mod[self.mod], idx)
+            return super().isin(mdata.mod[self.mod], idx)  # type: ignore[misc] # protocol doesn't work due to https://github.com/python/mypy/issues/14757#issuecomment-2196695518
 
     def get(self, mdata: MuData, idx: I | NO_IDX = NO_IDX, /) -> R:
-        return super().get(mdata.mod[self.mod], idx)
+        return super().get(mdata.mod[self.mod], idx)  # type: ignore[misc]
 
 
 @dataclass(frozen=True)
-class ModLayerAcc[R: AdRef[Idx2D]](_ModalityMapAcc[Idx2D, InMemoryArray], LayerAcc[R]):
+class ModLayerAcc[R: AdRef[Idx2D, MuData]](_ModalityMapAcc[Idx2D, InMemoryArray], LayerAcc[R]):  # type: ignore[type-var,misc]
     """Reference accessor for arrays in :attr:`~anndata.acc.AdAcc.layers`."""
 
     def __repr__(self) -> str:
@@ -72,7 +73,9 @@ class ModLayerMapAcc[R: AdRef](_ModalityMixin, LayerMapAcc[R]):
 
 
 @dataclass(frozen=True)
-class ModMetaAcc[R: AdRef[str]](_ModalityMapAcc[str, pd.api.extensions.ExtensionArray | XVariable], MetaAcc[R]):
+class ModMetaAcc[R: AdRef[str, MuData]](  # type: ignore[misc]
+    _ModalityMapAcc[str, DataFrameLike | pd.api.extensions.ExtensionArray | XVariable], MetaAcc[R]
+):
     """Reference accessor for arrays from metadata containers (:attr:`~anndata.acc.AdAcc.obs` / :attr:`~anndata.acc.AdAcc.var`)."""
 
     def __repr__(self) -> str:
@@ -80,11 +83,11 @@ class ModMetaAcc[R: AdRef[str]](_ModalityMapAcc[str, pd.api.extensions.Extension
 
 
 @dataclass(frozen=True)
-class ModMultiAcc[R: AdRef[int]](_ModalityMapAcc[int, InMemoryArray], MultiAcc[R]):
+class ModMultiAcc[R: AdRef[int, MuData]](_ModalityMapAcc[int, InMemoryArray], MultiAcc[R]):  # type: ignore[misc]
     """Reference accessor for arrays from multi-dimensional containers (:attr:`~anndata.acc.AdAcc.obsm` / :attr:`~anndata.acc.AdAcc.varm`)."""
 
     def __repr__(self) -> str:
-        return f"A.mod[{self.mod!r}].{self.dim}m[self.k!r]"
+        return f"A.mod[{self.mod!r}].{self.dim}m[{self.k!r}]"
 
 
 @dataclass(frozen=True)
@@ -103,7 +106,7 @@ class ModMultiMapAcc[R: AdRef](_ModalityMixin, MultiMapAcc[R]):
 
 
 @dataclass(frozen=True)
-class ModGraphAcc[R: AdRef[Idx2D]](_ModalityMapAcc[Idx2D, InMemoryArray], GraphAcc[R]):
+class ModGraphAcc[R: AdRef[Idx2D, MuData]](_ModalityMapAcc[Idx2D, InMemoryArray], GraphAcc[R]):  # type: ignore[misc]
     """Reference accessor for arrays from graph containers (:attr:`~anndata.acc.AdAcc.obsp` / :attr:`~anndata.acc.AdAcc.varp`)."""
 
     def __repr__(self) -> str:
@@ -126,7 +129,7 @@ class ModGraphMapAcc[R: AdRef](_ModalityMixin, GraphMapAcc[R]):
 
 
 @dataclass(frozen=True)
-class ModMapAcc[R: AdRef[str]](RefAcc[R, str, MuData]):
+class ModMapAcc[R: AdRef[str, MuData]](RefAcc[R, str, MuData]):
     """Reference accessor for modality maps (:attr:`~MuAcc.obsmap` / :attr:`~MuAcc.varmap`)."""
 
     dim: Literal["obs", "var"]
@@ -176,7 +179,7 @@ class ModAcc[R: AdRef](_ModalityMixin, AdAcc[R]):
         """Check if the referenced modality is in the :class:`~mudata.MuData` object."""
         return self.mod in mdata.mod
 
-    def get(self, mdata: MuData) -> AnnData:
+    def get(self, mdata: MuData) -> AnnData | MuData:
         """Get the referenced modality from the :class:`~mudata.MuData` object."""
         return mdata.mod[self.mod]
 
@@ -196,13 +199,13 @@ class ModAcc[R: AdRef](_ModalityMixin, AdAcc[R]):
     def __repr__(self) -> str:
         return f"A.mod[{self.mod}]"
 
-    def to_json(self, ref: R) -> list[str | int | None]:
+    def to_json(self, ref: R) -> list[str | list[str | int | None]]:  # type: ignore[override]
         """Serialize :class:`~anndata.acc.AdRef` to a JSON-compatible list."""
         return ["mod", self.mod, super().to_json(ref)]
 
 
 @dataclass(frozen=True, kw_only=True)
-class MultiModAcc[R: AdRef](MapAcc[ModAcc]):
+class MultiModAcc[R: AdRef](MapAcc[ModAcc[R]]):  # type: ignore[type-var]
     """Accessor for modalities (:attr:`~MuAcc.mod`)."""
 
     ref_class: type[R]
@@ -250,8 +253,8 @@ class MuAcc[R: AdRef](AdAcc[R]):
     def __repr__(self) -> str:
         return "A"
 
-    def resolve(
-        self, spec: str, *, strict: bool = True, vec: bool | None = None
+    def resolve(  # type: ignore[override] # return types
+        self, spec: str, *, strict: Literal[True] = True, vec: None | None = None
     ) -> (
         R
         | ModLayerAcc[R]
@@ -281,41 +284,51 @@ class MuAcc[R: AdRef](AdAcc[R]):
                 if not mod:
                     raise ValueError(f"Cannot parse accessor{spec!r} that has an empty modality.")
                 acc = self.mod[mod]
-                return super().resolve.__func__(acc, spec[modend + 1 :], strict=strict, vec=vec)
+                return super().resolve.__func__(acc, spec[modend + 1 :], strict=strict, vec=vec)  # type: ignore[attr-defined] # https://github.com/python/mypy/issues/14235
             case "obsmap" | "varmap":
                 if firstdot == len(spec):
                     raise ValueError(f"Cannot parse accessor{spec!r} that has an empty modality.")
                 mod = spec[firstdot + 1 :]
                 return getattr(self, firstattr)[mod]
             case _:
-                return super().resolve(spec, strict=strict, vec=vec)
+                return super().resolve(spec, strict=strict, vec=vec)  # type: ignore[return-value] # LayerAcc is never returned
 
-    def to_json(self, ref: R) -> list[str | int | None]:
-        """Serialize :class:`~anndata.acc.AdRef` to a JSON-compatible list.
+    def to_json(  # type: ignore[override]
+        self, ref: R | ModLayerAcc[R] | ModMultiAcc[R] | ModGraphAcc[R] | MultiAcc[R] | GraphAcc[R] | ModAcc[R]
+    ) -> list[str | int | None | list[str | int | None]]:
+        """Serialize :class:`~anndata.acc.AdRef` or a whole container accessor to a JSON-compatible list.
 
         Schema: `acc-schema-v1.json <../acc-schema-v1.json>`_
         """
-        if isinstance(ref.acc, ModMapAcc):
+        if isinstance(ref, ModAcc):
+            return ["mod", ref.mod]
+        if isinstance(ref, AdRef) and isinstance(ref.acc, ModMapAcc):
             return [f"{ref.acc.dim}map", ref.idx]
 
         ret = super().to_json(ref)
-        if isinstance(ref.acc, _ModalityMixin):
-            ret = ["mod", ref.acc.mod, ret]
-        return ret
+        if isinstance(ref, _ModalityMixin):
+            ret = ["mod", ref.mod, ret]  # type: ignore[list-item]
+        elif isinstance(ref, AdRef) and isinstance(ref.acc, _ModalityMixin):
+            ret = ["mod", ref.acc.mod, ret]  # type: ignore[list-item]
+        return ret  # type: ignore[return-value]
 
-    def from_json(self, data: Sequence[str | int | None]) -> R:
+    def from_json(  # type: ignore[override]
+        self, data: Sequence[str | int | None | Sequence[str | int | None]], *, vec: bool | None = None
+    ) -> R | ModLayerAcc[R] | ModMultiAcc[R] | ModGraphAcc[R] | MultiAcc[R] | GraphAcc[R] | ModAcc[R]:
         """Create a :class:`~anndata.acc.AdRef` from a JSON sequence.
 
         Schema: `acc-schema-v1.json <../acc-schema-v1.json>`_
         """
         match data:
-            case ["mod", str() as modname, list() as inner]:
-                return self.mod[modname].from_json(inner)
+            case ["mod", str() as modname]:
+                return self.mod[modname]
+            case ["mod", str() as modname, Sequence() as inner]:
+                return self.mod[modname].from_json(inner, vec=vec)  # type: ignore[return-value, arg-type]
             case ["obsmap" | "varmap" as dim, str() as modname]:
                 acc = self.obsmap if dim == "obsmap" else self.varmap
                 return acc[modname]
             case _:
-                return super().from_json(data)
+                return super().from_json(data, vec=vec)  # type: ignore[return-value, arg-type]
 
 
 del MuAcc.__dataclass_fields__["X"]

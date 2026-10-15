@@ -163,6 +163,9 @@ def test_resolve():
     with pytest.raises(ValueError, match="period-separated"):
         A.resolve("abcd")
 
+    with pytest.raises(ValueError, match="Unknown accessor"):
+        A.resolve("layers.counts")
+
 
 @pytest.mark.parametrize("vec", [None, True])
 def test_resolve_vec_true(vec):
@@ -189,17 +192,22 @@ def test_resolve_vec_mismatch():
         A.resolve("obsm.test.2", vec=False)
 
 
-@pytest.mark.parametrize("acc", [path[0] for path in PATHS if isinstance(path[0], ad.acc.AdRef)])
+@pytest.mark.parametrize(
+    "acc", [path[0] for path in PATHS if not isinstance(path[0], ad.acc.MetaAcc | ad.acc.MapAcc | md.acc.ModMapAcc)]
+)
 def test_to_from_json(mudata_json_schema, anndata_schema_registry, acc):
     serialized = A.to_json(acc)
     jsonschema.validate(serialized, mudata_json_schema, registry=anndata_schema_registry)
-    if isinstance(acc.acc, md.acc.ModMapAcc):
+    if isinstance(acc, md.acc.AdRef) and isinstance(acc.acc, md.acc.ModMapAcc):
         assert serialized[0] == f"{acc.acc.dim}map"
         assert serialized[1] == acc.idx
-    else:
+    elif isinstance(acc, md.acc.AdRef):
         assert serialized[0] == "mod"
         assert serialized[1] == acc.acc.mod
         assert serialized[2] == ad.acc.A.to_json(acc)
+    else:
+        assert serialized[0] == "mod"
+        assert serialized[1] == acc.mod
 
     assert A.from_json(serialized) == acc
 
