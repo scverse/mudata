@@ -24,7 +24,7 @@ from mudata.acc import A
 
 @pytest.fixture
 def mdata_augmented(mdata: md.MuData, rng: np.random.Generator):
-    mdata["mod1"].layers["counts"] = rng.poisson(1, size=mdata["mod1"].shape)
+    mdata["mod1"].layers["counts"] = rng.poisson(1, size=mdata["mod1"].shape)  # type: ignore[index]
     mdata["mod2"].varm["test"] = rng.normal(size=(mdata["mod2"].n_vars, 3))
     mdata["mod2"].obsp["test"] = rng.normal(size=(mdata["mod2"].n_obs, mdata["mod2"].n_obs))
 
