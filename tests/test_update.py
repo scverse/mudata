@@ -54,7 +54,7 @@ def modalities(
         mods[m] = AnnData(X=rng.normal(size=3000 * i1).reshape(-1, 10 * i1))
         mods[m].obs["mod"] = m
         mods[m].var["mod"] = m
-        mods[m].obs["min_count"] = mods[m].X.min(axis=1)
+        mods[m].obs["min_count"] = mods[m].X.min(axis=1)  # type: ignore[union-attr]
 
     if n:
         if n == "disjoint":
@@ -161,7 +161,7 @@ def test_update_simple(mdata: MuData, axis: Axis):
         assert mdata.varmap[mod].dtype.kind == "u"
         assert mod in mdata
     with pytest.raises(TypeError):
-        1 in mdata  # noqa: B015
+        1 in mdata  # type: ignore[operator] # noqa: B015
 
     # names along non-axis are concatenated
     assert mdata.shape[1 - axis] == sum(mod.shape[1 - axis] for mod in mdata.mod.values())
@@ -210,8 +210,8 @@ def test_update_simple_empty_modalities(modalities: Mapping[str, AnnData], axis:
     old_varnames = mdata.var_names
 
     mdata.obs["test"] = True
-    del mdata._obshash
-    del mdata._varhash
+    del mdata._obshash  # type: ignore[attr-defined]
+    del mdata._varhash  # type: ignore[attr-defined]
     mdata.update()  # https://github.com/scverse/mudata/issues/145
 
     assert (old_obsnames == mdata.obs_names).all()
@@ -253,9 +253,9 @@ def test_update_add_modality(rng: np.random.Generator, modalities: Mapping[str, 
 
         test_obsm_values = get_attrm_values(mdata, "obs", "test", some_obs_names)
         if axis == 1:
-            assert np.isnan(mdata.obsm["test"]).sum() == modalities[modnames[i]].n_obs
-            assert np.all(np.isnan(mdata.obsm["test"][-modalities[modnames[i]].n_obs :]))
-            assert np.all(~np.isnan(mdata.obsm["test"][: -modalities[modnames[i]].n_obs]))
+            assert np.isnan(mdata.obsm["test"]).sum() == modalities[modnames[i]].n_obs  # type: ignore[arg-type]
+            assert np.all(np.isnan(mdata.obsm["test"][-modalities[modnames[i]].n_obs :]))  # type: ignore[arg-type]
+            assert np.all(~np.isnan(mdata.obsm["test"][: -modalities[modnames[i]].n_obs]))  # type: ignore[arg-type]
             assert (test_obsm_values[~np.isnan(test_obsm_values)].reshape(-1) == true_obsm_values.reshape(-1)).all()
         else:
             assert (test_obsm_values == true_obsm_values).all()
@@ -340,9 +340,9 @@ def test_update_intersecting(rng: np.random.Generator, modalities: Mapping[str, 
 
     mdata = add_mdata_global_columns(MuData(modalities, axis=axis), rng)
 
-    for mod in mdata.mod.keys():
-        assert mdata.obsmap[mod].dtype.kind == "u"
-        assert mdata.varmap[mod].dtype.kind == "u"
+    for m in mdata.mod.keys():
+        assert mdata.obsmap[m].dtype.kind == "u"
+        assert mdata.varmap[m].dtype.kind == "u"
 
     assert_dtypes(mdata.obs)
     assert_dtypes(mdata.var)

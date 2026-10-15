@@ -502,7 +502,7 @@ class MuData:
         raise TypeError(f"Unexpected key {key!r}.")
 
     @property
-    def mod(self) -> Mapping[str, AnnData | MuData]:
+    def mod(self) -> MutableMapping[str, AnnData | MuData]:
         """Dictionary of modalities."""
         return self._mod
 
