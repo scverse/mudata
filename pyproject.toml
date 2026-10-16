@@ -46,7 +46,7 @@ urls.Homepage = "https://muon.scverse.org"
 urls.Source = "https://github.com/scverse/mudata"
 
 [dependency-groups]
-dev = [ "mudata[io]", "mypy", "pandas-stubs", "prek", "scipy-stubs", "twine>=4.0.2" ]
+dev = [ "mudata[io]", "prek", "twine>=4.0.2" ]
 test = [
   "coverage>=7.10",
   "fast-array-utils>=1.2.3", # for anndata.tests.helpers
@@ -74,10 +74,7 @@ doc = [
   "sphinxcontrib-katex",
   "sphinxext-opengraph"
 ]
-typecheck = [
-  "mypy",
-  "pandas-stubs",
-]
+typecheck = [ "mypy", "pandas-stubs", "scipy-stubs" ]
 
 [tool.hatch]
 version.source = "vcs"
