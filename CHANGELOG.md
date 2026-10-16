@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning][].
 
 - `axis` arguments throughout mudata now accept semantic identifiers: Instead of `axis=0` you can write `axis="obs"` and similarly for other `axis` values.
 
+### Fixed
+
+- Read `.h5mu` files written by MuData 0.1.1 and earlier with the legacy `AnnData` modality encoding.
+
 ## [0.4.1]
 
 ### Fixed
