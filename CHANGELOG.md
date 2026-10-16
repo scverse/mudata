@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning][].
 ### Added
 
 - `axis` arguments throughout mudata now accept semantic identifiers: Instead of `axis=0` you can write `axis="obs"` and similarly for other `axis` values.
+- Modalities that are AnnData subclasses can now keep the elements AnnData does not have when written to and read from `.h5mu` and Zarr,
+  by implementing `_write_mudata_extras(group, *, dataset_kwargs)` and the classmethod `_read_mudata_extras(group, adata)`.
+  Previously such modalities were always read back as plain AnnData without those elements.
 
 ## [0.4.1]
 
