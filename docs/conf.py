@@ -138,4 +138,6 @@ nitpick_ignore = (
     ("py:obj", "typing.R"),
     ("py:obj", "anndata.acc.Axes"),
     ("py:class", "AdRef"),
+    ("py:class", "anndata.typing.AlignedArray"),
+    ("py:class", "anndata._core.aligned_mapping._AlignedAny"),
 )
