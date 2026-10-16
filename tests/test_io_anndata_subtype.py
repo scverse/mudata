@@ -24,9 +24,10 @@ class AnnDataWithExtra(ad.AnnData):
 
 @pytest.fixture
 def subtype_package(monkeypatch: pytest.MonkeyPatch) -> types.ModuleType:
-    """A stand-in package providing an AnnData subclass, registered as an AnnData subtype in mudata."""
+    """A stand-in package providing an AnnData subclass and its ``io`` module, registered as a subtype in mudata."""
     package = types.ModuleType("anndata_extra_package")
     package.AnnDataWithExtra = AnnDataWithExtra
+    package.io = types.ModuleType("anndata_extra_package.io")
 
     def write_extra(group, adata, *, dataset_kwargs):
         ad.io.write_elem(group, "extra", adata.extra, dataset_kwargs=dataset_kwargs)
@@ -36,10 +37,16 @@ def subtype_package(monkeypatch: pytest.MonkeyPatch) -> types.ModuleType:
         new.extra = ad.io.read_elem(group["extra"])
         return new
 
-    package.write_extra = write_extra
-    package.read_extra = read_extra
+    package.io.write_extra = write_extra
+    package.io.read_extra = read_extra
     monkeypatch.setitem(sys.modules, "anndata_extra_package", package)
-    subtype = md._core.io._Subtype("anndata_extra_package", "AnnDataWithExtra", "write_extra", "read_extra")
+    monkeypatch.setitem(sys.modules, "anndata_extra_package.io", package.io)
+    subtype = md._core.io._Subtype(
+        "anndata_extra_package",
+        "AnnDataWithExtra",
+        "anndata_extra_package.io:write_extra",
+        "anndata_extra_package.io:read_extra",
+    )
     monkeypatch.setitem(md._core.io._SUBTYPES, "extra", subtype)
     return package
 
@@ -95,7 +102,8 @@ def test_read_anndata_subtype_package_not_installed(
     mdata_subclass: md.MuData, filepath_h5mu: Path, monkeypatch: pytest.MonkeyPatch
 ):
     mdata_subclass.write(filepath_h5mu)
-    monkeypatch.setitem(sys.modules, "anndata_extra_package", None)  # makes the import raise ImportError
+    monkeypatch.setitem(sys.modules, "anndata_extra_package", None)  # makes the imports raise ImportError
+    monkeypatch.setitem(sys.modules, "anndata_extra_package.io", None)
 
     with pytest.warns(UserWarning, match="subtype 'extra', which is not available"):
         mdata_ = md.read_h5mu(filepath_h5mu)
@@ -115,7 +123,7 @@ def test_read_anndata_subtype_unknown(mdata_subclass: md.MuData, filepath_h5mu: 
 
 def test_write_anndata_subtype_without_writer(mdata_subclass: md.MuData, filepath_h5mu: Path, subtype_package):
     """A package without the writer function must not break writing; the modality is stored as plain AnnData."""
-    del subtype_package.write_extra
+    del subtype_package.io.write_extra
     mdata_subclass.write(filepath_h5mu)
     with h5py.File(filepath_h5mu) as f:
         assert "encoding-subtype" not in f["mod/mod1"].attrs
