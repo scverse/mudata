@@ -23,13 +23,14 @@ There are various ways in which the data can be provided to create a MuData obje
 MuData object can be constructed from a dictionary of existing AnnData objects:
 
 ```python
-mdata = MuData({'rna': adata_rna, 'atac': adata_atac})
+mdata = MuData({"rna": adata_rna, "atac": adata_atac})
 ```
 
 AnnData objects themselves can be easily constructed from NumPy arrays and/or Pandas DataFrames annotating features (*variables*) and samples/cells (*observations*). This makes it a rather general data format to work with any type of high-dimensional data.
 
 ```python
 from anndata import AnnData
+
 adata = AnnData(X=matrix, obs=metadata_df, var=features_df)
 ```
 
@@ -56,7 +57,7 @@ A caching layer can be added in the following way:
 
 ```python
 fname_cached = "filecache::" + fname
-with fsspec.open(fname_cached, filecache={'cache_storage': '/tmp/'}) as f:
+with fsspec.open(fname_cached, filecache={"cache_storage": "/tmp/"}) as f:
     mdata = mudata.read_h5mu(f)
 ```
 
@@ -67,13 +68,9 @@ For more `fsspec` usage examples see [its documentation](https://filesystem-spec
 MuData objects in the `.h5mu` format stored in an S3 bucket can be read with `fsspec` as well:
 
 ```python
-storage_options = {
-   'endpoint_url': 'localhost:9000',
-   'key': 'AWS_ACCESS_KEY_ID',
-   'secret': 'AWS_SECRET_ACCESS_KEY',
-}
+storage_options = {"endpoint_url": "localhost:9000", "key": "AWS_ACCESS_KEY_ID", "secret": "AWS_SECRET_ACCESS_KEY"}
 
-with fsspec.open('s3://bucket/dataset.h5mu', **storage_options) as f:
+with fsspec.open("s3://bucket/dataset.h5mu", **storage_options) as f:
     mudata.read_h5mu(f)
 ```
 
@@ -84,6 +81,6 @@ MuData objects stored in the `.zarr` format in an S3 bucket can be read from a *
 import s3fs
 
 s3 = s3fs.S3FileSystem(**storage_options)
-store = s3.get_mapper('s3://bucket/dataset.zarr')
+store = s3.get_mapper("s3://bucket/dataset.zarr")
 mdata = mudata.read_zarr(store)
 ```
