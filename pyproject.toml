@@ -6,7 +6,7 @@ requires = [ "hatch-vcs", "hatchling" ]
 name = "mudata"
 description = "Multimodal data"
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "BSD-3-Clause"
 maintainers = [
   { name = "Danila Bredikhin", email = "danila@stanford.edu" },
   { name = "Ilia Kats", email = "i.kats@dkfz-heidelberg.de" },
