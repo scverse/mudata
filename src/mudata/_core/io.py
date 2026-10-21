@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from zarr.abc.store import Store as ZarrStore
 
 
-_pattern = re.compile(r"^(.+\.h5mu)/([^/]+)(/([^/]+))?$")
+_read_write_modality_pattern = re.compile(r"^(.+\.h5mu)/([^/]+)(/([^/]+))?$")
 
 
 def _is_openfile(obj) -> bool:
@@ -335,7 +335,7 @@ def write(filename: str | PathLike, data: MuData | AnnData):
             if not isinstance(data, AnnData):
                 raise ValueError("Only MuData and AnnData objects are accepted")
 
-            match = _pattern.fullmatch(filename)
+            match = _read_write_modality_pattern.fullmatch(filename)
             if match is None:
                 raise ValueError(
                     "If a single modality is to be written to a .h5mu file, \
@@ -588,7 +588,7 @@ def read(filename: str | PathLike | IOBase | fsspec.core.OpenFile, **kwargs) -> 
     elif fname.endswith(".h5mu") or not isinstance(filename, str) and not isinstance(filename, Path):
         return read_h5mu(filename, **kwargs)
 
-    match = _pattern.fullmatch(fname)
+    match = _read_write_modality_pattern.fullmatch(fname)
     if match is None:
         raise ValueError(
             "If a single modality is to be read from a .h5mu file, \
