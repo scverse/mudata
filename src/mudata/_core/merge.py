@@ -152,8 +152,10 @@ def concat(
     # Concatenate all the modalities
     modalities: dict[str, AnnData] = {}
     for m in common_mods:
+        if not all(isinstance(mdata[m], AnnData) for mdata in mdatas):
+            raise ValueError("All common modality objects must be AnnData objects.")
         modalities[m] = ad_concat(
-            [cast(AnnData, mdata[m]) for mdata in mdatas],
+            [mdata[m] for mdata in mdatas],
             axis=axis,
             join=join,
             merge=merge,
