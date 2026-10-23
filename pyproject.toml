@@ -25,6 +25,7 @@ classifiers = [
   "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: 3.15",
   "Topic :: Scientific/Engineering :: Bio-Informatics",
+  "Typing :: Typed",
 ]
 dynamic = [ "version" ]
 dependencies = [
@@ -45,11 +46,7 @@ urls.Homepage = "https://muon.scverse.org"
 urls.Source = "https://github.com/scverse/mudata"
 
 [dependency-groups]
-dev = [
-  "mudata[io]",
-  "prek",
-  "twine>=4.0.2",
-]
+dev = [ "mudata[io]", "prek", "twine>=4.0.2" ]
 test = [
   "coverage>=7.10",
   "fast-array-utils>=1.2.3", # for anndata.tests.helpers
@@ -77,16 +74,33 @@ doc = [
   "sphinxcontrib-katex",
   "sphinxext-opengraph"
 ]
+typecheck = [
+  "anndata @ git+https://github.com/scverse/anndata@main",
+  "cupy-stubs",
+  "mypy",
+  "pandas-stubs",
+  "scipy-stubs",
+  "types-jsonschema"
+]
 
 [tool.hatch]
 version.source = "vcs"
 build.hooks.vcs.version-file = "src/mudata/_version.py"
+build.targets.sdist.exclude = [ "/docs", "/tests" ]
 envs.default.installer = "uv"
 envs.default.dependency-groups = [ "dev" ]
-envs.docs.scripts.build = "sphinx-build -M html docs docs/_build -W {args}"
+envs.docs.scripts.build = "sphinx-build -M html docs docs/_build {args}"
 envs.docs.scripts.clean = "git clean -fdX -- {args:docs}"
 envs.docs.scripts.open = "python -m webbrowser -t docs/_build/html/index.html"
 envs.docs.dependency-groups = [ "doc" ]
+envs.hatch-check-code.dependencies = [ "prek" ]
+envs.hatch-check-code.scripts.lint-check = "echo 'try `hatch check code --fix`'; false"
+envs.hatch-check-code.scripts.lint-fix = "prek run -a --no-group=format --no-group=typecheck"
+envs.hatch-check-fmt.dependencies = [ "prek" ]
+envs.hatch-check-fmt.scripts.format-check = "echo 'try `hatch check fmt --fix`'; false"
+envs.hatch-check-fmt.scripts.format-fix = "prek run -a --group=format --no-group=typecheck"
+envs.hatch-check-types.scripts.check = [ "mypy" ]
+envs.hatch-check-types.dependency-groups = [ "typecheck", "test" ]
 envs.hatch-test.matrix = [
   # Test the lowest and highest supported Python versions with normal deps
   { deps = [ "stable" ], python = [ "3.12", "3.14" ] },
@@ -141,6 +155,22 @@ lint.per-file-ignores."docs/*" = [ "D", "I" ]
 lint.per-file-ignores."docs/notebooks/*" = [ "D", "F403", "F405" ]
 lint.per-file-ignores."tests/*" = [ "D" ]
 lint.pydocstyle.convention = "numpy"
+
+[tool.mypy]
+files = [ "src", "tests" ]
+warn_redundant_casts = true
+
+# Dependencies without a py.typed marker whose source mypy can follow.
+[[tool.mypy.overrides]]
+module = [
+  "h5py.*",
+]
+follow_untyped_imports = true
+
+# Dependencies that ship no type information (absent or `Incomplete` annotations).
+[[tool.mypy.overrides]]
+module = [ "fsspec.*" ]
+ignore_missing_imports = true
 
 [tool.pytest]
 addopts = [

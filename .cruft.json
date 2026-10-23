@@ -1,7 +1,7 @@
 {
   "template": "https://github.com/scverse/cookiecutter-scverse",
-  "commit": "6518dfa1abde7379ea7255daf0ce09c23f2b4c94",
-  "checkout": "v0.8.0",
+  "commit": "6ffbc41b39fc32b76f05f9503bd6c1acca0f5b25",
+  "checkout": null,
   "context": {
     "cookiecutter": {
       "project_name": "mudata",
@@ -37,10 +37,8 @@
         "trim_blocks": true
       },
       "_template": "https://github.com/scverse/cookiecutter-scverse",
-      "_commit": "4d6aa34fd5be7523ca3bd49fbd81a882dde01d1f"
-    },
-    "_commit": "6518dfa1abde7379ea7255daf0ce09c23f2b4c94",
-    "_template": "https://github.com/scverse/cookiecutter-scverse"
+      "_commit": "6ffbc41b39fc32b76f05f9503bd6c1acca0f5b25"
+    }
   },
   "directory": null
 }

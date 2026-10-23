@@ -1,30 +1,32 @@
 from os import PathLike
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 import anndata as ad
 import h5py
-from anndata._core.file_backing import AnnDataFileManager
+from anndata._core.file_backing import AnnDataFileManager as _AnnDataFileManager
 
 
-class MuDataFileManager(AnnDataFileManager):
-    def __init__(self, filename: PathLike | None = None, filemode: Literal["r", "r+"] | None = None):
+class MuDataFileManager(_AnnDataFileManager):
+    def __init__(self, filename: str | PathLike | None = None, filemode: Literal["r", "r+"] | None = None):
         self._counter = 0
-        self._children = set()
+        self._children: set[AnnDataFileManager] = set()
         if filename is not None:
             filename = Path(filename)
         super().__init__(ad.AnnData(), filename, filemode)
 
-    def open(self, filename: PathLike | None = None, filemode: Literal["r", "r+"] | None = None, add_ref=False) -> bool:
+    def open(
+        self, filename: str | PathLike | None = None, filemode: Literal["r", "r+"] | None = None, add_ref=False
+    ) -> bool:
         if self.is_open and (
             filename is None and filemode is None or filename == self.filename and filemode == self._filemode
         ):
             if add_ref:
-                self.counter += 1
+                self._counter += 1
             return False
 
         if self.is_open:
-            self._file.close()
+            self._file.close()  # type: ignore[union-attr]
 
         if filename is not None:
             self.filename = filename
@@ -38,35 +40,30 @@ class MuDataFileManager(AnnDataFileManager):
             child._set_file()
         return True
 
-    def close(self):
+    def close(self) -> None:
         for child in self._children:
             child.close()
 
-    def _close(self):
+    def _close(self) -> None:
         if self._counter > 0:
             self._counter -= 1
         if self._counter == 0 and self.is_open:
-            self._file.close()
+            self._file.close()  # type: ignore[union-attr]
 
-    def _to_memory_mode(self):
-        for m in self._children:
-            m._to_memory_mode()
-        self._file.close()
-        self._file = None
-        self.filename = None
+    def _to_memory_mode(self) -> None:
+        if self.is_open:
+            for m in self._children:
+                m._to_memory_mode()
+            self._file.close()  # type: ignore[union-attr]
+            self._file = None
+            self.filename = None
 
     @property
     def is_open(self) -> bool:
         return (self._file is not None) and bool(self._file.id)
 
-    @AnnDataFileManager.filename.setter
-    def filename(self, filename: PathLike | None):
-        self._filename = filename
 
-
-class AnnDataFileManager(ad._core.file_backing.AnnDataFileManager):
-    _h5files = {}
-
+class AnnDataFileManager(_AnnDataFileManager):
     def __init__(self, adata: ad.AnnData, mod: str, parent: MuDataFileManager):
         self._parent = parent
         self._mod = mod
@@ -76,26 +73,26 @@ class AnnDataFileManager(ad._core.file_backing.AnnDataFileManager):
         if parent.is_open:
             self._set_file()
 
-    def open(self, filename: PathLike | None = None, filemode: Literal["r", "r+"] | None = None):
+    def open(self, filename: PathLike | str | None = None, filemode: Literal["r", "r+"] | None = None) -> None:
         if not self._parent.open(filename, filemode, add_ref=True):
             self._set_file()
 
-    def _set_file(self):
+    def _set_file(self) -> None:
         if self._parent.is_open:
-            self._file = self._parent._file["mod"][self._mod]
+            self._file = cast(h5py.File, self._parent._file)["mod"][self._mod]
 
     @property
-    def filename(self) -> Path:
+    def filename(self) -> Path | None:
         return self._parent.filename
 
     @filename.setter
-    def filename(self, fname: PathLike):
+    def filename(self, fname: PathLike | str | None) -> None:
         pass  # the setter is needed because it's used in ad._core.file_backing.AnnDataFileManager.__init__
 
-    def close(self):
+    def close(self) -> None:
         self._parent._close()
 
-    def _to_memory_mode(self):
+    def _to_memory_mode(self) -> None:
         X = self._adata.X[()]
         if self._adata.raw is not None:
             self._adata.raw._X = self._adata.raw.X[()]

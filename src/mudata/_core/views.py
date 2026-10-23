@@ -1,20 +1,16 @@
+from __future__ import annotations
+
 from copy import deepcopy
 from typing import TYPE_CHECKING
 
-from anndata._core.views import ElementRef, _SetItemMixin
+from anndata._core.views import _ViewMixin as _AdViewMixin
 
 if TYPE_CHECKING:
-    from .mudata import MuData
+    pass
 
 
-class _ViewMixin(_SetItemMixin):
+class _ViewMixin(_AdViewMixin):
     """AnnData View Mixin but using ._mudata_ref"""
-
-    def __init__(self, *args, view_args: tuple["MuData", str, tuple[str, ...]] = None, **kwargs):
-        if view_args is not None:
-            view_args = ElementRef(*view_args)
-        self._view_args = view_args
-        super().__init__(*args, **kwargs)
 
     # TODO: This makes `deepcopy(obj)` return `obj._view_args.parent._mudata_ref`, fix it
     def __deepcopy__(self, memo):

@@ -139,4 +139,6 @@ nitpick_ignore = (
     ("py:class", "Idx2D"),
     ("py:obj", "anndata.acc.Axes"),
     ("py:class", "AdRef"),
+    ("py:class", "AlignedArray"),
+    ("py:class", "_AlignedAny"),
 )

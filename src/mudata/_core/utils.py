@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from collections import Counter
 from contextlib import suppress
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, cast
 
 import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Collection, Mapping
 
 
 def _make_index_unique(df: pd.DataFrame, force: bool = False) -> pd.DataFrame:
@@ -17,9 +17,9 @@ def _make_index_unique(df: pd.DataFrame, force: bool = False) -> pd.DataFrame:
 
     dup_idx = np.zeros((df.shape[0],), dtype=np.uint8)
     duplicates = np.nonzero(df.index.duplicated())[0]
-    cnt = Counter()
+    cnt: Counter[int | str] = Counter()
     for dup in duplicates:
-        idxval = df.index[dup]
+        idxval = df.index[cast(int, dup)]
         newval = cnt[idxval] + 1
         try:
             dup_idx[dup] = newval
@@ -36,13 +36,14 @@ def _restore_index(df: pd.DataFrame) -> pd.DataFrame:
 
 class MetadataColumn:
     __slots__ = ("prefix", "derived_name", "count", "_allowed_prefixes", "_strip_prefix")
+    derived_name: str
 
     def __init__(
         self,
         *,
-        allowed_prefixes: Sequence[str],
+        name: str,
+        allowed_prefixes: Collection[str],
         prefix: str | None = None,
-        name: str | None = None,
         count: int = 0,
         strip_prefix: bool = True,
     ):
@@ -64,7 +65,7 @@ class MetadataColumn:
             return self.derived_name
 
     @name.setter
-    def name(self, new_name):
+    def name(self, new_name) -> None:
         if (
             not self._strip_prefix
             or len(name_split := new_name.split(":", 1)) < 2
@@ -97,9 +98,7 @@ def _update_and_concat(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
             common_cats = pd.api.types.union_categoricals([df[col], df2[col]]).categories
             df[col] = df[col].cat.set_categories(common_cats)
             df2[col] = df2[col].cat.set_categories(common_cats)
-            df.update({col: df2[col]})
-        else:
-            df.update({col: df2[col]})
+        df.update(pd.DataFrame({col: df2[col]}))
     new_cols = df2.columns.difference(df1.columns)
     res = pd.concat([df, df2[new_cols]], axis=1, sort=False, verify_integrity=True)
     return res
@@ -121,7 +120,7 @@ def try_convert_series_to_numpy_dtype(col: pd.Series) -> pd.Series:
         match col.dtype:
             case pd.BooleanDtype():
                 col = col.astype(bool)
-            case pd.core.arrays.integer.IntegerDtype(type=dtype) | pd.core.arrays.floating.FloatingDtype(type=dtype):
+            case pd.core.arrays.integer.IntegerDtype(type=dtype) | pd.core.arrays.floating.FloatingDtype(type=dtype):  # type: ignore[attr-defined]
                 col = col.astype(dtype)
             case pd.StringDtype() if pd.__version__ < "3":
                 col = col.astype(object)
@@ -144,4 +143,4 @@ def try_convert_dataframe_to_numpy_dtypes(df: pd.DataFrame | Mapping[str, pd.Ser
     new_cols = {}
     for colname, col in df.items():
         new_cols[colname] = try_convert_series_to_numpy_dtype(col)
-    return pd.DataFrame(new_cols, index=df.index)
+    return pd.DataFrame(new_cols, index=df.index if isinstance(df, pd.DataFrame) else None)

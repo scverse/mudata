@@ -35,9 +35,9 @@ list(mdata.mod.keys())
 Individual modalities can be accessed with their names via the `.mod` attribute or via the `MuData` object itself as a shorthand:
 
 ```python
-mdata.mod['rna']
+mdata.mod["rna"]
 # or
-mdata['rna']
+mdata["rna"]
 # => AnnData object
 ```
 
@@ -142,7 +142,7 @@ mdata_b.file.filename
 Analogous to the behaviour of `AnnData` objects, slicing `MuData` objects returns views of the original data.
 
 ```python
-view = mdata[:100,:1000]
+view = mdata[:100, :1000]
 view.is_view
 # => True
 

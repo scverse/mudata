@@ -12,12 +12,12 @@ import mudata as md
 def test_obs_global_columns(mdata: md.MuData, pull_on_update: bool, filepath_h5mu: str | Path):
     mdata.obs = mdata.obs.drop(columns=mdata.obs.columns)
     for m, mod in mdata.mod.items():
-        mod.obs = mod.obs.drop(columns=mod.obs.columns)
+        mod.obs = mod.obs.drop(columns=mod.obs.columns)  # type: ignore[union-attr]
         mod.obs["demo"] = m
     mdata.obs["demo"] = "global"
     if pull_on_update:
         with md.settings.override(pull_on_update=pull_on_update):
-            del mdata._obshash
+            del mdata._obshash  # type: ignore[attr-defined]
             mdata.update()
     if mdata.axis == 0 and pull_on_update:
         assert mdata.obs.columns.to_list() == ["demo"] + [f"{m}:demo" for m in mdata.mod.keys()]
@@ -50,7 +50,7 @@ def test_obs_vector(mdata: md.MuData):
 
 
 def test_obsmap_writeable(mdata: md.MuData):
-    mdata.obsmap["test_writeable"] = np.arange(mdata.n_obs)
+    mdata.obsmap["test_writeable"] = np.arange(mdata.n_obs, dtype=np.uint32)
 
 
 @pytest.mark.parametrize("mdata", (0, 1), indirect=True)
@@ -58,12 +58,12 @@ def test_obsmap_writeable(mdata: md.MuData):
 def test_var_global_columns(mdata: md.MuData, pull_on_update, filepath_h5mu: str | Path):
     mdata.var = mdata.var.drop(columns=mdata.var.columns)
     for m, mod in mdata.mod.items():
-        mod.var = mod.var.drop(columns=mod.var.columns)
+        mod.var = mod.var.drop(columns=mod.var.columns)  # type: ignore[union-attr]
         mod.var["demo"] = m
     mdata.var["global"] = "global_var"
     if pull_on_update:
         with md.settings.override(pull_on_update=pull_on_update):
-            del mdata._varhash
+            del mdata._varhash  # type: ignore[attr-defined]
             mdata.update()
     if not pull_on_update:
         assert mdata.var.columns.to_list() == ["global"]
@@ -109,7 +109,7 @@ def test_var_vector(rng: np.random.Generator, mdata: md.MuData):
 
 
 def test_varmap_writeable(mdata: md.MuData):
-    mdata.varmap["test_writeable"] = np.arange(mdata.n_vars)
+    mdata.varmap["test_writeable"] = np.arange(mdata.n_vars, dtype=np.uint32)
 
 
 @pytest.mark.parametrize("mdata", (0, 1), indirect=True)
@@ -130,12 +130,12 @@ def test_names_make_unique(mdata: md.MuData):
     assert getattr(mdata.mod[mods[0]], namesattr).name == names.name
 
     modality_index_names = {}
-    for mod in mods[:2]:
-        names = getattr(mdata.mod[mod], namesattr)
+    for m in mods[:2]:
+        names = getattr(mdata.mod[m], namesattr)
         nameslist = names.to_list()
         nameslist[1] = nameslist[0] = "testname"
-        setattr(mdata.mod[mod], namesattr, pd.Index(nameslist, name=names.name))
-        modality_index_names[mod] = names.name
+        setattr(mdata.mod[m], namesattr, pd.Index(nameslist, name=names.name))
+        modality_index_names[m] = names.name
     with pytest.warns(UserWarning, match="Modality names will be prepended"):
         namesfun()
     assert mdata.shape[1 - mdata.axis] == sum(mod.shape[1 - mdata.axis] for mod in mdata.mod.values())
