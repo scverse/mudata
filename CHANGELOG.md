@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning][].
 ### Added
 
 - `axis` arguments throughout mudata now accept semantic identifiers: Instead of `axis=0` you can write `axis="obs"` and similarly for other `axis` values.
+- `treedata.TreeData` modalities now keep their trees when written to and read from `.h5mu` and Zarr, by calling `treedata.io.write_tree_elems` and `treedata.io.read_tree_elems` (requires a treedata version that provides them).
+  The modality group stays a valid AnnData group and gets an `encoding-subtype = "treedata"` attribute. Previously such modalities were read back as plain AnnData without their trees.
 
 ## [0.4.1]
 

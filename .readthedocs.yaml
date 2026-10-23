@@ -12,5 +12,6 @@ build:
       - asdf global uv latest
     build:
       html:
+        - uvx hatch -v env create docs
         - uvx hatch run docs:build
         - mv docs/_build $READTHEDOCS_OUTPUT

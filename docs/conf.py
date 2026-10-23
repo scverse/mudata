@@ -135,7 +135,8 @@ nitpick_ignore = (
     # If building the documentation fails because of a missing link that is outside your control,
     # you can add an exception to this list.
     #     ("py:class", "igraph.Graph"),
-    ("py:obj", "typing.R"),
+    ("py:class", "R"),
+    ("py:class", "Idx2D"),
     ("py:obj", "anndata.acc.Axes"),
     ("py:class", "AdRef"),
     ("py:class", "anndata.typing.AlignedArray"),

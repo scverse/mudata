@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import importlib
 import re
+import sys
 from collections.abc import MutableMapping, Sequence
 from contextlib import ExitStack
 from io import IOBase
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple, cast
 from warnings import catch_warnings, filterwarnings, warn
 
 import anndata as ad
@@ -32,6 +34,67 @@ _read_write_modality_pattern = re.compile(r"^(.+\.h5mu)/([^/]+)(/([^/]+))?$")
 
 def _is_openfile(obj) -> bool:
     return obj.__class__.__name__ == "OpenFile" and obj.__class__.__module__.startswith("fsspec.")
+
+
+class _Subtype(NamedTuple):
+    """An AnnData subclass whose extra elements mudata stores in the modality group."""
+
+    module: str  # module providing the subclass; looked up in sys.modules, never imported to detect it
+    cls: str  # name of the AnnData subclass in that module
+    write: str  # "module:function" writing the extra elements: ``(group, adata, *, dataset_kwargs)``
+    read: str  # "module:function" rebuilding the subclass: ``(group, adata) -> subclass instance``
+
+
+# Subtypes mudata can store, by the name written to the ``encoding-subtype`` attribute of the modality group.
+# The group itself stays a valid AnnData group (``encoding-type = "anndata"``).
+_SUBTYPES = {
+    "treedata": _Subtype("treedata", "TreeData", "treedata.io:write_tree_elems", "treedata.io:read_tree_elems")
+}
+_SUBTYPE_ATTR = "encoding-subtype"
+
+
+def _resolve(ref: str):
+    """Return the function a ``"module:function"`` reference points to, or ``None`` if it is not available."""
+    module, _, name = ref.partition(":")
+    try:
+        return getattr(importlib.import_module(module), name, None)
+    except ImportError:
+        return None
+
+
+def _write_mod_extras(group: h5py.File | h5py.Group | zarr.Group, adata: AnnData, kwargs) -> None:
+    """Store the elements an AnnData subclass adds to AnnData in the modality group.
+
+    An instance of a subclass can only exist if its package was imported, so the subclass is looked up
+    in ``sys.modules`` and its package is never imported just to detect it.
+    """
+    for name, subtype in _SUBTYPES.items():
+        cls = getattr(sys.modules.get(subtype.module), subtype.cls, None)
+        if not (isinstance(cls, type) and isinstance(adata, cls)):
+            continue
+        write = _resolve(subtype.write)
+        if write is not None:
+            write(group, adata, dataset_kwargs=kwargs)
+            group.attrs[_SUBTYPE_ATTR] = name
+            return
+
+
+def _read_mod_extras(group: h5py.File | h5py.Group | zarr.Group, adata: AnnData) -> AnnData:
+    """Rebuild the AnnData subclass a modality was written from, if it is available."""
+    name = group.attrs.get(_SUBTYPE_ATTR)
+    if name is None:
+        return adata
+    subtype = _SUBTYPES.get(str(name))
+    read = _resolve(subtype.read) if subtype is not None else None
+    if read is None:
+        warn(
+            f"Modality {group.name!r} was written from the AnnData subtype {str(name)!r}, "
+            "which is not available; reading it as AnnData.",
+            stacklevel=2,
+            skip_file_prefixes=(str(Path(__file__).parent),),
+        )
+        return adata
+    return read(group, adata)
 
 
 def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
@@ -81,6 +144,7 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
         write_elem(group, "varp", dict(adata.varp), dataset_kwargs=kwargs)
         write_elem(group, "layers", {k: v for k, v in adata.layers.items() if k is not None}, dataset_kwargs=kwargs)
         write_elem(group, "uns", dict(adata.uns), dataset_kwargs=kwargs)
+        _write_mod_extras(group, adata, kwargs)
 
         attrs = group.attrs
         attrs["encoding-type"] = "anndata"
@@ -187,6 +251,7 @@ def write_zarr(
             write_elem(group, "varp", dict(adata.varp), dataset_kwargs=kwargs)
             write_elem(group, "layers", {k: v for k, v in adata.layers.items() if k is not None}, dataset_kwargs=kwargs)
             write_elem(group, "uns", dict(adata.uns), dataset_kwargs=kwargs)
+            _write_mod_extras(group, adata, kwargs)
 
             attrs = group.attrs
             attrs["encoding-type"] = "anndata"
@@ -282,6 +347,7 @@ def write_h5ad(filename: str | PathLike, mod: str, data: MuData | AnnData):
         write_elem(fmd, "varp", dict(adata.varp))
         write_elem(fmd, "layers", {k: v for k, v in adata.layers.items() if k is not None})
         write_elem(fmd, "uns", dict(adata.uns))
+        _write_mod_extras(fmd, adata, {})
 
         attrs = fmd.attrs
         attrs["encoding-type"] = "anndata"
@@ -450,10 +516,12 @@ def read_zarr(store: str | PathLike | MutableMapping | zarr.Group | ZarrStore) -
 
     for k in f.keys():
         if k == "mod":
-            mods = {}
+            mods: dict[str, AnnData] = {}
             gmods = f.require_group(k)
             for m in gmods.keys():
-                mods[m] = read_elem(gmods[m])
+                if not isinstance(mod := gmods[m], zarr.Group):
+                    raise ValueError(f"Modality {m} must be a group.")
+                mods[m] = _read_mod_extras(mod, cast(AnnData, read_elem(gmods[m])))
 
             mod_order = None
             if "mod-order" in gmods.attrs:
@@ -487,7 +555,7 @@ def _read_h5mu_mod(g: h5py.Group, manager: MuDataFileManager | None = None, back
         if not backed or elem_name != rawXpath:
             return func(elem)
 
-    ad = cast(AnnData, read_dispatched(g, callback=ad_callback))
+    ad = _read_mod_extras(g, cast(AnnData, read_dispatched(g, callback=ad_callback)))
     if manager is not None:
         ad.file = AnnDataFileManager(ad, modname, manager)
 
