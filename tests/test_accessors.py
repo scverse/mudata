@@ -58,14 +58,14 @@ def anndata_schema_registry():
 
 def test_anndata_accessors(mdata: md.MuData):
     assert ad.acc.A.obs["arange"] in mdata
-    assert (mdata[ad.acc.A.obs["arange"]] == mdata.obs["arange"]).all()
+    assert (mdata[ad.acc.A.obs["arange"]] == mdata.obs["arange"]).all()  # type: ignore[union-attr]
     assert mdata[ad.acc.A.obs] is mdata.obs
     with pytest.raises(KeyError, match="test"):
         mdata[ad.acc.A.var["test"]]
     with pytest.raises(KeyError, match="there is one in"):
         mdata[ad.acc.A.var["assert-bool"]]
     with pytest.raises(IndexError, match="not a path to an array"):
-        mdata[ad.acc.A.varm]
+        mdata[ad.acc.A.varm]  # type: ignore[call-overload]
 
 
 PATHS = [

@@ -202,11 +202,12 @@ class MuData:
         obsmap: Mapping[str, np.ndarray[tuple[int], np.dtype[np.unsignedinteger]]] | None = None,
         varmap: Mapping[str, np.ndarray[tuple[int], np.dtype[np.unsignedinteger]]] | None = None,
         as_view: bool = False,
-        index: tuple[Index, Index] | Index | None = None,
+        index: Index | None = None,
     ):
         self._init_common()
         if as_view:
             assert isinstance(data, type(self))
+            assert index is not None
             self._init_as_view(data, index)
             return
 
@@ -480,7 +481,7 @@ class MuData:
                 return index.get(self)
             elif isinstance(index, MapAcc):
                 raise IndexError(f"Cannot index with {index} because this is not a path to an array-like structure.")
-        return MuData(self, as_view=True, index=index)
+        return MuData(self, as_view=True, index=cast(Index, index))
 
     def __contains__(self, key: str | AdRef | RefAcc | MapAcc | ModAcc | MultiModAcc) -> bool:
         if isinstance(key, str):

@@ -79,7 +79,8 @@ typecheck = [
   "cupy-stubs",
   "mypy",
   "pandas-stubs",
-  "scipy-stubs"
+  "scipy-stubs",
+  "types-jsonschema"
 ]
 
 [tool.hatch]
