@@ -74,7 +74,13 @@ doc = [
   "sphinxcontrib-katex",
   "sphinxext-opengraph"
 ]
-typecheck = [ "mypy", "pandas-stubs", "scipy-stubs" ]
+typecheck = [
+  "anndata @ git+https://github.com/scverse/anndata@main",
+  "cupy-stubs",
+  "mypy",
+  "pandas-stubs",
+  "scipy-stubs"
+]
 
 [tool.hatch]
 version.source = "vcs"
@@ -151,7 +157,6 @@ lint.pydocstyle.convention = "numpy"
 
 [tool.mypy]
 files = [ "src", "tests" ]
-python_version = "3.12"
 warn_redundant_casts = true
 
 # Dependencies without a py.typed marker whose source mypy can follow.

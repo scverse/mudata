@@ -258,8 +258,8 @@ def test_update_add_modality(rng: np.random.Generator, modalities: Mapping[str, 
         test_obsm_values = get_attrm_values(mdata, "obs", "test", some_obs_names)
         if axis == 1:
             assert np.isnan(mdata.obsm["test"]).sum() == modalities[modnames[i]].n_obs  # type: ignore[arg-type]
-            assert np.all(np.isnan(mdata.obsm["test"][-modalities[modnames[i]].n_obs :]))  # type: ignore[arg-type]
-            assert np.all(~np.isnan(mdata.obsm["test"][: -modalities[modnames[i]].n_obs]))  # type: ignore[arg-type]
+            assert np.all(np.isnan(mdata.obsm["test"][-modalities[modnames[i]].n_obs :]))  # type: ignore[arg-type, index]
+            assert np.all(~np.isnan(mdata.obsm["test"][: -modalities[modnames[i]].n_obs]))  # type: ignore[arg-type, index]
             assert (test_obsm_values[~np.isnan(test_obsm_values)].reshape(-1) == true_obsm_values.reshape(-1)).all()
         else:
             assert (test_obsm_values == true_obsm_values).all()
