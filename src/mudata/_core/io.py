@@ -62,7 +62,7 @@ def _resolve(ref: str):
         return None
 
 
-def _write_mod_extras(group: h5py.File | h5py.Group | zarr.Group, adata: AnnData, kwargs) -> None:
+def _write_mod_extras(group: h5py.Group | zarr.Group, adata: AnnData, kwargs) -> None:
     """Store the elements an AnnData subclass adds to AnnData in the modality group.
 
     An instance of a subclass can only exist if its package was imported, so the subclass is looked up
@@ -79,7 +79,7 @@ def _write_mod_extras(group: h5py.File | h5py.Group | zarr.Group, adata: AnnData
             return
 
 
-def _read_mod_extras(group: h5py.File | h5py.Group | zarr.Group, adata: AnnData) -> AnnData:
+def _read_mod_extras(group: h5py.Group | zarr.Group, adata: AnnData) -> AnnData:
     """Rebuild the AnnData subclass a modality was written from, if it is available."""
     name = group.attrs.get(_SUBTYPE_ATTR)
     if name is None:
