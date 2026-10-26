@@ -36,6 +36,7 @@
 ```
 
 ## Accessors
+
 ```{eval-rst}
 .. toctree::
    :hidden:
@@ -44,6 +45,7 @@
 ```
 
 ## Extensions
+
 ```{eval-rst}
 .. autosummary::
    :toctree: generated
@@ -56,6 +58,7 @@ Types used by the former:
 {class}`scverse_misc.ExtensionNamespace`
 
 ## Settings
+
 ```{eval-rst}
 .. autosummary::
    :toctree: generated

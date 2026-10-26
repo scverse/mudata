@@ -109,7 +109,7 @@ You can cite the scverse publication as follows:
 >
 > _Nat Biotechnol._ 2023 Apr 10. doi: [10.1038/s41587-023-01733-8][scverse paper].
 
-[//]: # (numfocus-fiscal-sponsor-attribution)
+[//]: # "numfocus-fiscal-sponsor-attribution"
 
 mudata is part of the scverse® project ([website][scverse], [governance](https://scverse.org/about/roles)) and is fiscally sponsored by [NumFOCUS][].
 If you like scverse® and want to support our mission, please consider making a tax-deductible [donation](https://numfocus.org/donate-to-scverse) to help the project pay for developer time, professional services, travel, workshops, and a variety of other needs.
