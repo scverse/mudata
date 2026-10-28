@@ -32,7 +32,7 @@ MuData objects enable multimodal information to be stored & accessed naturally, 
 
 ## Natural interface
 
-MuData objects feature an AnnData-like interface and familiar concepts such as *observations* and *variables* for the two data dimensions. Get familiar with MuData in the [Quickstart tutorial](notebooks/quickstart_mudata).
+MuData objects feature an AnnData-like interface and familiar concepts such as _observations_ and _variables_ for the two data dimensions. Get familiar with MuData in the [Quickstart tutorial](notebooks/quickstart_mudata).
 
 ## Handling MuData objects
 
