@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning][].
 - `treedata.TreeData` modalities now keep their trees when written to and read from `.h5mu` and Zarr, by calling `treedata.io.write_tree_elems` and `treedata.io.read_tree_elems` (requires a treedata version that provides them).
   The modality group stays a valid AnnData group and gets an `encoding-subtype = "treedata"` attribute. Previously such modalities were read back as plain AnnData without their trees.
 
+### Fixed
+
+- Read `.h5mu` files written by MuData 0.1.1 and earlier with the legacy `AnnData` modality encoding.
+
 ## [0.4.1]
 
 ### Fixed

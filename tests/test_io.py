@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import contextlib
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import anndata as ad
 import fsspec
@@ -10,13 +10,15 @@ import h5py
 import numpy as np
 import pytest
 import zarr
+from anndata._io.specs.registry import IORegistryError
 from anndata.tests.helpers import assert_equal
-from scipy.sparse import issparse
+from scipy.sparse import csr_matrix, issparse
 
 import mudata as md
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from typing import Literal
 
 
 @pytest.fixture
@@ -110,6 +112,51 @@ def test_h5mu_backed_to_memory(mdata: md.MuData, filepath_h5mu: str | Path):
     assert_equal(mdata, mdata_, exact=True)
     for modname in mdata.mod:
         assert isinstance(mdata_.mod[modname].X, np.ndarray) or issparse(mdata_.mod[modname].X)
+
+
+@pytest.mark.parametrize("read_func", ("read_h5mu", "read_h5ad"))
+@pytest.mark.parametrize("backed", (False, "r", "r+"))
+@pytest.mark.parametrize("matrix_type", (np.asarray, csr_matrix), ids=("dense", "sparse"))
+@pytest.mark.parametrize("encoding_type", ("AnnData", np.bytes_("AnnData")), ids=("str", "bytes"))
+def test_read_legacy_anndata_encoding(
+    mdata: md.MuData,
+    filepath_h5mu: Path,
+    read_func: str,
+    backed: Literal["r", "r+"] | bool,
+    matrix_type: Callable[..., np.ndarray | csr_matrix],
+    encoding_type: str | np.bytes_,
+):
+    adata = cast(ad.AnnData, mdata["mod1"])
+    matrix = matrix_type(adata.X)
+    adata.X = matrix
+    adata.raw = adata[:, :10].copy()
+    adata.layers["counts"] = matrix.copy()
+    adata.obsm["embedding"] = np.arange(adata.n_obs * 2).reshape(-1, 2)
+    adata.uns["source"] = "legacy"
+    mdata.write(filepath_h5mu)
+    with h5py.File(filepath_h5mu, "r+") as f:
+        f["mod/mod1"].attrs["encoding-type"] = encoding_type
+    original = filepath_h5mu.read_bytes()
+
+    args = (filepath_h5mu,) if read_func == "read_h5mu" else (filepath_h5mu, "mod1")
+    restored = getattr(md, read_func)(*args, backed=backed)
+    try:
+        assert restored.isbacked == bool(backed)
+        assert_equal(mdata if read_func == "read_h5mu" else adata, restored, exact=True)
+    finally:
+        restored.file.close()
+    assert filepath_h5mu.read_bytes() == original
+
+
+@pytest.mark.parametrize("encoding_type, encoding_version", (("AnnData", "9.9.9"), ("unknown", "0.1.0")))
+def test_read_unknown_anndata_encoding(
+    mdata: md.MuData, filepath_h5mu: Path, encoding_type: str, encoding_version: str
+):
+    mdata.write(filepath_h5mu)
+    with h5py.File(filepath_h5mu, "r+") as f:
+        f["mod/mod1"].attrs.update({"encoding-type": encoding_type, "encoding-version": encoding_version})
+    with pytest.raises(IORegistryError, match="No read method registered"):
+        md.read_h5mu(filepath_h5mu)
 
 
 def test_write_read_h5ad(mdata: md.MuData, filepath_h5mu: str | Path):

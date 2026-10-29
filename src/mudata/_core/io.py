@@ -555,7 +555,15 @@ def _read_h5mu_mod(g: h5py.Group, manager: MuDataFileManager | None = None, back
         if not backed or elem_name != rawXpath:
             return func(elem)
 
-    ad = _read_mod_extras(g, cast(AnnData, read_dispatched(g, callback=ad_callback)))
+    if (
+        _read_attr(g.attrs, "encoding-type", None) == "AnnData"
+        and _read_attr(g.attrs, "encoding-version", None) == "0.1.0"
+    ):
+        # MuData <= 0.1.1 used a modality encoding not recognized by AnnData's registry.
+        elements: dict[str, Any] = {k: read_dispatched(g[k], callback=ad_callback) for k in g if k != "raw"}
+        ad = AnnData(**elements)
+    else:
+        ad = _read_mod_extras(g, cast(AnnData, read_dispatched(g, callback=ad_callback)))
     if manager is not None:
         ad.file = AnnDataFileManager(ad, modname, manager)
 
