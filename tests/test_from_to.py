@@ -30,4 +30,4 @@ def test_from_anndata(rng: np.random.Generator):
     assert mdata.n_mod == 3
     assert sorted(mdata.mod.keys()) == ["mod1", "mod2", "mod3"]
     for m, mod in mdata.mod.items():
-        assert (mod.var_names == adata.var_names[adata.var.feature_types == m]).all()
+        assert (mod.var_names == adata.var_names[adata.var["feature_types"] == m]).all()  # type: ignore[index]

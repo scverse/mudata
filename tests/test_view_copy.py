@@ -101,12 +101,13 @@ def test_view_view(mdata: md.MuData):
         assert (mod.var_names == mdata_view[modname].var_names).all()
 
 
-def test_backed_copy(mdata: md.MuData, filepath_h5mu: str | Path, filepath2_h5mu: str | Path):
+def test_backed_copy(mdata: md.MuData, filepath_h5mu: Path, filepath2_h5mu: Path):
     mdata.write(filepath_h5mu)
     mdata_b = md.read_h5mu(filepath_h5mu, backed="r")
     assert_equal(mdata, mdata_b, exact=True)
     mdata_b_copy = mdata_b.copy(filepath2_h5mu)
-    assert mdata_b_copy.file._filename.name == Path(filepath2_h5mu).name
+    assert mdata_b_copy.file._filename is not None
+    assert mdata_b_copy.file._filename.name == filepath2_h5mu.name
     assert_equal(mdata_b, mdata_b_copy, exact=True)
 
 
@@ -189,16 +190,16 @@ def _test_view_after_setattr(mdata: md.MuData, mdata_ref: md.MuData, skip: Seque
 
     for k, v in mdata.obsm.items():
         if k in mdata_ref.obsm:
-            if v.ndim > 1:
+            if getattr(v, "ndim", 0) > 1:
                 assert v.shape[1] == mdata_ref.obsm[k].shape[1]
             if isinstance(v, pd.DataFrame):
-                assert (v.columns == mdata_ref.obsm[k].columns).all()
+                assert (v.columns == mdata_ref.obsm[k].columns).all()  # type: ignore[union-attr]
     for k, v in mdata.varm.items():
         if k in mdata_ref.varm:
-            if v.ndim > 1:
+            if getattr(v, "ndim", 0) > 1:
                 assert v.shape[1] == mdata_ref.obsm[k].shape[1]
             if isinstance(v, pd.DataFrame):
-                assert (v.columns == mdata_ref.varm[k].columns).all()
+                assert (v.columns == mdata_ref.varm[k].columns).all()  # type: ignore[union-attr]
 
 
 @pytest.mark.filterwarnings("ignore::anndata.ImplicitModificationWarning")
@@ -212,11 +213,11 @@ def test_view_setattr(mdata_with_obsp: md.MuData):
     _test_view_after_setattr(view, mdata_with_obsp, "uns")
 
     view = mdata_with_obsp[:42, :]
-    view.obsp["distances"][1, 2] = 42
+    view.obsp["distances"][1, 2] = 42  # type: ignore[index]
     _test_view_after_setattr(view, mdata_with_obsp)
 
     view = mdata_with_obsp[:42, :]
-    view.varp["correlations"][1, 2] = 42
+    view.varp["correlations"][1, 2] = 42  # type: ignore[index]
     _test_view_after_setattr(view, mdata_with_obsp)
 
     view = mdata_with_obsp[:42, :]
