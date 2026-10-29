@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import contextlib
 from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 import anndata as ad
 import fsspec
@@ -12,6 +15,10 @@ from anndata.tests.helpers import assert_equal
 from scipy.sparse import csr_matrix, issparse
 
 import mudata as md
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from typing import Literal
 
 
 @pytest.fixture
@@ -34,8 +41,8 @@ def test_write_read_basic(
     mdata: md.MuData,
     write_func: str,
     read_func: str,
-    open_func: str,
-    filepath: str | Path,
+    open_func: Callable[..., h5py.File | zarr.Group],
+    filepath: str,
     request: pytest.FixtureRequest,
 ):
     filepath = request.getfixturevalue(filepath)
@@ -47,7 +54,7 @@ def test_write_read_basic(
     # Test implementation (storage) as well
     f = open_func(filepath, mode="r")
     assert "mod-order" in f["mod"].attrs
-    assert list(f["mod"].attrs["mod-order"]) == ["mod2", "mod1"]
+    assert list(f["mod"].attrs["mod-order"]) == ["mod2", "mod1"]  # type: ignore[arg-type]
 
 
 def test_set_filename(mdata: md.MuData, filepath_h5mu: str | Path):
@@ -70,7 +77,7 @@ def test_write_read_zarr_adata(mdata: md.MuData, filepath_zarr: str | Path):
     (("write", "read_h5mu", "filepath_h5mu"), ("write_zarr", "read_zarr", "filepath_zarr")),
 )
 def test_write_read_mod_obs_colname(
-    mdata: md.MuData, write_func: str, read_func: str, filepath: str | Path, request: pytest.FixtureRequest
+    mdata: md.MuData, write_func: str, read_func: str, filepath: str, request: pytest.FixtureRequest
 ):
     filepath = request.getfixturevalue(filepath)
 
@@ -89,7 +96,7 @@ def test_h5mu_backed(mdata: md.MuData, filepath_h5mu: str | Path, filepath2_h5mu
 
     # When backed, the matrix is read-only
     with pytest.raises(OSError):
-        mdata_.mod["mod1"].X[10, 5] = 0
+        mdata_.mod["mod1"].X[10, 5] = 0  # type: ignore[index]
 
     mdata_.filename = filepath2_h5mu
     assert mdata_.isbacked
@@ -108,14 +115,22 @@ def test_h5mu_backed_to_memory(mdata: md.MuData, filepath_h5mu: str | Path):
 
 
 @pytest.mark.parametrize("read_func", ("read_h5mu", "read_h5ad"))
-@pytest.mark.parametrize("backed", (None, "r", "r+"))
+@pytest.mark.parametrize("backed", (False, "r", "r+"))
 @pytest.mark.parametrize("matrix_type", (np.asarray, csr_matrix), ids=("dense", "sparse"))
 @pytest.mark.parametrize("encoding_type", ("AnnData", np.bytes_("AnnData")), ids=("str", "bytes"))
-def test_read_legacy_anndata_encoding(mdata, filepath_h5mu, read_func, backed, matrix_type, encoding_type):
-    adata = mdata["mod1"]
-    adata.X = matrix_type(adata.X)
+def test_read_legacy_anndata_encoding(
+    mdata: md.MuData,
+    filepath_h5mu: Path,
+    read_func: str,
+    backed: Literal["r", "r+"] | bool,
+    matrix_type: Callable[..., np.ndarray | csr_matrix],
+    encoding_type: str | np.bytes_,
+):
+    adata = cast(ad.AnnData, mdata["mod1"])
+    matrix = matrix_type(adata.X)
+    adata.X = matrix
     adata.raw = adata[:, :10].copy()
-    adata.layers["counts"] = adata.X.copy()
+    adata.layers["counts"] = matrix.copy()
     adata.obsm["embedding"] = np.arange(adata.n_obs * 2).reshape(-1, 2)
     adata.uns["source"] = "legacy"
     mdata.write(filepath_h5mu)
@@ -126,7 +141,7 @@ def test_read_legacy_anndata_encoding(mdata, filepath_h5mu, read_func, backed, m
     args = (filepath_h5mu,) if read_func == "read_h5mu" else (filepath_h5mu, "mod1")
     restored = getattr(md, read_func)(*args, backed=backed)
     try:
-        assert restored.isbacked == (backed is not None)
+        assert restored.isbacked == bool(backed)
         assert_equal(mdata if read_func == "read_h5mu" else adata, restored, exact=True)
     finally:
         restored.file.close()
@@ -134,7 +149,9 @@ def test_read_legacy_anndata_encoding(mdata, filepath_h5mu, read_func, backed, m
 
 
 @pytest.mark.parametrize("encoding_type, encoding_version", (("AnnData", "9.9.9"), ("unknown", "0.1.0")))
-def test_read_unknown_anndata_encoding(mdata, filepath_h5mu, encoding_type, encoding_version):
+def test_read_unknown_anndata_encoding(
+    mdata: md.MuData, filepath_h5mu: Path, encoding_type: str, encoding_version: str
+):
     mdata.write(filepath_h5mu)
     with h5py.File(filepath_h5mu, "r+") as f:
         f["mod/mod1"].attrs.update({"encoding-type": encoding_type, "encoding-version": encoding_version})
@@ -159,7 +176,7 @@ def test_write_read_h5ad(mdata: md.MuData, filepath_h5mu: str | Path):
     assert_equal(adata, adata_backed, exact=True)
 
 
-def test_write_read(mdata: md.MuData, tmp_path: Path, filepath_h5mu: str | Path, filepath_h5ad: str | Path):
+def test_write_read(mdata: md.MuData, tmp_path: Path, filepath_h5mu: Path, filepath_h5ad: Path):
     with pytest.raises(ValueError, match="only save MuData"):
         md.write(str(filepath_h5mu) + ".h5ad", mdata)
     with pytest.raises(ValueError, match="MuData object can be saved"):
@@ -191,7 +208,7 @@ def test_write_read(mdata: md.MuData, tmp_path: Path, filepath_h5mu: str | Path,
         md.read(filepath_h5mu / "foo" / "bar")
 
     with pytest.raises(ValueError, match="objects are accepted"):
-        md.write(tmp_path / "foo", "bar")
+        md.write(tmp_path / "foo", "bar")  # type: ignore[arg-type]
 
     md.write(filepath_h5ad, adata)
     adata_ = md.read(filepath_h5ad)

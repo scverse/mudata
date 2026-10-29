@@ -26,8 +26,8 @@ class AnnDataWithExtra(ad.AnnData):
 def subtype_package(monkeypatch: pytest.MonkeyPatch) -> types.ModuleType:
     """A stand-in package providing an AnnData subclass and its ``io`` module, registered as a subtype in mudata."""
     package = types.ModuleType("anndata_extra_package")
-    package.AnnDataWithExtra = AnnDataWithExtra
-    package.io = types.ModuleType("anndata_extra_package.io")
+    package.AnnDataWithExtra = AnnDataWithExtra  # type: ignore[attr-defined]
+    package.io = types.ModuleType("anndata_extra_package.io")  # type: ignore[attr-defined]
 
     def write_extra(group, adata, *, dataset_kwargs):
         ad.io.write_elem(group, "extra", adata.extra, dataset_kwargs=dataset_kwargs)

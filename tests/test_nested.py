@@ -34,6 +34,7 @@ def test_nested_mudata(mdata: MuData):
     assert mdata["mod1"].shape == (N, D1)
     assert mdata["mod2"].shape == (N, D2)
     assert mdata.axis == 0
+    assert isinstance(mdata["mod2"], MuData)
     assert mdata["mod2"].axis == -1
 
 

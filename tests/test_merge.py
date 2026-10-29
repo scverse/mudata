@@ -16,5 +16,5 @@ def test_merge(mdata_nouniqueobs: md.MuData, filepath_h5mu: str | Path, roundtri
     assert list(mdata_.mod.keys()) == ["mod1", "mod2"]
     for m in mdata_.mod:
         assert mdata_.mod[m].shape == mdata_nouniqueobs.mod[m].shape
-    assert np.array_equal(mdata_.mod["mod1"].X, mdata_nouniqueobs.mod["mod1"].X)
-    assert np.array_equal(mdata_.mod["mod2"].X, mdata_nouniqueobs.mod["mod2"].X)
+    assert np.array_equal(mdata_.mod["mod1"].X, mdata_nouniqueobs.mod["mod1"].X)  # type:ignore[arg-type]
+    assert np.array_equal(mdata_.mod["mod2"].X, mdata_nouniqueobs.mod["mod2"].X)  # type:ignore[arg-type]
