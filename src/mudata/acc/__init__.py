@@ -49,6 +49,7 @@ class _ModalityAcc[I, R](_ModalityMixin):
         return super().get(mdata.mod[self.mod], idx)  # type: ignore[misc]
 
 
+@dataclass(frozen=True)
 class _ModalityMapAcc[R](_ModalityMixin):
     def get(self, mdata: MuData) -> R:
         return super().get(mdata.mod[self.mod])  # type: ignore[misc]

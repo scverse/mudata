@@ -148,6 +148,10 @@ def test_write_anndata_obsp(
     assert_equal(mdata.mod["mod1"], mdata_.mod["mod1"])
     assert "test" not in mdata_.mod["mod2"].obsp
 
+    write_func(filepath, mdata, use=mdA.mod["mod2"].obsp)
+    mdata_ = read_func(filepath)
+    assert_equal(mdata.mod["mod1"], mdata_.mod["mod1"])
+
 
 def test_write_errors(
     mdata: MuData,

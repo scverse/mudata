@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import re
 import sys
+from collections import defaultdict
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from contextlib import ExitStack, contextmanager
 from dataclasses import asdict
@@ -82,7 +83,7 @@ def _write_use(
     from anndata.acc import AdRef, MetaAcc
 
     from .. import __mudataversion__
-    from ..acc import ModAcc, ModMapAcc, ModMetaAcc, MultiModAcc, _ModalityAcc
+    from ..acc import ModAcc, ModMapAcc, ModMetaAcc, MultiModAcc, _ModalityAcc, _ModalityMapAcc
 
     if f.attrs.get("encoding-type") != "mudata" and f.attrs.get("encoding-version") != __mudataversion__:
         raise ValueError("Cannot write a subelement of a MuData object to a store that is not a MuData store.")
@@ -98,22 +99,51 @@ def _write_use(
     uses = use if isinstance(use, Sequence) else (use,)
 
     have_obs, have_var, have_obsmap, have_varmap, have_mods, have_mod = False, False, False, False, False, []
-    for acc in uses:
-        match acc:
-            case MultiModAcc() | ModAcc():
-                have_mods = True
-            case ModAcc(mod=mod):
-                have_mod.append(mod)
-            case ModMapAcc(dim="obs"):
-                have_obsmap = True
-            case ModMapAcc(dim="var"):
-                have_varmap = True
-            case MetaAcc(dim="obs"):
-                have_obs = True
-            case MetaAcc(dim="var"):
-                have_var = True
+
+    global_accessors: list[MultiModAcc | ModAcc | ModMapAcc | MetaAcc | RefAcc | MapAcc | AdRef] = []
+    modality_part_accessors = defaultdict(
+        list
+    )  # pass all modality accessors to anndata at once so it can do proper validation
 
     disk_mods = f.require_group("mod")
+    for acc in uses:
+        match acc:
+            case _ModalityAcc(mod=mod) | _ModalityMapAcc(mod=mod):
+                if mod not in disk_mods:
+                    raise ValueError(f"Modality {mod!r} is not present on disk, cannot write part of it.")
+                for acctype in type(acc).mro():  # pass dim_names check
+                    if acctype.__module__ == "anndata.acc":
+                        args = asdict(acc)
+                        del args["mod"]
+                        cacc = acctype(**args)
+                        break
+                modality_part_accessors[mod].append(cacc)
+            case AdRef(acc=ModMetaAcc(mod=mod), idx=str() as idx):
+                if mod not in disk_mods:
+                    raise ValueError(f"Modality {mod!r} is not present on disk, cannot write part of it.")
+                cacc = type(acc)(acc=MetaAcc(dim=dim, ref_class=type(acc)), idx=idx)  # pass dim_names check
+                modality_part_accessors[mod].append(cacc)
+            case MultiModAcc():
+                have_mods = True
+                global_accessors.append(acc)
+            case ModAcc(mod=mod):
+                have_mod.append(mod)
+                global_accessors.append(acc)
+            case ModMapAcc(dim="obs"):
+                have_obsmap = True
+                global_accessors.append(acc)
+            case ModMapAcc(dim="var"):
+                have_varmap = True
+                global_accessors.append(acc)
+            case MetaAcc(dim="obs"):
+                have_obs = True
+                global_accessors.append(acc)
+            case MetaAcc(dim="var"):
+                have_var = True
+                global_accessors.append(acc)
+            case _:
+                global_accessors.append(acc)
+
     if not (have_obs and have_var and have_obsmap and have_varmap) and (
         have_mods and mdata.mod.keys() != set(disk_mods.keys()) or any(mod not in disk_mods for mod in have_mod)
     ):
@@ -124,7 +154,7 @@ def _write_use(
             stacklevel=2,
         )
 
-    for acc in uses:
+    for acc in global_accessors:
         match acc:
             case MultiModAcc():
                 mods = acc.get(mdata)
@@ -141,24 +171,12 @@ def _write_use(
                 disk_mods.attrs["mod-order"] = list(mdata.mod.keys())
             case ModMapAcc(dim=dim):
                 write_elem(f, f"{dim}map", acc.get(mdata), dataset_kwargs=dataset_kwargs)
-            case _ModalityAcc(mod=mod):
-                if mod not in disk_mods:
-                    raise ValueError(f"Modality {mod!r} is not present on disk, cannot write part of it.")
-                for acctype in type(acc).mro():  # pass dim_names check
-                    if acctype.__module__ == "anndata.acc":
-                        args = asdict(acc)
-                        del args["mod"]
-                        cacc = acctype(**args)
-                        break
-                write_use(disk_mods[mod], cast(AnnData, mdata.mod[mod]), cacc, dataset_kwargs=dataset_kwargs)  # type: ignore[arg-type]
-            case AdRef(acc=ModMetaAcc(mod=mod, dim=dim), idx=str() as idx):
-                if mod not in (mods := f["mod"]):  # type: ignore[operator, assignment]
-                    raise ValueError(f"Modality {mod!r} is not present on disk, cannot write part of it.")
-                cacc = type(acc)(acc=MetaAcc(dim=dim, ref_class=type(acc)), idx=idx)  # pass dim_names check
-                write_use(disk_mods[mod], cast(AnnData, mdata.mod[mod]), cacc, dataset_kwargs=dataset_kwargs)  # type: ignore[arg-type]
             case _:
                 with _fake_anndata_encoding_attrs(f) as fakef:
                     write_use(fakef, cast(AnnData, mdata), acc, dataset_kwargs=dataset_kwargs)
+
+    for mod, cacc in modality_part_accessors.items():
+        write_use(disk_mods[mod], cast(AnnData, mdata.mod[mod]), cacc, dataset_kwargs=dataset_kwargs)  # type: ignore[arg-type]
 
 
 def _is_openfile(obj) -> bool:
