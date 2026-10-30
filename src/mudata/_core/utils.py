@@ -2,13 +2,17 @@ from __future__ import annotations
 
 from collections import Counter
 from contextlib import suppress
+from importlib import metadata
 from typing import TYPE_CHECKING, Literal, cast
 
 import numpy as np
 import pandas as pd
+from packaging.version import Version
 
 if TYPE_CHECKING:
     from collections.abc import Collection, Mapping
+
+AD_VERSION = Version(metadata.version("anndata"))
 
 
 def _make_index_unique(df: pd.DataFrame, force: bool = False) -> pd.DataFrame:

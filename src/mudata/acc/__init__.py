@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Hashable, Sequence
+from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import KW_ONLY, dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
@@ -38,7 +38,7 @@ class _ModalityMixin:
 
 
 @dataclass(frozen=True)
-class _ModalityMapAcc[I, R](_ModalityMixin):
+class _ModalityAcc[I, R](_ModalityMixin):
     def isin(self, mdata: MuData, idx: I | None = None) -> bool:
         if self.mod not in mdata.mod:
             return False
@@ -49,8 +49,13 @@ class _ModalityMapAcc[I, R](_ModalityMixin):
         return super().get(mdata.mod[self.mod], idx)  # type: ignore[misc]
 
 
+class _ModalityMapAcc[R](_ModalityMixin):
+    def get(self, mdata: MuData) -> R:
+        return super().get(mdata.mod[self.mod])  # type: ignore[misc]
+
+
 @dataclass(frozen=True)
-class ModLayerAcc[R: AdRef[Idx2D, MuData]](_ModalityMapAcc[Idx2D, InMemoryArray], LayerAcc[R]):  # type: ignore[type-var,misc]
+class ModLayerAcc[R: AdRef[Idx2D, MuData]](_ModalityAcc[Idx2D, InMemoryArray], LayerAcc[R]):  # type: ignore[type-var,misc]
     """Reference accessor for arrays in :attr:`~anndata.acc.AdAcc.layers`."""
 
     def __repr__(self) -> str:
@@ -58,7 +63,7 @@ class ModLayerAcc[R: AdRef[Idx2D, MuData]](_ModalityMapAcc[Idx2D, InMemoryArray]
 
 
 @dataclass(frozen=True)
-class ModLayerMapAcc[R: AdRef](_ModalityMixin, LayerMapAcc[R]):
+class ModLayerMapAcc[R: AdRef](_ModalityMapAcc, LayerMapAcc[R]):  # type: ignore[misc]
     """Accessor for arrays in :attr:~anndata.acc.AdAcc.layers`."""
 
     ref_acc_cls: type[ModLayerAcc] = ModLayerAcc
@@ -74,7 +79,7 @@ class ModLayerMapAcc[R: AdRef](_ModalityMixin, LayerMapAcc[R]):
 
 @dataclass(frozen=True)
 class ModMetaAcc[R: AdRef[str, MuData]](  # type: ignore[misc]
-    _ModalityMapAcc[str, DataFrameLike | pd.api.extensions.ExtensionArray | XVariable], MetaAcc[R]
+    _ModalityAcc[str, DataFrameLike | pd.api.extensions.ExtensionArray | XVariable], MetaAcc[R]
 ):
     """Reference accessor for arrays from metadata containers (:attr:`~anndata.acc.AdAcc.obs` / :attr:`~anndata.acc.AdAcc.var`)."""
 
@@ -83,7 +88,7 @@ class ModMetaAcc[R: AdRef[str, MuData]](  # type: ignore[misc]
 
 
 @dataclass(frozen=True)
-class ModMultiAcc[R: AdRef[int, MuData]](_ModalityMapAcc[int, InMemoryArray], MultiAcc[R]):  # type: ignore[misc]
+class ModMultiAcc[R: AdRef[int, MuData]](_ModalityAcc[int, InMemoryArray], MultiAcc[R]):  # type: ignore[misc]
     """Reference accessor for arrays from multi-dimensional containers (:attr:`~anndata.acc.AdAcc.obsm` / :attr:`~anndata.acc.AdAcc.varm`)."""
 
     def __repr__(self) -> str:
@@ -91,7 +96,7 @@ class ModMultiAcc[R: AdRef[int, MuData]](_ModalityMapAcc[int, InMemoryArray], Mu
 
 
 @dataclass(frozen=True)
-class ModMultiMapAcc[R: AdRef](_ModalityMixin, MultiMapAcc[R]):
+class ModMultiMapAcc[R: AdRef](_ModalityMapAcc[R], MultiMapAcc[R]):  # type: ignore[misc]
     """Accessor for multi-dimensional array containers (:attr:`~anndata.acc.AdAcc.obsm` / :attr:`~anndata.acc.AdAcc.varm`)."""
 
     ref_acc_cls: type[ModMultiAcc] = ModMultiAcc
@@ -106,7 +111,7 @@ class ModMultiMapAcc[R: AdRef](_ModalityMixin, MultiMapAcc[R]):
 
 
 @dataclass(frozen=True)
-class ModGraphAcc[R: AdRef[Idx2D, MuData]](_ModalityMapAcc[Idx2D, InMemoryArray], GraphAcc[R]):  # type: ignore[misc]
+class ModGraphAcc[R: AdRef[Idx2D, MuData]](_ModalityAcc[Idx2D, InMemoryArray], GraphAcc[R]):  # type: ignore[misc]
     """Reference accessor for arrays from graph containers (:attr:`~anndata.acc.AdAcc.obsp` / :attr:`~anndata.acc.AdAcc.varp`)."""
 
     def __repr__(self) -> str:
@@ -114,7 +119,7 @@ class ModGraphAcc[R: AdRef[Idx2D, MuData]](_ModalityMapAcc[Idx2D, InMemoryArray]
 
 
 @dataclass(frozen=True)
-class ModGraphMapAcc[R: AdRef](_ModalityMixin, GraphMapAcc[R]):
+class ModGraphMapAcc[R: AdRef](_ModalityMapAcc[R], GraphMapAcc[R]):  # type: ignore[misc]
     """Accessor for graph containers (:attr:`~anndata.acc.AdAcc.obsp` / :attr:`~anndata.acc.AdAcc.varp`)"""
 
     ref_acc_cls: type[ModGraphAcc] = ModGraphAcc
@@ -215,6 +220,10 @@ class MultiModAcc[R: AdRef](MapAcc[ModAcc[R]]):  # type: ignore[type-var]
         if not isinstance(k, str):
             raise TypeError(f"Unsupported mod key {k!r}")
         return self.ref_acc_cls(mod=k, ref_class=self.ref_class)
+
+    def get(self, mdata: MuData) -> Mapping[str, AnnData | MuData]:
+        """Get all the modalities in the :class:`~mudata.MuData` object."""
+        return mdata.mod
 
     def __repr__(self) -> str:
         return "A.mod"
