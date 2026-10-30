@@ -168,7 +168,13 @@ def _write_use(
                 _write_modality(
                     disk_mods, mod, cast(AnnData, acc.get(mdata)), dataset_kwargs=dataset_kwargs
                 )  # handle extras correctly
-                disk_mods.attrs["mod-order"] = list(mdata.mod.keys())
+
+                order = cast(list[str], _read_attr(disk_mods.attrs, "mod-order"))
+                if mod not in order and (mods_intersection := list(mdata.mod.keys() & (order + [mod]))):
+                    modpos = mods_intersection.index(mod)
+                    insertpos = order.index(mods_intersection[modpos - 1]) + 1
+                    order.insert(insertpos, mod)
+                    disk_mods.attrs["mod-order"] = order
             case ModMapAcc(dim=dim):
                 write_elem(f, f"{dim}map", acc.get(mdata), dataset_kwargs=dataset_kwargs)
             case _:
