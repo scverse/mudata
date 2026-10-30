@@ -98,7 +98,7 @@ def _write_use(
 
     uses = use if isinstance(use, Sequence) else (use,)
 
-    have_obs, have_var, have_obsmap, have_varmap, have_mods, have_mod = False, False, False, False, False, []
+    have_globals, have_mods, have_mod = {"obs": False, "var": False, "obsmap": False, "varmap": False}, False, []
 
     global_accessors: list[MultiModAcc | ModAcc | ModMapAcc | MetaAcc | RefAcc | MapAcc | AdRef] = []
     modality_part_accessors = defaultdict(
@@ -123,28 +123,22 @@ def _write_use(
                     raise ValueError(f"Modality {mod!r} is not present on disk, cannot write part of it.")
                 cacc = type(acc)(acc=MetaAcc(dim=dim, ref_class=type(acc)), idx=idx)  # pass dim_names check
                 modality_part_accessors[mod].append(cacc)
-            case MultiModAcc():
-                have_mods = True
-                global_accessors.append(acc)
             case ModAcc(mod=mod):
                 have_mod.append(mod)
                 global_accessors.append(acc)
-            case ModMapAcc(dim="obs"):
-                have_obsmap = True
+            case MultiModAcc():
+                have_mods = True
                 global_accessors.append(acc)
-            case ModMapAcc(dim="var"):
-                have_varmap = True
+            case ModMapAcc(dim=dim):
+                have_globals[f"{dim}map"] = True
                 global_accessors.append(acc)
-            case MetaAcc(dim="obs"):
-                have_obs = True
-                global_accessors.append(acc)
-            case MetaAcc(dim="var"):
-                have_var = True
+            case MetaAcc(dim=dim):
+                have_globals[dim] = True
                 global_accessors.append(acc)
             case _:
                 global_accessors.append(acc)
 
-    if not (have_obs and have_var and have_obsmap and have_varmap) and (
+    if not all(have_globals.values()) and (
         have_mods and mdata.mod.keys() != set(disk_mods.keys()) or any(mod not in disk_mods for mod in have_mod)
     ):
         warn(
