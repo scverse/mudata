@@ -3,20 +3,27 @@ from __future__ import annotations
 import importlib
 import re
 import sys
-from collections.abc import MutableMapping, Sequence
-from contextlib import ExitStack
+from collections import defaultdict
+from collections.abc import Callable, Mapping, MutableMapping, Sequence
+from contextlib import ExitStack, contextmanager
+from dataclasses import asdict
 from io import IOBase
 from pathlib import Path
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple, cast
 from warnings import catch_warnings, filterwarnings, warn
 
 import anndata as ad
 import h5py
+import numpy as np
+import pandas as pd
 from anndata import AnnData
 from anndata.compat import _read_attr
 from anndata.experimental import read_dispatched
 from anndata.io import read_elem, write_elem
-from scipy import sparse
+from packaging.version import Version
+from scipy.sparse import issparse
+from scverse_misc import Deprecation, deprecated
 
 from .file_backing import AnnDataFileManager, MuDataFileManager
 from .mudata import MuData
@@ -28,8 +35,148 @@ if TYPE_CHECKING:
     import zarr
     from zarr.abc.store import Store as ZarrStore
 
+    from .compat import AdRef, MapAcc, ModAcc, ModMapAcc, MultiModAcc, RefAcc
+
+
+from .utils import AD_VERSION
 
 _read_write_modality_pattern = re.compile(r"^(.+\.h5mu)/([^/]+)(/([^/]+))?$")
+
+
+@contextmanager
+def _fake_anndata_encoding_attrs(f: h5py.Group | zarr.Group):
+    from .. import __anndataversion__
+
+    oldcls: type = type(f)
+
+    class FakeAnndataEncodingAttrs(oldcls):
+        @property
+        def attrs(self):
+            return {"encoding-type": "anndata", "encoding-version": __anndataversion__}
+
+    if isinstance(f, h5py.Group):
+        f.__class__ = FakeAnndataEncodingAttrs
+        yield f
+        f.__class__ = oldcls
+    else:
+        newf = FakeAnndataEncodingAttrs.open(f.store, zarr_format=f.metadata.zarr_format)
+        yield newf
+
+
+def _write_use(
+    f: h5py.Group | zarr.Group,
+    mdata: MuData,
+    use: AdRef
+    | RefAcc
+    | MapAcc
+    | MultiModAcc
+    | ModAcc
+    | ModMapAcc
+    | Sequence[AdRef | RefAcc | MapAcc | MultiModAcc | ModAcc | ModMapAcc],
+    *,
+    dataset_kwargs: Mapping[str, Any] = MappingProxyType({}),
+) -> None:
+    if AD_VERSION < Version("0.14.0dev0"):
+        raise RuntimeError("The 'use' argument requires anndata>=0.14.")
+
+    from anndata._io.utils import write_use
+    from anndata.acc import AdRef, MetaAcc
+
+    from .. import __mudataversion__
+    from ..acc import ModAcc, ModMapAcc, ModMetaAcc, MultiModAcc, _ModalityAcc, _ModalityMapAcc
+
+    if f.attrs.get("encoding-type") != "mudata" and f.attrs.get("encoding-version") != __mudataversion__:
+        raise ValueError("Cannot write a subelement of a MuData object to a store that is not a MuData store.")
+
+    if f.attrs["axis"] != mdata.axis:
+        raise ValueError(f"Cannot write {use}: axis in the store does not match the MuData object.")
+    for dim in ("obs", "var"):
+        group = f[dim]
+        on_disk = read_elem(group[cast(str, group.attrs["_index"])])  # type: ignore[arg-type, index]
+        if not pd.Index(cast(np.ndarray, on_disk)).equals(getattr(mdata, f"{dim}_names")):
+            raise ValueError(f"Cannot write {use}: {dim}_names in the store do not match the MuData object.")
+
+    uses = use if isinstance(use, Sequence) else (use,)
+
+    have_globals, have_mods, have_mod = {"obs": False, "var": False, "obsmap": False, "varmap": False}, False, []
+
+    global_accessors: list[MultiModAcc | ModAcc | ModMapAcc | MetaAcc | RefAcc | MapAcc | AdRef] = []
+    modality_part_accessors = defaultdict(
+        list
+    )  # pass all modality accessors to anndata at once so it can do proper validation
+
+    disk_mods = f.require_group("mod")
+    for acc in uses:
+        match acc:
+            case _ModalityAcc(mod=mod) | _ModalityMapAcc(mod=mod):
+                if mod not in disk_mods:
+                    raise ValueError(f"Modality {mod!r} is not present on disk, cannot write part of it.")
+                for acctype in type(acc).mro():  # pass dim_names check
+                    if acctype.__module__ == "anndata.acc":
+                        args = asdict(acc)
+                        del args["mod"]
+                        cacc = acctype(**args)
+                        break
+                modality_part_accessors[mod].append(cacc)
+            case AdRef(acc=ModMetaAcc(mod=mod), idx=str() as idx):
+                if mod not in disk_mods:
+                    raise ValueError(f"Modality {mod!r} is not present on disk, cannot write part of it.")
+                cacc = type(acc)(acc=MetaAcc(dim=dim, ref_class=type(acc)), idx=idx)  # pass dim_names check
+                modality_part_accessors[mod].append(cacc)
+            case ModAcc(mod=mod):
+                have_mod.append(mod)
+                global_accessors.append(acc)
+            case MultiModAcc():
+                have_mods = True
+                global_accessors.append(acc)
+            case ModMapAcc(dim=dim):
+                have_globals[f"{dim}map"] = True
+                global_accessors.append(acc)
+            case MetaAcc(dim=dim):
+                have_globals[dim] = True
+                global_accessors.append(acc)
+            case _:
+                global_accessors.append(acc)
+
+    if not all(have_globals.values()) and (
+        have_mods and mdata.mod.keys() != set(disk_mods.keys()) or any(mod not in disk_mods for mod in have_mod)
+    ):
+        warn(
+            "Modalities given in 'use' do not correspond to those already on disk and no global metadata is being written. "
+            "This may lead to surprising results when reading the file.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+    for acc in global_accessors:
+        match acc:
+            case MultiModAcc():
+                mods = acc.get(mdata)
+                for modname, adata in mods.items():
+                    _write_modality(
+                        disk_mods, modname, cast(AnnData, adata), dataset_kwargs=dataset_kwargs
+                    )  # handle extras correctly
+                disk_mods.attrs["mod-order"] = list(mods.keys())
+            case ModAcc(mod=mod):
+                disk_mods = f.require_group("mod")
+                _write_modality(
+                    disk_mods, mod, cast(AnnData, acc.get(mdata)), dataset_kwargs=dataset_kwargs
+                )  # handle extras correctly
+
+                order = cast(list[str], _read_attr(disk_mods.attrs, "mod-order"))
+                if mod not in order and (mods_intersection := list(mdata.mod.keys() & (order + [mod]))):
+                    modpos = mods_intersection.index(mod)
+                    insertpos = order.index(mods_intersection[modpos - 1]) + 1
+                    order.insert(insertpos, mod)
+                    disk_mods.attrs["mod-order"] = order
+            case ModMapAcc(dim=dim):
+                write_elem(f, f"{dim}map", acc.get(mdata), dataset_kwargs=dataset_kwargs)
+            case _:
+                with _fake_anndata_encoding_attrs(f) as fakef:
+                    write_use(fakef, cast(AnnData, mdata), acc, dataset_kwargs=dataset_kwargs)
+
+    for mod, cacc in modality_part_accessors.items():
+        write_use(disk_mods[mod], cast(AnnData, mdata.mod[mod]), cacc, dataset_kwargs=dataset_kwargs)  # type: ignore[arg-type]
 
 
 def _is_openfile(obj) -> bool:
@@ -53,7 +200,7 @@ _SUBTYPES = {
 _SUBTYPE_ATTR = "encoding-subtype"
 
 
-def _resolve(ref: str):
+def _resolve(ref: str) -> Callable | None:
     """Return the function a ``"module:function"`` reference points to, or ``None`` if it is not available."""
     module, _, name = ref.partition(":")
     try:
@@ -74,7 +221,7 @@ def _write_mod_extras(group: h5py.Group | zarr.Group, adata: AnnData, kwargs) ->
             continue
         write = _resolve(subtype.write)
         if write is not None:
-            write(group, adata, dataset_kwargs=kwargs)
+            write(group, adata, dataset_kwargs=kwargs)  # type: ignore[call-arg]
             group.attrs[_SUBTYPE_ATTR] = name
             return
 
@@ -97,8 +244,62 @@ def _read_mod_extras(group: h5py.Group | zarr.Group, adata: AnnData) -> AnnData:
     return read(group, adata)
 
 
-def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
-    from .. import __anndataversion__, __mudataversion__, __version__
+def _write_modality(
+    f: h5py.Group | zarr.Group,
+    mod: str,
+    adata: AnnData,
+    *,
+    write_data: bool = True,
+    chunks: tuple[int, ...] | None = None,
+    dataset_kwargs: Mapping[str, Any] = MappingProxyType({}),
+) -> None:
+    from .. import __anndataversion__, __version__
+
+    if not isinstance(adata, AnnData):
+        raise ValueError("Only AnnData modalities can be written to disk.")
+
+    if mod in f and write_data:
+        del f[mod]
+    group = f.require_group(mod)
+
+    adata.strings_to_categoricals()
+    if adata.raw is not None:
+        adata.strings_to_categoricals(adata.raw.var)
+
+    if write_data:
+        if chunks is not None and not issparse(adata.X):
+            write_elem(group, "X", adata.X, dataset_kwargs=dict(chunks=chunks, **dataset_kwargs))
+        else:
+            write_elem(group, "X", adata.X, dataset_kwargs=dataset_kwargs)
+    if adata.raw is not None:
+        if write_data or not adata.isbacked:
+            write_elem(group, "raw", adata.raw, dataset_kwargs=dataset_kwargs)
+        else:
+            rawgrp = group.require_group("raw")
+            rawgrp.attrs["encoding-type"] = "anndata"
+            rawgrp.attrs["encoding-version"] = __anndataversion__
+            write_elem(rawgrp, "var", adata.raw.var, dataset_kwargs=dataset_kwargs)
+            write_elem(rawgrp, "varm", dict(adata.raw.varm), dataset_kwargs=dataset_kwargs)
+
+    write_elem(group, "obs", adata.obs, dataset_kwargs=dataset_kwargs)
+    write_elem(group, "var", adata.var, dataset_kwargs=dataset_kwargs)
+    write_elem(group, "obsm", dict(adata.obsm), dataset_kwargs=dataset_kwargs)
+    write_elem(group, "varm", dict(adata.varm), dataset_kwargs=dataset_kwargs)
+    write_elem(group, "obsp", dict(adata.obsp), dataset_kwargs=dataset_kwargs)
+    write_elem(group, "varp", dict(adata.varp), dataset_kwargs=dataset_kwargs)
+    write_elem(group, "layers", {k: v for k, v in adata.layers.items() if k is not None}, dataset_kwargs=dataset_kwargs)
+    write_elem(group, "uns", dict(adata.uns), dataset_kwargs=dataset_kwargs)
+    _write_mod_extras(group, adata, dataset_kwargs)
+
+    attrs = group.attrs
+    attrs["encoding-type"] = "anndata"
+    attrs["encoding-version"] = __anndataversion__
+    attrs["encoder"] = "mudata"
+    attrs["encoder-version"] = __version__
+
+
+def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs) -> None:
+    from .. import __mudataversion__, __version__
 
     write_elem(file, "obs", mdata.strings_to_categoricals(mdata.obs.copy()), dataset_kwargs=kwargs)
     write_elem(file, "var", mdata.strings_to_categoricals(mdata.var.copy()), dataset_kwargs=kwargs)
@@ -116,44 +317,10 @@ def _write_h5mu(file: h5py.File, mdata: MuData, write_data=True, **kwargs):
 
     mod = file.require_group("mod")
     for k, adata in mdata.mod.items():
-        if not isinstance(adata, AnnData):
-            raise ValueError("Only AnnData modalities can be written to disk.")
-        group = mod.require_group(k)
-
-        adata.strings_to_categoricals()
-        if adata.raw is not None:
-            adata.strings_to_categoricals(adata.raw.var)
-
-        if write_data or not adata.isbacked:
-            write_elem(group, "X", adata.X, dataset_kwargs=kwargs)
-        if adata.raw is not None:
-            if not adata.isbacked or write_data:
-                write_elem(group, "raw", adata.raw, dataset_kwargs=kwargs)
-            else:
-                rawgrp = group.require_group("raw")
-                rawgrp.attrs["encoding-type"] = "anndata"
-                rawgrp.attrs["encoding-version"] = __anndataversion__
-                write_elem(rawgrp, "var", adata.raw.var, dataset_kwargs=kwargs)
-                write_elem(rawgrp, "varm", dict(adata.raw.varm), dataset_kwargs=kwargs)
-
-        write_elem(group, "obs", adata.obs, dataset_kwargs=kwargs)
-        write_elem(group, "var", adata.var, dataset_kwargs=kwargs)
-        write_elem(group, "obsm", dict(adata.obsm), dataset_kwargs=kwargs)
-        write_elem(group, "varm", dict(adata.varm), dataset_kwargs=kwargs)
-        write_elem(group, "obsp", dict(adata.obsp), dataset_kwargs=kwargs)
-        write_elem(group, "varp", dict(adata.varp), dataset_kwargs=kwargs)
-        write_elem(group, "layers", {k: v for k, v in adata.layers.items() if k is not None}, dataset_kwargs=kwargs)
-        write_elem(group, "uns", dict(adata.uns), dataset_kwargs=kwargs)
-        _write_mod_extras(group, adata, kwargs)
-
-        attrs = group.attrs
-        attrs["encoding-type"] = "anndata"
-        attrs["encoding-version"] = __anndataversion__
-        attrs["encoder"] = "mudata"
-        attrs["encoder-version"] = __version__
-
-    mod_attrs = mod.attrs
-    mod_attrs["mod-order"] = list(mdata.mod.keys())
+        _write_modality(
+            mod, k, cast(AnnData, adata), write_data=write_data or not adata.isbacked, dataset_kwargs=kwargs
+        )
+    mod.attrs["mod-order"] = list(mdata.mod.keys())
 
     attrs = file.attrs
     attrs["encoding-type"] = "mudata"
@@ -167,8 +334,17 @@ def write_zarr(
     data: MuData | AnnData,
     chunks: tuple[int, ...] | None = None,
     write_data: bool = True,
+    *,
+    use: AdRef
+    | RefAcc
+    | MapAcc
+    | MultiModAcc
+    | ModAcc
+    | ModMapAcc
+    | Sequence[AdRef | RefAcc | MapAcc | MultiModAcc | ModAcc | ModMapAcc]
+    | None = None,
     **kwargs,
-):
+) -> None:
     """
     Write a MuData or AnnData object to the Zarr store.
 
@@ -176,102 +352,93 @@ def write_zarr(
     ----------
     store
         Thie filename or a Zarr store.
+    data
+        The :class:`~mudata.MuData` or :class:`~anndata.AnnData` object.
     chunks
         The chunk shape.
     write_data
         Whether to write the data (the :attr:`~anndata.AnnData.X` matrices) for the modalities. If `False`, only the metadata
         (everything except :attr:~anndata.AnnData.X`) will be written.
+    use
+        Only write the element(s) referenced by this accessor (or list of accessors) into an existing MuData store.
+
+        .. important::
+           This functionality requires anndata 0.14 or newer.
     **kwargs
         Additional arguments to :func:`zarr.create_array`.
     """
     import zarr
     from anndata._io.zarr import write_zarr as anndata_write_zarr
 
-    from .. import __anndataversion__, __mudataversion__, __version__
+    from .. import __mudataversion__, __version__
 
     with catch_warnings():
         filterwarnings("ignore", message="This setting will be removed", category=DeprecationWarning)
         zarr_format = getattr(ad.settings, "zarr_write_format", 3)
 
     if isinstance(data, AnnData):
-        anndata_write_zarr(store, data, chunks=chunks, **kwargs)
+        anndata_write_zarr(store, data, chunks=chunks, use=use, **kwargs)
     elif isinstance(data, MuData):
         if isinstance(store, Path):
             store = str(store)
         zarr_format = kwargs.pop("zarr_format", zarr_format)
+
+        mode: Literal["w", "r+"] = "w" if use is None else "r+"
+
         try:
-            file = zarr.open_group(store, mode="w", zarr_format=zarr_format)
+            file = zarr.open_group(store, mode=mode, zarr_format=zarr_format)
         except TypeError:
             # zarr_format is not supported in this version of zarr
-            file = zarr.open_group(store, mode="w")
-        write_elem(file, "obs", data.strings_to_categoricals(data.obs.copy()), dataset_kwargs=kwargs)
-        write_elem(file, "var", data.strings_to_categoricals(data.var.copy()), dataset_kwargs=kwargs)
-        write_elem(file, "obsm", dict(data.obsm), dataset_kwargs=kwargs)
-        write_elem(file, "varm", dict(data.varm), dataset_kwargs=kwargs)
-        write_elem(file, "obsp", dict(data.obsp), dataset_kwargs=kwargs)
-        write_elem(file, "varp", dict(data.varp), dataset_kwargs=kwargs)
-        write_elem(file, "uns", dict(data.uns), dataset_kwargs=kwargs)
+            file = zarr.open_group(store, mode=mode)
 
-        write_elem(file, "obsmap", dict(data.obsmap), dataset_kwargs=kwargs)
-        write_elem(file, "varmap", dict(data.varmap), dataset_kwargs=kwargs)
+        if use is not None:
+            _write_use(file, data, use, dataset_kwargs=kwargs)
+        else:
+            write_elem(file, "obs", data.strings_to_categoricals(data.obs.copy()), dataset_kwargs=kwargs)
+            write_elem(file, "var", data.strings_to_categoricals(data.var.copy()), dataset_kwargs=kwargs)
+            write_elem(file, "obsm", dict(data.obsm), dataset_kwargs=kwargs)
+            write_elem(file, "varm", dict(data.varm), dataset_kwargs=kwargs)
+            write_elem(file, "obsp", dict(data.obsp), dataset_kwargs=kwargs)
+            write_elem(file, "varp", dict(data.varp), dataset_kwargs=kwargs)
+            write_elem(file, "uns", dict(data.uns), dataset_kwargs=kwargs)
 
-        attrs = file.attrs
-        attrs["axis"] = data.axis
+            write_elem(file, "obsmap", dict(data.obsmap), dataset_kwargs=kwargs)
+            write_elem(file, "varmap", dict(data.varmap), dataset_kwargs=kwargs)
 
-        mod = file.require_group("mod")
-        for k, adata in data.mod.items():
-            if not isinstance(adata, AnnData):
-                raise ValueError("Only AnnData modalities can be written to disk.")
-            group = mod.require_group(k)
+            attrs = file.attrs
+            attrs["axis"] = data.axis
 
-            adata.strings_to_categoricals()
-            if adata.raw is not None:
-                adata.strings_to_categoricals(adata.raw.var)
+            mod = file.require_group("mod")
+            for k, adata in data.mod.items():
+                if not isinstance(adata, AnnData):
+                    raise ValueError("Only AnnData modalities can be written to disk.")
+                _write_modality(mod, k, adata, write_data=write_data, chunks=chunks, dataset_kwargs=kwargs)
 
-            if write_data:
-                if chunks is not None and not isinstance(adata.X, sparse.spmatrix):
-                    write_elem(group, "X", adata.X, dataset_kwargs=dict(chunks=chunks, **kwargs))
-                else:
-                    write_elem(group, "X", adata.X, dataset_kwargs=kwargs)
-            if adata.raw is not None:
-                if write_data or not adata.isbacked:
-                    write_elem(group, "raw", adata.raw, dataset_kwargs=kwargs)
-                else:
-                    rawgrp = group.require_group("raw")
-                    rawgrp.attrs["encoding-type"] = "anndata"
-                    rawgrp.attrs["encoding-version"] = __anndataversion__
-                    write_elem(rawgrp, "var", adata.raw.var, dataset_kwargs=kwargs)
-                    write_elem(rawgrp, "varm", dict(adata.raw.varm), dataset_kwargs=kwargs)
+            mod.attrs["mod-order"] = list(data.mod.keys())
 
-            write_elem(group, "obs", adata.obs, dataset_kwargs=kwargs)
-            write_elem(group, "var", adata.var, dataset_kwargs=kwargs)
-            write_elem(group, "obsm", dict(adata.obsm), dataset_kwargs=kwargs)
-            write_elem(group, "varm", dict(adata.varm), dataset_kwargs=kwargs)
-            write_elem(group, "obsp", dict(adata.obsp), dataset_kwargs=kwargs)
-            write_elem(group, "varp", dict(adata.varp), dataset_kwargs=kwargs)
-            write_elem(group, "layers", {k: v for k, v in adata.layers.items() if k is not None}, dataset_kwargs=kwargs)
-            write_elem(group, "uns", dict(adata.uns), dataset_kwargs=kwargs)
-            _write_mod_extras(group, adata, kwargs)
-
-            attrs = group.attrs
-            attrs["encoding-type"] = "anndata"
-            attrs["encoding-version"] = __anndataversion__
+            attrs = file.attrs
+            attrs["encoding-type"] = "mudata"
+            attrs["encoding-version"] = __mudataversion__
             attrs["encoder"] = "mudata"
             attrs["encoder-version"] = __version__
-
-        mod_attrs = mod.attrs
-        mod_attrs["mod-order"] = list(data.mod.keys())
-
-        attrs = file.attrs
-        attrs["encoding-type"] = "mudata"
-        attrs["encoding-version"] = __mudataversion__
-        attrs["encoder"] = "mudata"
-        attrs["encoder-version"] = __version__
     else:
         raise TypeError("Expected MuData or AnnData object")
 
 
-def write_h5mu(filename: str | PathLike, mdata: MuData, **kwargs):
+def write_h5mu(
+    filename: str | PathLike,
+    mdata: MuData,
+    *,
+    use: AdRef
+    | RefAcc
+    | MapAcc
+    | MultiModAcc
+    | ModAcc
+    | ModMapAcc
+    | Sequence[AdRef | RefAcc | MapAcc | MultiModAcc | ModAcc | ModMapAcc]
+    | None = None,
+    **kwargs,
+) -> None:
     """
     Write a MuData object to an HDF5 file.
 
@@ -281,21 +448,32 @@ def write_h5mu(filename: str | PathLike, mdata: MuData, **kwargs):
         The filename.
     mdata
         The :class:`~mudata.MuData` object.
+    use
+        Only write the element(s) referenced by this accessor (or list of accessors) into an existing MuData store.
+
+        .. important::
+           This functionality requires anndata 0.14 or newer.
     **kwargs
         Additional arguments to :meth:`h5py.Group.create_dataset`.
     """
     from .. import __mudataversion__, __version__
 
-    with h5py.File(filename, "w", userblock_size=512) as f:
-        _write_h5mu(f, mdata, **kwargs)
-    with Path(filename).open("br+") as f:
-        nbytes = f.write(
-            f"MuData (format-version={__mudataversion__};creator=mudata;creator-version={__version__})".encode()
-        )
-        f.write(b"\0" * (512 - nbytes))  # this is only needed because the H5file was written in append mode
+    if use is not None:
+        with h5py.File(filename, "r+") as f:
+            _write_use(f, mdata, use, dataset_kwargs=kwargs)
+    else:
+        with h5py.File(filename, "w", userblock_size=512) as f:
+            _write_h5mu(f, mdata, **kwargs)
+
+        with Path(filename).open("br+") as f:
+            nbytes = f.write(
+                f"MuData (format-version={__mudataversion__};creator=mudata;creator-version={__version__})".encode()
+            )
+            f.write(b"\0" * (512 - nbytes))  # this is only needed because the H5file was written in append mode
 
 
-def write_h5ad(filename: str | PathLike, mod: str, data: MuData | AnnData):
+@deprecated(Deprecation("0.4.2", "Use write_h5mu() with the 'use' argument instead."))
+def write_h5ad(filename: str | PathLike, mod: str, data: MuData | AnnData) -> None:
     """
     Write an AnnData object to an existing HDF5 file containing a MuData (an h5mu file).
 
@@ -308,58 +486,28 @@ def write_h5ad(filename: str | PathLike, mod: str, data: MuData | AnnData):
     data
         The data. If a :class:`~mudata.MuData` object, `data[mod]` will be written.
     """
-    from .. import __anndataversion__, __version__
-
     if isinstance(data, AnnData):
         adata = data
     elif not isinstance(data, MuData) or not isinstance(adata := data.mod[mod], AnnData):  # type: ignore[assignment]
         raise TypeError(f"Expected AnnData or MuData object with {mod} modality of type AnnData")
 
     with h5py.File(filename, "r+") as f:
-        # Check that 'mod' is present
         if "mod" not in f:
             raise ValueError("The .h5mu object has to contain .mod slot")
-        fm = f["mod"]
 
-        # Remove the modality if it exists
-        if mod in fm:
-            del fm[mod]
-
-        fmd = fm.create_group(mod)
-
-        adata.strings_to_categoricals()
-        if adata.raw is not None:
-            adata.strings_to_categoricals(adata.raw.var)
-
-        filepath = Path(filename)
-
-        if not (adata.isbacked and Path(adata.filename) == Path(filepath)):  # type: ignore[arg-type]
-            write_elem(fmd, "X", adata.X)
-
-        if adata.raw is not None:
-            write_elem(fmd, "raw", adata.raw)
-
-        write_elem(fmd, "obs", adata.obs)
-        write_elem(fmd, "var", adata.var)
-        write_elem(fmd, "obsm", dict(adata.obsm))
-        write_elem(fmd, "varm", dict(adata.varm))
-        write_elem(fmd, "obsp", dict(adata.obsp))
-        write_elem(fmd, "varp", dict(adata.varp))
-        write_elem(fmd, "layers", {k: v for k, v in adata.layers.items() if k is not None})
-        write_elem(fmd, "uns", dict(adata.uns))
-        _write_mod_extras(fmd, adata, {})
-
-        attrs = fmd.attrs
-        attrs["encoding-type"] = "anndata"
-        attrs["encoding-version"] = __anndataversion__
-        attrs["encoder"] = "mudata"
-        attrs["encoder-version"] = __version__
+        _write_modality(
+            f["mod"],
+            mod,
+            adata,
+            write_data=not (adata.isbacked and Path(adata.filename) == Path(filename)),  # type: ignore[arg-type]
+        )
 
 
 write_anndata = write_h5ad
 
 
-def write(filename: str | PathLike, data: MuData | AnnData):
+@deprecated(Deprecation("0.4.2", "Use write_h5mu() with the 'use' argument instead."))
+def write(filename: str | PathLike, data: MuData | AnnData) -> None:
     """
     Write a :class:`~mudata.MuData` or :class:`~anndata.AnnData` object to an HDF5 file.
 
