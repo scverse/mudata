@@ -124,12 +124,31 @@ def test_write_mods(
     mdata.mod["mod3"].obs["unwritten"] = rng.normal(size=mdata.mod["mod3"].n_obs)
     write_func(filepath, mdata, use=mdA.mod["mod2"])
     mdata_ = read_func(filepath)
-    assert (mdata.mod["mod2"].obs["new-col"] == mdata.mod["mod2"].obs["new-col"]).all()
+    assert (mdata.mod["mod2"].obs["new-col"] == mdata_.mod["mod2"].obs["new-col"]).all()
     assert "unwritten" not in mdata_.mod["mod3"].obs
 
     mdata.update()
     with pytest.raises(ValueError, match="var_names in the store do not match"):
         write_func(filepath, mdata, use=mdA.mod)
+
+
+def test_write_modmap(
+    mdata: MuData,
+    write_func: Callable[Concatenate[str | Path, MuData, ...], None],
+    read_func: Callable[[str | Path], MuData],
+    filepath: Path,
+    rng: np.random.Generator,
+) -> None:
+    write_func(filepath, mdata)
+
+    mdata.mod["mod2"] = mdata.mod["mod2"][
+        rng.choice(mdata.mod["mod2"].n_obs, size=mdata.mod["mod2"].n_obs, replace=False), :
+    ]
+    mdata.update()
+    write_func(filepath, mdata, use=[mdA.mod["mod2"], mdA.obsmap])
+
+    mdata_ = read_func(filepath)
+    assert (mdata.obsmap["mod2"] == mdata_.obsmap["mod2"]).all()
 
 
 def test_write_anndata_obsp(

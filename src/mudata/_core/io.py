@@ -100,7 +100,8 @@ def _write_use(
 
     have_globals, have_mods, have_mod = {"obs": False, "var": False, "obsmap": False, "varmap": False}, False, []
 
-    global_accessors: list[MultiModAcc | ModAcc | ModMapAcc | MetaAcc | RefAcc | MapAcc | AdRef] = []
+    global_accessors: list[MultiModAcc | ModAcc | ModMapAcc] = []
+    global_anndata_accessors: list[MetaAcc | RefAcc | MapAcc | AdRef] = []
     modality_part_accessors = defaultdict(
         list
     )  # pass all modality accessors to anndata at once so it can do proper validation
@@ -134,9 +135,9 @@ def _write_use(
                 global_accessors.append(acc)
             case MetaAcc(dim=dim):
                 have_globals[dim] = True
-                global_accessors.append(acc)
+                global_anndata_accessors.append(acc)
             case _:
-                global_accessors.append(acc)
+                global_anndata_accessors.append(acc)
 
     if not all(have_globals.values()) and (
         have_mods and mdata.mod.keys() != set(disk_mods.keys()) or any(mod not in disk_mods for mod in have_mod)
@@ -170,10 +171,10 @@ def _write_use(
                     order.insert(insertpos, mod)
                     disk_mods.attrs["mod-order"] = order
             case ModMapAcc(dim=dim):
-                write_elem(f, f"{dim}map", acc.get(mdata), dataset_kwargs=dataset_kwargs)
-            case _:
-                with _fake_anndata_encoding_attrs(f) as fakef:
-                    write_use(fakef, cast(AnnData, mdata), acc, dataset_kwargs=dataset_kwargs)
+                write_elem(f, f"{dim}map", dict(acc.get(mdata)), dataset_kwargs=dataset_kwargs)  # type: ignore[arg-type]
+
+    with _fake_anndata_encoding_attrs(f) as fakef:
+        write_use(fakef, cast(AnnData, mdata), global_anndata_accessors, dataset_kwargs=dataset_kwargs)
 
     for mod, cacc in modality_part_accessors.items():
         write_use(disk_mods[mod], cast(AnnData, mdata.mod[mod]), cacc, dataset_kwargs=dataset_kwargs)  # type: ignore[arg-type]
