@@ -56,6 +56,7 @@ notebooks/nuances
 notebooks/axes
 notebooks/annotations_management
 io/input
+io/mudata
 io/output
 ```
 
@@ -64,7 +65,6 @@ io/output
 :hidden: true
 :maxdepth: 1
 
-io/mudata
 api
 io/spec
 interoperability
