@@ -64,8 +64,8 @@ io/output
 :hidden: true
 :maxdepth: 1
 
-api
 io/mudata
+api
 io/spec
 interoperability
 ```
