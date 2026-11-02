@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning][].
 - `treedata.TreeData` modalities now keep their trees when written to and read from `.h5mu` and Zarr, by calling `treedata.io.write_tree_elems` and `treedata.io.read_tree_elems` (requires a treedata version that provides them).
   The modality group stays a valid AnnData group and gets an `encoding-subtype = "treedata"` attribute. Previously such modalities were read back as plain AnnData without their trees.
 
+### Changed
+
+- The docs use the shared scverse theme from `scverse-doc` and its sidebar layout: Getting started, Guides, Reference and Project, with a new citation page.
+
 ## [0.4.1]
 
 ### Fixed

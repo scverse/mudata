@@ -38,30 +38,47 @@ MuData objects feature an AnnData-like interface and familiar concepts such as _
 
 A flagship framework for multimodal omics analysis — `muon` — has been built around the MuData format. Find more information on it [in its documentation](https://muon.scverse.org/) and [on the tutorials page](https://muon-tutorials.readthedocs.io/) as well as in the corresponding publication{cite:p}`bredikhin_2022`.
 
-```{eval-rst}
-.. toctree::
-   :hidden:
-   :maxdepth: 1
-   :caption: Getting started
+```{toctree}
+:caption: Getting started
+:hidden: true
+:maxdepth: 1
 
-   notebooks/quickstart_mudata.ipynb
-   notebooks/nuances.ipynb
-   notebooks/axes.ipynb
-   notebooks/annotations_management.ipynb
+install
+notebooks/quickstart_mudata
+```
 
-.. toctree::
-   :hidden:
-   :maxdepth: 1
-   :caption: Documentation
+```{toctree}
+:caption: Guides
+:hidden: true
+:maxdepth: 1
 
-   install
-   io/input
-   io/mudata
-   io/output
-   io/spec
-   api
-   interoperability
-   changelog
-   contributing
-   references
+notebooks/nuances
+notebooks/axes
+notebooks/annotations_management
+io/input
+io/output
+```
+
+```{toctree}
+:caption: Reference
+:hidden: true
+:maxdepth: 1
+
+api
+io/mudata
+io/spec
+interoperability
+```
+
+```{toctree}
+:caption: Project
+:hidden: true
+:maxdepth: 1
+
+changelog
+contributing
+citation
+references
+GitHub <https://github.com/scverse/mudata>
+Discourse <https://discourse.scverse.org/c/help/mudata/35>
 ```
