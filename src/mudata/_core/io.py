@@ -54,13 +54,9 @@ def _fake_anndata_encoding_attrs(f: h5py.Group | zarr.Group):
         def attrs(self):
             return {"encoding-type": "anndata", "encoding-version": __anndataversion__}
 
-    if isinstance(f, h5py.Group):
-        f.__class__ = FakeAnndataEncodingAttrs
-        yield f
-        f.__class__ = oldcls
-    else:
-        newf = FakeAnndataEncodingAttrs.open(f.store, zarr_format=f.metadata.zarr_format)
-        yield newf
+    object.__setattr__(f, "__class__", FakeAnndataEncodingAttrs)
+    yield
+    object.__setattr__(f, "__class__", oldcls)
 
 
 def _write_use(
@@ -173,8 +169,8 @@ def _write_use(
             case ModMapAcc(dim=dim):
                 write_elem(f, f"{dim}map", dict(acc.get(mdata)), dataset_kwargs=dataset_kwargs)  # type: ignore[arg-type]
 
-    with _fake_anndata_encoding_attrs(f) as fakef:
-        write_use(fakef, cast(AnnData, mdata), global_anndata_accessors, dataset_kwargs=dataset_kwargs)
+    with _fake_anndata_encoding_attrs(f):
+        write_use(f, cast(AnnData, mdata), global_anndata_accessors, dataset_kwargs=dataset_kwargs)
 
     for mod, cacc in modality_part_accessors.items():
         write_use(disk_mods[mod], cast(AnnData, mdata.mod[mod]), cacc, dataset_kwargs=dataset_kwargs)  # type: ignore[arg-type]
