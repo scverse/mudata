@@ -44,6 +44,7 @@ optional-dependencies.io = [ "fsspec", "zarr" ]
 urls.Documentation = "https://mudata.scverse.org/"
 urls.Homepage = "https://muon.scverse.org"
 urls.Source = "https://github.com/scverse/mudata"
+entry-points."anndata.acc".mudata = "mudata.acc:A"
 
 [dependency-groups]
 dev = [ "mudata[io]", "prek", "twine>=4.0.2" ]
