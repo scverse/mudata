@@ -89,6 +89,7 @@ def test_h5mu_backed_anndata_subtype(mdata_subclass: md.MuData, filepath_h5mu: P
     assert_equal(mdata_subclass, mdata_, exact=True)
 
 
+@pytest.mark.filterwarnings("ignore:.+Use write_h5mu:FutureWarning")
 def test_write_read_h5ad_anndata_subtype(mdata: md.MuData, mdata_subclass: md.MuData, filepath_h5mu: Path):
     mdata.write(filepath_h5mu)
     md.write_h5ad(filepath_h5mu, "mod1", mdata_subclass)
