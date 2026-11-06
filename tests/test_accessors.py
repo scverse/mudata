@@ -1,8 +1,9 @@
 import json
 import os
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import fields
 from importlib import metadata, resources
+from typing import Any
 from urllib.error import HTTPError
 from urllib.request import urlopen
 
@@ -132,10 +133,10 @@ def assert_equal(val, expected):
 
 
 @pytest.mark.parametrize("acc_expected", [path for path in PATHS if isinstance(path[0], ad.acc.AdRef | ad.acc.RefAcc)])
-def test_get(mdata_augmented: md.MuData, acc_expected):
+def test_get(mdata_augmented: md.MuData, acc_expected: tuple[ad.acc.AdRef | ad.acc.RefAcc, Callable[[md.MuData], Any]]):
     acc, expected = acc_expected
 
-    val = mdata_augmented[acc]
+    val = mdata_augmented[acc]  # type: ignore[index]
     expected = expected(mdata_augmented)
     assert_equal(val, expected)
 
@@ -226,3 +227,58 @@ def test_to_from_json_mod(mudata_json_schema, anndata_schema_registry, acc):
     assert serialized[2] == ad.acc.A.to_json(acc)
 
     assert A.from_json(serialized).acc.mod == "foobar"
+
+
+@pytest.mark.skipif(anndata_version < Version("0.14dev0"), reason="anndata too old")
+@pytest.mark.parametrize(
+    "acc",
+    [
+        path
+        for path, _ in PATHS
+        if isinstance(path, ad.acc.AdRef | ad.acc.RefAcc)
+        and not isinstance(path, ad.acc.MetaAcc | md.acc.ModMapAcc)
+        and not (isinstance(path, ad.acc.AdRef) and isinstance(path.acc, md.acc.ModMapAcc))
+    ],
+)
+def test_set(mdata_augmented: md.MuData, acc: ad.acc.AdRef | ad.acc.RefAcc, rng: np.random.Generator):
+    size: tuple[int, int] | int
+    if isinstance(acc, ad.acc.AdRef):
+        data = mdata_augmented.mod[acc.acc.mod] if isinstance(acc.acc, md.acc._ModalityMixin) else mdata_augmented
+        size = data.n_obs if next(iter(acc.dims)) == "obs" else data.n_vars
+    else:
+        data = mdata_augmented.mod[acc.mod] if isinstance(acc, md.acc._ModalityMixin) else mdata_augmented
+        if isinstance(acc, ad.acc.LayerAcc):
+            size = (data.n_obs, data.n_vars)
+        elif isinstance(acc, ad.acc.MultiAcc | ad.acc.GraphAcc):
+            size = data.n_obs if acc.dim == "obs" else data.n_vars
+            size = (size, size)
+    value: np.ndarray | dict[str, np.ndarray] = rng.poisson(size=size)
+
+    if isinstance(acc, ad.acc.MapAcc):
+        value = {"test": value}  # type: ignore[dict-item]
+
+    mdata_augmented[acc] = value
+    assert_equal(mdata_augmented[acc], value)  # type: ignore[index]
+
+
+@pytest.mark.skipif(anndata_version < Version("0.14dev0"), reason="anndata too old")
+@pytest.mark.parametrize(
+    "acc",
+    [
+        path
+        for path, _ in PATHS
+        if isinstance(path, md.acc.ModMapAcc)
+        or isinstance(path, ad.acc.AdRef)
+        and isinstance(path.acc, md.acc.ModMapAcc)
+    ],
+)
+def test_set_modmap_raises(mdata_augmented: md.MuData, acc: ad.acc.AdRef | ad.acc.RefAcc):
+    with pytest.raises(NotImplementedError):
+        mdata_augmented[acc] = np.arange(10)
+
+
+def test_set_unsupported(mdata: md.MuData):
+    with pytest.raises(IndexError, match="Cannot index with"):
+        mdata[A.obsm] = 1  # type: ignore[index]
+    with pytest.raises(TypeError, match="Unknown index"):
+        mdata[1] = 1  # type: ignore[index]
