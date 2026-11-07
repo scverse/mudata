@@ -502,6 +502,22 @@ class MuData:
 
         raise TypeError(f"Unexpected key {key!r}.")
 
+    def __setitem__(self, index: str | AdRef | RefAcc, value: object) -> None:
+        if isinstance(index, str) and isinstance(value, AnnData | MuData):
+            self._mod[index] = value
+
+        with suppress(ImportError):
+            from anndata.acc import NO_IDX, AdRef, MapAcc, RefAcc
+
+            if isinstance(index, AdRef):
+                index.acc.set(self, index.idx, value)
+            elif isinstance(index, RefAcc):
+                index.set(self, NO_IDX, value)
+            elif isinstance(index, MapAcc):
+                raise IndexError(f"Cannot index with {index} because this is not a path to an array-like structure.")
+            else:
+                raise TypeError(f"Unknown index {index!r}.")
+
     @property
     def mod(self) -> MutableMapping[str, AnnData | MuData]:
         """Dictionary of modalities."""
