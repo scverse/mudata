@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning][].
 
 - `io.write_h5ad` and `io.write` in favor of `io.write_h5mu` / `io.write_zarr` with the new `use` argument.
 
+### Changed
+
+- The docs use the shared scverse theme from `scverse-doc` and its sidebar layout: Getting started, Guides, Reference and Project, with a new citation page.
+
 ## [0.4.1]
 
 ### Fixed

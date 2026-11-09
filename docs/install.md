@@ -1,4 +1,4 @@
-# Install mudata
+# Installation
 
 ```{contents}
 :local:
