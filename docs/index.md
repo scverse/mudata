@@ -16,7 +16,6 @@ Please consider making a tax-deductible [donation] to help the project pay for d
     </a>
 </p>
 
-
 ## MuData objects as containers
 
 The `mudata` package introduces multimodal data objects ([MuData class](#mudata.MuData)) allowing Python users to work with increasigly complex datasets efficiently and to build new workflows and computational tools around it.
@@ -32,7 +31,7 @@ MuData objects enable multimodal information to be stored & accessed naturally, 
 
 ## Natural interface
 
-MuData objects feature an AnnData-like interface and familiar concepts such as _observations_ and _variables_ for the two data dimensions. Get familiar with MuData in the [Quickstart tutorial](notebooks/quickstart_mudata).
+MuData objects feature an AnnData-like interface and familiar concepts such as *observations* and *variables* for the two data dimensions. Get familiar with MuData in the [Quickstart tutorial](notebooks/quickstart_mudata).
 
 ## Handling MuData objects
 
