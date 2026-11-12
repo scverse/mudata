@@ -6,7 +6,6 @@
 from mudata import MuData
 ```
 
-
 `MuData` objects comprise a dictionary with `AnnData` objects, one per modality, in their `.mod` attribute. Just as `AnnData` objects themselves, they also contain attributes like `.obs` with annotation of observations (samples or cells), `.obsm` with their multidimensional annotations such as embeddings, etc.
 
 ```{contents}
@@ -19,7 +18,7 @@ from mudata import MuData
 :glob: *
 ```
 
-## MuData's attributes
+## MuData’s attributes
 
 Key attributes and methods of `MuData` objects as well as important concepts are described below. A full list of attributes and methods of multimodal containers can be found in the [MuData](#mudata.MuData) documentation.
 
@@ -76,7 +75,7 @@ As another multidimensional embedding, this slot may contain boolean vectors, on
 
 ### Container shape
 
-The `MuData` object's shape is represented by two numbers calculated from the shapes of individual modalities — one for the number of observations and one for the number of variables.
+The `MuData` object’s shape is represented by two numbers calculated from the shapes of individual modalities — one for the number of observations and one for the number of variables.
 
 ```python
 mdata.shape
@@ -111,13 +110,11 @@ Modalities inside the `MuData` container are full-fledged `AnnData` objects, whi
 When modalities are changed externally, the shape of the `MuData` object as well as metadata fetched from individual modalities will then reflect the previous state of the data.
 To keep the container up to date, there is an `.update()` method that syncs the `.obs_names` and `.var_names` of the `MuData` object with the ones of the modalities.
 
-
 ### Managing annotations
 
 To fetch the corresponding annotations from individual modalities, there are [MuData.pull_obs](#mudata.MuData.pull_obs) and [MuData.pull_var](#mudata.MuData.pull_var) methods.
 
 To update the annotations of individual modalities with the global annotations, [MuData.push_obs](#mudata.MuData.push_obs) and [MuData.push_var](#mudata.MuData.push_var) methods can be used.
-
 
 ### Backed containers
 

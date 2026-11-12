@@ -24,7 +24,6 @@ For using `MuData` in multimodal omics applications see [muon][].
 
 In the same vein as [AnnData][] is designed to represent unimodal annotated datasets in Python, `MuData` is designed to provide functionality to load, process, and store multimodal omics data.
 
-
 ```
 MuData
   .obs     -- annotation of observations (cells, samples)
@@ -99,7 +98,7 @@ If you use `mudata` in your work, please cite the publication as follows:
 >
 > Danila Bredikhin, Ilia Kats, Oliver Stegle
 >
-> _Genome Biology_ 2022 Feb 01. doi: [10.1186/s13059-021-02577-8][muon paper].
+> *Genome Biology* 2022 Feb 01. doi: [10.1186/s13059-021-02577-8][muon paper].
 
 You can cite the scverse publication as follows:
 
@@ -107,7 +106,7 @@ You can cite the scverse publication as follows:
 >
 > Isaac Virshup, Danila Bredikhin, Lukas Heumos, Giovanni Palla, Gregor Sturm, Adam Gayoso, Ilia Kats, Mikaela Koutrouli, Scverse Community, Bonnie Berger, Dana Pe’er, Aviv Regev, Sarah A. Teichmann, Francesca Finotello, F. Alexander Wolf, Nir Yosef, Oliver Stegle & Fabian J. Theis
 >
-> _Nat Biotechnol._ 2023 Apr 10. doi: [10.1038/s41587-023-01733-8][scverse paper].
+> *Nat Biotechnol.* 2023 Apr 10. doi: [10.1038/s41587-023-01733-8][scverse paper].
 
 [//]: # "numfocus-fiscal-sponsor-attribution"
 
@@ -119,7 +118,7 @@ If you like scverse® and want to support our mission, please consider making a 
   <img
     src="https://raw.githubusercontent.com/numfocus/templates/master/images/numfocus-logo.png"
     width="200"
-  >
+>
 </a>
 </div>
 
