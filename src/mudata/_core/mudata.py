@@ -463,41 +463,39 @@ class MuData:
         if isinstance(index, str) and index in self._mod:
             return self._mod[index]
 
-        with suppress(ImportError):
-            from anndata.acc import AdRef, MapAcc, MetaAcc, RefAcc
+        from .compat import AdRef, MapAcc, MetaAcc, RefAcc
 
-            if isinstance(index, AdRef):
-                try:
-                    return index.acc.get(self, index.idx)
-                except KeyError as e:
-                    if isinstance(index.acc, MetaAcc) and index.acc.dim in ("obs", "var"):
-                        for modname, mod in self._mod.items():
-                            if index in mod:
-                                raise KeyError(
-                                    f"There is no key {index.idx} in MuData .{index.acc.dim} but there is one in {modname} .{index.acc.dim}. Consider running `pull_{index.acc.dim}()` to update global .{index.acc.dim}."
-                                ) from e
-                    raise
-            elif isinstance(index, RefAcc):
-                return index.get(self)
-            elif isinstance(index, MapAcc):
-                raise IndexError(f"Cannot index with {index} because this is not a path to an array-like structure.")
-        return MuData(self, as_view=True, index=cast(Index, index))
+        if isinstance(index, AdRef):
+            try:
+                return index.acc.get(self, index.idx)
+            except KeyError as e:
+                if isinstance(index.acc, MetaAcc) and index.acc.dim in ("obs", "var"):
+                    for modname, mod in self._mod.items():
+                        if index in mod:
+                            raise KeyError(
+                                f"There is no key {index.idx} in MuData .{index.acc.dim} but there is one in {modname} .{index.acc.dim}. Consider running `pull_{index.acc.dim}()` to update global .{index.acc.dim}."
+                            ) from e
+                raise
+        elif isinstance(index, RefAcc):
+            return index.get(self)
+        elif isinstance(index, MapAcc):
+            raise IndexError(f"Cannot index with {index} because this is not a path to an array-like structure.")
+
+        return MuData(self, as_view=True, index=index)
 
     def __contains__(self, key: str | AdRef | RefAcc | MapAcc | ModAcc | MultiModAcc) -> bool:
-        if isinstance(key, str):
-            return key in self._mod
-        with suppress(ImportError):
-            from anndata.acc import AdRef, MapAcc, RefAcc
+        from .compat import AdRef, MapAcc, ModAcc, MultiModAcc, RefAcc, _ModalityAcc, _ModalityMixin
 
-            from ..acc import ModAcc, MultiModAcc, _ModalityMapAcc, _ModalityMixin
-
-            if isinstance(key, ModAcc | _ModalityMapAcc):
+        match key:
+            case str():
+                return key in self._mod
+            case ModAcc() | _ModalityAcc():
                 return key.isin(self)
-            elif isinstance(key, _ModalityMixin):
+            case _ModalityMixin():
                 return key in self.mod[key.mod]  # type: ignore[operator]
-            elif isinstance(key, MultiModAcc):
+            case MultiModAcc():
                 return bool(self.mod)
-            elif isinstance(key, AdRef | RefAcc | MapAcc):
+            case AdRef() | RefAcc() | MapAcc():
                 return AnnData.__contains__(self, key)  # type: ignore[operator]
 
         raise TypeError(f"Unexpected key {key!r}.")
