@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Hashable, Sequence
+from contextlib import contextmanager
 from dataclasses import KW_ONLY, dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
@@ -39,6 +40,14 @@ class _ModalityMixin:
 
 @dataclass(frozen=True)
 class _ModalityMapAcc[I, R](_ModalityMixin):
+    _setting: bool = False
+
+    @contextmanager
+    def _set(self):
+        object.__setattr__(self, "_setting", True)
+        yield
+        object.__setattr__(self, "_setting", False)
+
     def isin(self, mdata: MuData, idx: I | None = None) -> bool:
         if self.mod not in mdata.mod:
             return False
@@ -46,7 +55,14 @@ class _ModalityMapAcc[I, R](_ModalityMixin):
             return super().isin(mdata.mod[self.mod], idx)  # type: ignore[misc] # protocol doesn't work due to https://github.com/python/mypy/issues/14757#issuecomment-2196695518
 
     def get(self, mdata: MuData, idx: I | NO_IDX = NO_IDX, /) -> R:
-        return super().get(mdata.mod[self.mod], idx)  # type: ignore[misc]
+        if not self._setting:
+            return super().get(mdata.mod[self.mod], idx)  # type: ignore[misc]
+        else:  # anndata's accessors implement set() by first calling self.get() on the passed object
+            return super().get(mdata, idx)  # type: ignore[misc]
+
+    def set(self, mdata: MuData, idx: I | NO_IDX, value: Any, /) -> None:
+        with self._set():
+            super().set(mdata.mod[self.mod], idx, value)  # type: ignore[misc]
 
 
 @dataclass(frozen=True)
@@ -121,7 +137,7 @@ class ModGraphMapAcc[R: AdRef](_ModalityMixin, GraphMapAcc[R]):
 
     def __getitem__(self, k: str, /) -> ModGraphAcc[R]:
         if not isinstance(k, str):
-            raise TypeError(f"Unsupported {self.dim}p key {k!r}")
+            raise TypeError(f"Unsupported {self.dim}p key {k!r}.")
         return self.ref_acc_cls(mod=self.mod, k=k, dim=self.dim, ref_class=self.ref_class)
 
     def __repr__(self) -> str:
@@ -147,16 +163,23 @@ class ModMapAcc[R: AdRef[str, MuData]](RefAcc[R, str, MuData]):
         return f"[{idx}]"
 
     def isin(self, mdata: MuData, idx: str | None = None) -> bool:
-        """Check if the referenced array is in the :class:`~mudata.MuData` object."""
+        """Check if the referenced modality map is in the :class:`~mudata.MuData` object."""
         m = getattr(mdata, f"{self.dim}map")
         return idx is None or idx in m
 
     def get(self, mdata: MuData, idx: str | NO_IDX = NO_IDX, /) -> InMemoryArray:
-        """Get the referenced array from the :class:`~mudata.MuData` object."""
+        """Get the referenced modality map from the :class:`~mudata.MuData` object."""
         m = getattr(mdata, f"{self.dim}map")
         if idx is NO_IDX:
             return m
         return m[idx]
+
+    def set(self, mdata: MuData, idx: str | NO_IDX, value: InMemoryArray) -> None:
+        """Set the referenced modality map  in the :class:`~mudata.MuData` object.
+
+        This raises `NotImplementedError`.
+        """
+        raise NotImplementedError(f"Setting {self.dim}map is not supported.")
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -182,6 +205,10 @@ class ModAcc[R: AdRef](_ModalityMixin, AdAcc[R]):
     def get(self, mdata: MuData) -> AnnData | MuData:
         """Get the referenced modality from the :class:`~mudata.MuData` object."""
         return mdata.mod[self.mod]
+
+    def set(self, mdata: MuData, value: AnnData | MuData) -> None:
+        """Set the referenced modality in the :class:`~mudata.MuData` object."""
+        mdata.mod[self.mod] = value
 
     def __post_init__(self) -> None:
         x = self.layer_cls(mod=self.mod, k=None, ref_class=self.ref_class)
