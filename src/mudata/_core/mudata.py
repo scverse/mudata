@@ -23,12 +23,14 @@ from anndata._core.views import DataFrameView
 from anndata.typing import Index
 from anndata.utils import convert_to_dict
 from legacy_api_wrap import legacy_api
+from packaging.version import Version
 from scverse_misc import Deprecation, arg_alias, deprecated
 
 from .file_backing import AnnDataFileManager, MuDataFileManager
 from .repr import MUDATA_CSS, block_matrix, details_block_table
 from .settings import settings
 from .utils import (
+    AD_VERSION,
     MetadataColumn,
     _make_index_unique,
     _restore_index,
@@ -516,6 +518,9 @@ class MuData:
             from anndata.acc import NO_IDX, AdRef, MapAcc, RefAcc
 
             from ..acc import ModAcc
+
+            if AD_VERSION < Version("0.14dev0") and isinstance(index, AdRef | RefAcc | ModAcc | MapAcc):
+                raise ValueError("Using accessors to set values requires anndata>=0.14.")
 
             if isinstance(index, AdRef):
                 index.acc.set(self, index.idx, value)
