@@ -5,8 +5,7 @@ import re
 import sys
 from collections import defaultdict
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
-from contextlib import ExitStack, contextmanager
-from dataclasses import asdict
+from contextlib import ExitStack
 from io import IOBase
 from pathlib import Path
 from types import MappingProxyType
@@ -43,22 +42,6 @@ from .utils import AD_VERSION
 _read_write_modality_pattern = re.compile(r"^(.+\.h5mu)/([^/]+)(/([^/]+))?$")
 
 
-@contextmanager
-def _fake_anndata_encoding_attrs(f: h5py.Group | zarr.Group):
-    from .. import __anndataversion__
-
-    oldcls: type = type(f)
-
-    class FakeAnndataEncodingAttrs(oldcls):
-        @property
-        def attrs(self):
-            return {"encoding-type": "anndata", "encoding-version": __anndataversion__}
-
-    object.__setattr__(f, "__class__", FakeAnndataEncodingAttrs)
-    yield
-    object.__setattr__(f, "__class__", oldcls)
-
-
 def _write_use(
     f: h5py.Group | zarr.Group,
     mdata: MuData,
@@ -75,11 +58,11 @@ def _write_use(
     if AD_VERSION < Version("0.14.0dev0"):
         raise RuntimeError("The 'use' argument requires anndata>=0.14.")
 
-    from anndata._io.utils import write_use
     from anndata.acc import AdRef, MetaAcc
+    from anndata.io import update
 
     from .. import __mudataversion__
-    from ..acc import ModAcc, ModMapAcc, ModMetaAcc, MultiModAcc, _ModalityAcc, _ModalityMapAcc
+    from ..acc import A, ModAcc, ModMapAcc, ModMetaAcc, MultiModAcc, _ModalityAcc, _ModalityMapAcc
 
     if f.attrs.get("encoding-type") != "mudata" and f.attrs.get("encoding-version") != __mudataversion__:
         raise ValueError("Cannot write a subelement of a MuData object to a store that is not a MuData store.")
@@ -105,21 +88,10 @@ def _write_use(
     disk_mods = f.require_group("mod")
     for acc in uses:
         match acc:
-            case _ModalityAcc(mod=mod) | _ModalityMapAcc(mod=mod):
+            case _ModalityAcc(mod=mod) | _ModalityMapAcc(mod=mod) | AdRef(acc=ModMetaAcc(mod=mod)):
                 if mod not in disk_mods:
                     raise ValueError(f"Modality {mod!r} is not present on disk, cannot write part of it.")
-                for acctype in type(acc).mro():  # pass dim_names check
-                    if acctype.__module__ == "anndata.acc":
-                        args = asdict(acc)
-                        del args["mod"]
-                        cacc = acctype(**args)
-                        break
-                modality_part_accessors[mod].append(cacc)
-            case AdRef(acc=ModMetaAcc(mod=mod), idx=str() as idx):
-                if mod not in disk_mods:
-                    raise ValueError(f"Modality {mod!r} is not present on disk, cannot write part of it.")
-                cacc = type(acc)(acc=MetaAcc(dim=dim, ref_class=type(acc)), idx=idx)  # pass dim_names check
-                modality_part_accessors[mod].append(cacc)
+                modality_part_accessors[mod].append(acc)
             case ModAcc(mod=mod):
                 have_mod.append(mod)
                 global_accessors.append(acc)
@@ -169,11 +141,17 @@ def _write_use(
             case ModMapAcc(dim=dim):
                 write_elem(f, f"{dim}map", dict(acc.get(mdata)), dataset_kwargs=dataset_kwargs)  # type: ignore[arg-type]
 
-    with _fake_anndata_encoding_attrs(f):
-        write_use(f, cast(AnnData, mdata), global_anndata_accessors, dataset_kwargs=dataset_kwargs)
+    if len(global_anndata_accessors) > 0:
+        update(
+            f,
+            cast(AnnData, mdata),
+            global_anndata_accessors,
+            validate_store_attributes={},
+            dataset_kwargs=dataset_kwargs,
+        )
 
     for mod, cacc in modality_part_accessors.items():
-        write_use(disk_mods[mod], cast(AnnData, mdata.mod[mod]), cacc, dataset_kwargs=dataset_kwargs)  # type: ignore[arg-type]
+        update(disk_mods[mod], cast(AnnData, mdata), cacc, A=A.mod[mod], dataset_kwargs=dataset_kwargs)  # type: ignore[arg-type]
 
 
 def _is_openfile(obj) -> bool:
