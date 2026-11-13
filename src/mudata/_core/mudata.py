@@ -459,12 +459,18 @@ class MuData:
     def __getitem__(self, index: LayerAcc | MultiAcc | GraphAcc) -> AlignedArray: ...
     @overload
     def __getitem__(self, index: AdRef) -> Array: ...
-    def __getitem__(self, index: str | Index | AdRef | RefAcc | MapAcc) -> AnnData | MuData | AlignedArray | Array:
+    @overload
+    def __getitem__(self, index: ModAcc) -> AnnData | MuData: ...
+    def __getitem__(
+        self, index: str | Index | AdRef | RefAcc | MapAcc | ModAcc
+    ) -> AnnData | MuData | AlignedArray | Array:
         if isinstance(index, str) and index in self._mod:
             return self._mod[index]
 
         with suppress(ImportError):
             from anndata.acc import AdRef, MapAcc, MetaAcc, RefAcc
+
+            from ..acc import ModAcc
 
             if isinstance(index, AdRef):
                 try:
@@ -477,7 +483,7 @@ class MuData:
                                     f"There is no key {index.idx} in MuData .{index.acc.dim} but there is one in {modname} .{index.acc.dim}. Consider running `pull_{index.acc.dim}()` to update global .{index.acc.dim}."
                                 ) from e
                     raise
-            elif isinstance(index, RefAcc):
+            elif isinstance(index, RefAcc | ModAcc):
                 return index.get(self)
             elif isinstance(index, MapAcc):
                 raise IndexError(f"Cannot index with {index} because this is not a path to an array-like structure.")
@@ -502,17 +508,23 @@ class MuData:
 
         raise TypeError(f"Unexpected key {key!r}.")
 
-    def __setitem__(self, index: str | AdRef | RefAcc, value: object) -> None:
+    def __setitem__(self, index: str | AdRef | RefAcc | ModAcc, value: object) -> None:
         if isinstance(index, str) and isinstance(value, AnnData | MuData):
             self._mod[index] = value
 
         with suppress(ImportError):
             from anndata.acc import NO_IDX, AdRef, MapAcc, RefAcc
 
+            from ..acc import ModAcc
+
             if isinstance(index, AdRef):
                 index.acc.set(self, index.idx, value)
             elif isinstance(index, RefAcc):
                 index.set(self, NO_IDX, value)
+            elif isinstance(index, ModAcc):
+                if not isinstance(value, AnnData | MuData):
+                    raise TypeError(f"Cannot set a modality to an object of type {type(value)}.")
+                index.set(self, value)
             elif isinstance(index, MapAcc):
                 raise IndexError(f"Cannot index with {index} because this is not a path to an array-like structure.")
             else:

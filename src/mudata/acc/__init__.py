@@ -206,6 +206,10 @@ class ModAcc[R: AdRef](_ModalityMixin, AdAcc[R]):
         """Get the referenced modality from the :class:`~mudata.MuData` object."""
         return mdata.mod[self.mod]
 
+    def set(self, mdata: MuData, value: AnnData | MuData) -> None:
+        """Set the referenced modality in the :class:`~mudata.MuData` object."""
+        mdata.mod[self.mod] = value
+
     def __post_init__(self) -> None:
         x = self.layer_cls(mod=self.mod, k=None, ref_class=self.ref_class)
         layers = ModLayerMapAcc(mod=self.mod, ref_class=self.ref_class, ref_acc_cls=self.layer_cls)

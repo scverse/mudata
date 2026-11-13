@@ -1,6 +1,6 @@
 import json
 import os
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import fields
 from importlib import metadata, resources
 from typing import Any
@@ -10,9 +10,9 @@ from urllib.request import urlopen
 import anndata as ad
 import jsonschema
 import numpy as np
-import pandas as pd
 import pytest
 import referencing
+from anndata.tests.helpers import assert_equal
 from packaging.version import Version
 
 import mudata as md
@@ -73,7 +73,7 @@ PATHS = [
     (A.mod["mod1"], lambda md: md.mod["mod1"]),
     (A["mod1"], lambda md: md["mod1"]),
     (A.mod["mod1"].var, lambda md: md.mod["mod1"].var),
-    (A.mod["mod1"].var["assert-bool"], lambda md: md.mod["mod1"].var["assert-bool"]),
+    (A.mod["mod1"].var["assert-bool"], lambda md: md.mod["mod1"].var["assert-bool"].array),
     (A.mod["mod1"].X, lambda md: md.mod["mod1"].X),
     (A.mod["mod1"].X["obs_2", :], lambda md: md.mod["mod1"]["obs_2", :].X.squeeze()),
     (A.mod["mod1"].X[:, "mod1_var_1"], lambda md: md.mod["mod1"][:, "mod1_var_1"].X.squeeze()),
@@ -121,24 +121,15 @@ def test_not_in(mdata: md.MuData, acc):
     assert acc not in mdata
 
 
-def assert_equal(val, expected):
-    if isinstance(expected, pd.DataFrame | pd.Series | np.ndarray):
-        assert np.all(val == expected)
-    elif isinstance(expected, Mapping):
-        assert expected.keys() == val.keys()
-        for k, v in expected.items():
-            assert_equal(v, expected[k])
-    else:
-        assert val == expected
-
-
-@pytest.mark.parametrize("acc_expected", [path for path in PATHS if isinstance(path[0], ad.acc.AdRef | ad.acc.RefAcc)])
+@pytest.mark.parametrize(
+    "acc_expected", [path for path in PATHS if isinstance(path[0], ad.acc.AdRef | ad.acc.RefAcc | md.acc.ModAcc)]
+)
 def test_get(mdata_augmented: md.MuData, acc_expected: tuple[ad.acc.AdRef | ad.acc.RefAcc, Callable[[md.MuData], Any]]):
     acc, expected = acc_expected
 
     val = mdata_augmented[acc]  # type: ignore[index]
     expected = expected(mdata_augmented)
-    assert_equal(val, expected)
+    assert_equal(val, expected, exact=True)
 
 
 def test_no_data():
@@ -258,7 +249,21 @@ def test_set(mdata_augmented: md.MuData, acc: ad.acc.AdRef | ad.acc.RefAcc, rng:
         value = {"test": value}  # type: ignore[dict-item]
 
     mdata_augmented[acc] = value
-    assert_equal(mdata_augmented[acc], value)  # type: ignore[index]
+    assert (mdata_augmented[acc] == value).all()  # type: ignore[index,union-attr]
+
+
+@pytest.mark.skipif(anndata_version < Version("0.14dev0"), reason="anndata too old")
+def test_set_modality(mdata_augmented: md.MuData):
+    mod1 = mdata_augmented["mod1"].copy()
+    mod2 = mdata_augmented["mod2"].copy()
+    adata = mod1.copy()
+    adata.obs["test1"] = 42
+
+    mdata_augmented[A.mod["mod3"]] = adata
+    assert mdata_augmented.mod.keys() == {"mod1", "mod2", "mod3"}
+    assert_equal(mdata_augmented["mod3"], adata, exact=True)
+    assert_equal(mdata_augmented["mod1"], mod1, exact=True)
+    assert_equal(mdata_augmented["mod2"], mod2, exact=True)
 
 
 @pytest.mark.skipif(anndata_version < Version("0.14dev0"), reason="anndata too old")
