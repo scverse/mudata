@@ -48,7 +48,7 @@ class ModAcc[R: AdRef](AdAcc[R]):
 
 
 @dataclass(frozen=True)
-class ModItemAcc[R: AdRef](ScopeAcc[R, MuData]):
+class ModItemAcc[R: AdRef](ScopeAcc[R, MuData, AnnData | MuData]):
     """Reference accessor for a modality (`mdata.mod[k]`).
 
     It is the :attr:`~anndata.acc.RefAcc.scope` of all accessors created from a :class:`ModAcc`.
