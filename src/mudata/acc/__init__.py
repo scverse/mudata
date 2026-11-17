@@ -5,7 +5,7 @@ from dataclasses import KW_ONLY, dataclass, field, replace
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Never
 
 from anndata import AnnData
-from anndata.acc import NO_IDX, AdAcc, AdRef, Axes, MapAcc, RefAcc, ScopeAcc
+from anndata.acc import NO_IDX, AdAcc, AdRef, Axes, DFAcc, MapAcc, RefAcc, ScopeAcc
 from anndata.typing import InMemoryArray
 
 from .. import MuData
@@ -93,16 +93,16 @@ class ModItemAcc[R: AdRef](ScopeAcc[R, MuData, AnnData | MuData]):
 
 
 def _split_mod(acc: Any) -> tuple[str | None, Any]:
-    """Remove the :class:`ModItemAcc` at the root of `acc`’s parent chain, returning its modality."""
+    """Remove the :class:`ModItemAcc` at the root of `acc`’s scope chain, returning its modality."""
     if isinstance(acc, AdRef):
         mod, inner = _split_mod(acc.acc)
         return mod, acc.acc.ref_class(inner, acc.idx)
-    if isinstance(acc.parent, ModItemAcc):
-        return acc.parent.mod, replace(acc, parent=None)
-    if acc.parent is None:
+    if (scope := acc.scope) is None:
         return None, acc
-    mod, parent = _split_mod(acc.parent)
-    return mod, replace(acc, parent=parent)
+    mod, scope = (scope.mod, None) if isinstance(scope, ModItemAcc) else _split_mod(scope)
+    if isinstance(acc, DFAcc) and acc.frame_acc is not None:  # `.DF`: the frame is in the same scope
+        return mod, replace(acc, scope=scope, frame_acc=_split_mod(acc.frame_acc)[1])
+    return mod, replace(acc, scope=scope)
 
 
 @dataclass(frozen=True)
