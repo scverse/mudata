@@ -25,11 +25,6 @@ See [](#MuAcc) and [AdAcc](#anndata.acc.AdAcc) for examples of how to use it to 
    MuAcc
    MultiModAcc
    ModAcc
+   ModItemAcc
    ModMapAcc
-   ModMetaAcc
-   ModLayerAcc
-   ModGraphAcc
-   ModMultiAcc
-   ModMultiMapAcc
-   ModGraphMapAcc
 ```

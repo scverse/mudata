@@ -92,6 +92,27 @@ PATHS = [
 ]
 
 
+@pytest.mark.parametrize(
+    ("acc", "expected"),
+    [
+        (A.mod["rna"], "A.mod['rna']"),
+        (A.mod["rna"].X[:, "g"], "A.mod['rna'].X[:, 'g']"),
+        (A.mod["rna"].obsm["df"].DF["c"], "A.mod['rna'].obsm['df'].DF['c']"),
+        (A.mod["rna"].uns["a"].AD.obs["x"], "A.mod['rna'].uns['a'].AD.obs['x']"),
+    ],
+)
+def test_repr(acc, expected: str):
+    assert repr(acc) == expected
+    assert eval(expected) == acc
+    assert A.from_json(A.to_json(acc)) == acc
+
+
+@pytest.mark.skipif(anndata_version < Version("0.14dev0"), reason="anndata too old")
+def test_set_nested(mdata_augmented: md.MuData):
+    mdata_augmented[A.mod["mod1"].X["obs_2", :]] = 7
+    assert (mdata_augmented["mod1"]["obs_2", :].X == 7).all()  # type: ignore[union-attr]
+
+
 @pytest.mark.parametrize("acc", [path[0] for path in PATHS])
 def test_in(mdata_augmented: md.MuData, acc):
     assert acc in mdata_augmented
@@ -195,11 +216,11 @@ def test_to_from_json(mudata_json_schema, anndata_schema_registry, acc):
         assert serialized[1] == acc.idx
     elif isinstance(acc, md.acc.AdRef):
         assert serialized[0] == "mod"
-        assert serialized[1] == acc.acc.mod
-        assert serialized[2] == ad.acc.A.to_json(acc)
+        assert serialized[1] == acc.acc.scope.mod
+        assert ad.acc.A.from_json(serialized[2]) == md.acc._split_mod(acc)[1]
     else:
         assert serialized[0] == "mod"
-        assert serialized[1] == acc.mod
+        assert serialized[1] == (acc.mod if isinstance(acc, md.acc.ModAcc) else acc.scope.mod)
 
     assert A.from_json(serialized) == acc
 
@@ -215,9 +236,9 @@ def test_to_from_json_mod(mudata_json_schema, anndata_schema_registry, acc):
     jsonschema.validate(serialized, mudata_json_schema, registry=anndata_schema_registry)
     assert serialized[0] == "mod"
     assert serialized[1] == "foobar"
-    assert serialized[2] == ad.acc.A.to_json(acc)
+    assert serialized[2] == A.to_json(acc)[2]
 
-    assert A.from_json(serialized).acc.mod == "foobar"
+    assert A.from_json(serialized).acc.scope.mod == "foobar"
 
 
 @pytest.mark.skipif(anndata_version < Version("0.14dev0"), reason="anndata too old")
@@ -233,11 +254,12 @@ def test_to_from_json_mod(mudata_json_schema, anndata_schema_registry, acc):
 )
 def test_set(mdata_augmented: md.MuData, acc: ad.acc.AdRef | ad.acc.RefAcc, rng: np.random.Generator):
     size: tuple[int, int] | int
+    scope = (acc.acc if isinstance(acc, ad.acc.AdRef) else acc).scope
+    data = mdata_augmented if scope is None else scope.get(mdata_augmented)
+    assert isinstance(data, ad.AnnData | md.MuData)
     if isinstance(acc, ad.acc.AdRef):
-        data = mdata_augmented.mod[acc.acc.mod] if isinstance(acc.acc, md.acc._ModalityMixin) else mdata_augmented
         size = data.n_obs if next(iter(acc.dims)) == "obs" else data.n_vars
     else:
-        data = mdata_augmented.mod[acc.mod] if isinstance(acc, md.acc._ModalityMixin) else mdata_augmented
         if isinstance(acc, ad.acc.LayerAcc):
             size = (data.n_obs, data.n_vars)
         elif isinstance(acc, ad.acc.MultiAcc | ad.acc.GraphAcc):

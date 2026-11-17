@@ -497,12 +497,10 @@ class MuData:
         with suppress(ImportError):
             from anndata.acc import AdRef, MapAcc, RefAcc
 
-            from ..acc import ModAcc, MultiModAcc, _ModalityMapAcc, _ModalityMixin
+            from ..acc import ModAcc, MultiModAcc
 
-            if isinstance(key, ModAcc | _ModalityMapAcc):
+            if isinstance(key, ModAcc):
                 return key.isin(self)
-            elif isinstance(key, _ModalityMixin):
-                return key in self.mod[key.mod]  # type: ignore[operator]
             elif isinstance(key, MultiModAcc):
                 return bool(self.mod)
             elif isinstance(key, AdRef | RefAcc | MapAcc):
