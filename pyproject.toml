@@ -108,6 +108,9 @@ envs.hatch-test.matrix = [
 envs.hatch-test.overrides.matrix.deps.env-vars = [
   { value = "allow", key = "UV_PRERELEASE", if = [ "pre" ] },
 ]
+envs.hatch-test.overrides.matrix.deps.extra-dependencies = [
+  { value = "anndata @ git+https://github.com/scverse/anndata@main", if = [ "pre" ] },
+]
 envs.hatch-test.dependency-groups = [ "dev", "test" ]
 
 [tool.ruff]
