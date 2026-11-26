@@ -25,6 +25,8 @@ from mudata.acc import A
 
 @pytest.fixture
 def mdata_augmented(mdata: md.MuData, rng: np.random.Generator):
+    mdata.uns["test_ad"] = mdata["mod2"].copy()
+    mdata["mod2"].uns["test_ad"] = mdata["mod1"].copy()
     mdata["mod1"].layers["counts"] = rng.poisson(1, size=mdata["mod1"].shape)  # type: ignore[index]
     mdata["mod2"].varm["test"] = rng.normal(size=(mdata["mod2"].n_vars, 3))
     mdata["mod2"].obsp["test"] = rng.normal(size=(mdata["mod2"].n_obs, mdata["mod2"].n_obs))
@@ -91,6 +93,16 @@ PATHS = [
     (A.varmap["mod2"], lambda md: md.varmap["mod2"]),
 ]
 
+if anndata_version >= Version("0.14dev0"):
+    PATHS.extend(
+        [
+            (A.uns["test_ad"], lambda md: md.uns["test_ad"]),
+            (A.uns["test_ad"].AD, lambda md: md.uns["test_ad"]),
+            (A.mod["mod2"].uns["test_ad"], lambda md: md.mod["mod2"].uns["test_ad"]),
+            (A.mod["mod2"].uns["test_ad"].AD, lambda md: md.mod["mod2"].uns["test_ad"]),
+        ]
+    )
+
 
 @pytest.mark.parametrize(
     ("acc", "expected"),
@@ -105,12 +117,6 @@ def test_repr(acc, expected: str):
     assert repr(acc) == expected
     assert eval(expected) == acc
     assert A.from_json(A.to_json(acc)) == acc
-
-
-@pytest.mark.skipif(anndata_version < Version("0.14dev0"), reason="anndata too old")
-def test_set_nested(mdata_augmented: md.MuData):
-    mdata_augmented[A.mod["mod1"].X["obs_2", :]] = 7
-    assert (mdata_augmented["mod1"]["obs_2", :].X == 7).all()  # type: ignore[union-attr]
 
 
 @pytest.mark.parametrize("acc", [path[0] for path in PATHS])
@@ -209,6 +215,9 @@ def test_resolve_vec_mismatch():
     "acc", [path[0] for path in PATHS if not isinstance(path[0], ad.acc.MetaAcc | ad.acc.MapAcc | md.acc.ModMapAcc)]
 )
 def test_to_from_json(mudata_json_schema, anndata_schema_registry, acc):
+    if anndata_version >= Version("0.14dev0"):
+        if isinstance(acc, ad.acc.AdAcc | ad.acc.ScopeAcc) and anndata_version < Version("0.14"):
+            pytest.skip("anndata too old")
     serialized = A.to_json(acc)
     jsonschema.validate(serialized, mudata_json_schema, registry=anndata_schema_registry)
     if isinstance(acc, md.acc.AdRef) and isinstance(acc.acc, md.acc.ModMapAcc):
@@ -248,7 +257,7 @@ def test_to_from_json_mod(mudata_json_schema, anndata_schema_registry, acc):
         path
         for path, _ in PATHS
         if isinstance(path, ad.acc.AdRef | ad.acc.RefAcc)
-        and not isinstance(path, ad.acc.MetaAcc | md.acc.ModMapAcc)
+        and not isinstance(path, ad.acc.MetaAcc | md.acc.ModMapAcc | ad.acc.ItemAcc)
         and not (isinstance(path, ad.acc.AdRef) and isinstance(path.acc, md.acc.ModMapAcc))
     ],
 )
@@ -275,17 +284,28 @@ def test_set(mdata_augmented: md.MuData, acc: ad.acc.AdRef | ad.acc.RefAcc, rng:
 
 
 @pytest.mark.skipif(anndata_version < Version("0.14dev0"), reason="anndata too old")
-def test_set_modality(mdata_augmented: md.MuData):
+def test_set_nested(mdata_augmented: md.MuData, subtests: pytest.SubTests):
     mod1 = mdata_augmented["mod1"].copy()
     mod2 = mdata_augmented["mod2"].copy()
     adata = mod1.copy()
     adata.obs["test1"] = 42
 
-    mdata_augmented[A.mod["mod3"]] = adata
-    assert mdata_augmented.mod.keys() == {"mod1", "mod2", "mod3"}
-    assert_equal(mdata_augmented["mod3"], adata, exact=True)
-    assert_equal(mdata_augmented["mod1"], mod1, exact=True)
-    assert_equal(mdata_augmented["mod2"], mod2, exact=True)
+    with subtests.test("setting modality"):
+        mdata_augmented[A.mod["mod3"]] = adata
+        assert mdata_augmented.mod.keys() == {"mod1", "mod2", "mod3"}
+        assert_equal(mdata_augmented["mod3"], adata, exact=True)
+        assert_equal(mdata_augmented["mod1"], mod1, exact=True)
+        assert_equal(mdata_augmented["mod2"], mod2, exact=True)
+    with subtests.test("setting global uns"):
+        mdata_augmented[A.uns["test2"]] = mod1
+        mdata_augmented[A.uns["test3"].AD] = mod1
+        assert_equal(mdata_augmented.uns["test2"], mod1, exact=True)
+        assert_equal(mdata_augmented.uns["test3"], mod1, exact=True)
+    with subtests.test("setting modality uns"):
+        mdata_augmented[A.mod["mod3"].uns["test2"]] = mod1
+        mdata_augmented[A.mod["mod3"].uns["test3"].AD] = mod1
+        assert_equal(mdata_augmented.mod["mod3"].uns["test2"], mod1, exact=True)
+        assert_equal(mdata_augmented.mod["mod3"].uns["test3"], mod1, exact=True)
 
 
 @pytest.mark.skipif(anndata_version < Version("0.14dev0"), reason="anndata too old")

@@ -150,6 +150,9 @@ class MultiModAcc[R: AdRef](MapAcc[ModAcc[R]]):  # type: ignore[type-var]
     ref_class: type[R]
     ref_acc_cls: type[ModAcc] = ModAcc
 
+    def get(self, data: MuData, /) -> Mapping[str, MuData | AnnData]:
+        return data.mod
+
     def __getitem__(self, k: str, /) -> ModAcc[R]:
         if not isinstance(k, str):
             raise TypeError(f"Unsupported mod key {k!r}")

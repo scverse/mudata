@@ -470,7 +470,7 @@ class MuData:
             return self._mod[index]
 
         with suppress(ImportError):
-            from anndata.acc import AdRef, MapAcc, MetaAcc, RefAcc
+            from anndata.acc import AdAcc, AdRef, MapAcc, MetaAcc, RefAcc
 
             from ..acc import ModAcc
 
@@ -485,17 +485,15 @@ class MuData:
                                     f"There is no key {index.idx} in MuData .{index.acc.dim} but there is one in {modname} .{index.acc.dim}. Consider running `pull_{index.acc.dim}()` to update global .{index.acc.dim}."
                                 ) from e
                     raise
-            elif isinstance(index, RefAcc | ModAcc):
-                return index.get(self)
-            elif isinstance(index, MapAcc):
-                raise IndexError(f"Cannot index with {index} because this is not a path to an array-like structure.")
+            elif isinstance(index, RefAcc | ModAcc | AdAcc | MapAcc):
+                return AnnData.__getitem__(self, index)
         return MuData(self, as_view=True, index=cast(Index, index))
 
     def __contains__(self, key: str | AdRef | RefAcc | MapAcc | ModAcc | MultiModAcc) -> bool:
         if isinstance(key, str):
             return key in self._mod
         with suppress(ImportError):
-            from anndata.acc import AdRef, MapAcc, RefAcc
+            from anndata.acc import AdAcc, AdRef, MapAcc, RefAcc
 
             from ..acc import ModAcc, MultiModAcc
 
@@ -503,7 +501,7 @@ class MuData:
                 return key.isin(self)
             elif isinstance(key, MultiModAcc):
                 return bool(self.mod)
-            elif isinstance(key, AdRef | RefAcc | MapAcc):
+            elif isinstance(key, AdAcc | AdRef | RefAcc | MapAcc):
                 return AnnData.__contains__(self, key)  # type: ignore[operator]
 
         raise TypeError(f"Unexpected key {key!r}.")
@@ -513,23 +511,19 @@ class MuData:
             self._mod[index] = value
 
         with suppress(ImportError):
-            from anndata.acc import NO_IDX, AdRef, MapAcc, RefAcc
+            from anndata.acc import AdAcc, AdRef, MapAcc, RefAcc
 
             from ..acc import ModAcc
 
             if AD_VERSION < Version("0.14dev0") and isinstance(index, AdRef | RefAcc | ModAcc | MapAcc):
                 raise ValueError("Using accessors to set values requires anndata>=0.14.")
 
-            if isinstance(index, AdRef):
-                index.acc.set(self, index.idx, value)
-            elif isinstance(index, RefAcc):
-                index.set(self, NO_IDX, value)
-            elif isinstance(index, ModAcc):
+            if isinstance(index, ModAcc):
                 if not isinstance(value, AnnData | MuData):
                     raise TypeError(f"Cannot set a modality to an object of type {type(value)}.")
                 index.set(self, value)
-            elif isinstance(index, MapAcc):
-                raise IndexError(f"Cannot index with {index} because this is not a path to an array-like structure.")
+            elif isinstance(index, AdRef | RefAcc | AdAcc | MapAcc):
+                AnnData.__setitem__(self, index, value)
             else:
                 raise TypeError(f"Unknown index {index!r}.")
 
