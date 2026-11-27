@@ -7,13 +7,13 @@ default_stages:
 minimum_pre_commit_version: 2.16.0
 repos:
   - repo: https://github.com/biomejs/pre-commit
-    rev: 32d5a0d7e11fdd020784e4cd64ed53d3cfe81e72 # frozen: v2.6.8
+    rev: 53e7cebd064fffb1ad6fe11d5309e5348017ae32 # frozen: v2.6.9
     hooks:
       - id: biome-format
         exclude: ^\.cruft\.json$ # inconsistent indentation with cruft - file never to be modified manually.
         groups: [format]
   - repo: https://github.com/jolars/panache-pre-commit
-    rev: v3.19.0
+    rev: 4822c73a9465f72c7a64ef436c25b15115514c9e # frozen: v3.20.0
     hooks:
       - id: panache-format
         groups: [format]
@@ -58,7 +58,7 @@ repos:
       - id: check-merge-conflict
         args: [--assume-in-merge]
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: 06a39750ec31860bb44f2acf67182c40016cd1e7 # frozen: v1.32.0
+    rev: c7d31dc612dffdd4d3b2f2b88b9660d3ab057ee8 # frozen: v1.33.1
     hooks:
       - id: zizmor
         args: [--no-progress, --fix]
