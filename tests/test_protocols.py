@@ -15,5 +15,5 @@ def test_protocol_compatibility() -> None:
     from anndata.types import AnnDataLikeMetadataOnly
 
     # the annotated assignment is checked by mypy, the assert at runtime
-    m: AnnDataLikeMetadataOnly = MuData({"a": AnnData(np.zeros((3, 2)))})
+    m: AnnDataLikeMetadataOnly = MuData({"a": AnnData(np.zeros((3, 2)))})  # type: ignore[assignment] # fmt: skip # FIXME: mypy bug, see discussion in https://github.com/scverse/anndata/pull/2769, remove when switching to a different type checker
     assert isinstance(m, AnnDataLikeMetadataOnly)
