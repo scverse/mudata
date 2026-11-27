@@ -43,9 +43,8 @@ if TYPE_CHECKING:
     from os import PathLike
     from pathlib import Path
 
-    from anndata._core.aligned_mapping import _AlignedAny
     from anndata.acc import AdRef, Array, DataFrameLike, GraphAcc, LayerAcc, MapAcc, MetaAcc, MultiAcc, RefAcc
-    from anndata.typing import AlignedArray, Index
+    from anndata.typing import AlignedAny, AlignedArray, Index
     from zarr.abc.store import Store as ZarrStore
 
     from ..acc import ModAcc, MultiModAcc
@@ -451,16 +450,17 @@ class MuData:
     # To increase compatibility with scanpy methods
     _sanitize = strings_to_categoricals
 
-    @overload
-    def __getitem__(self, index: str) -> AnnData | MuData: ...  # type: ignore[overload-overlap]
-    @overload
-    def __getitem__(self, index: Index) -> MuData: ...
+    # same order as `anndata.types.AnnDataLikeMetadataOnly`: mypy matches protocol overloads in order
     @overload
     def __getitem__(self, index: MetaAcc) -> DataFrameLike: ...
     @overload
     def __getitem__(self, index: LayerAcc | MultiAcc | GraphAcc) -> AlignedArray: ...
     @overload
     def __getitem__(self, index: AdRef) -> Array: ...
+    @overload
+    def __getitem__(self, index: str) -> AnnData | MuData: ...  # type: ignore[overload-overlap]
+    @overload
+    def __getitem__(self, index: Index) -> MuData: ...
     @overload
     def __getitem__(self, index: ModAcc) -> AnnData | MuData: ...
     def __getitem__(
@@ -1039,7 +1039,7 @@ class MuData:
     # Multi-dimensional annotations (.obsm and .varm)
 
     @property
-    def obsm(self) -> MutableMapping[str, _AlignedAny]:
+    def obsm(self) -> MutableMapping[str, AlignedAny]:
         """Multi-dimensional annotation of observations.
 
         Stores for each key a two- or higher-dimensional :class:`~numpy.ndarray` or :class:`~pandas.DataFrame` of length :attr:`n_obs`.
@@ -1048,7 +1048,7 @@ class MuData:
         return self._obsm
 
     @obsm.setter
-    def obsm(self, value: Mapping[str, _AlignedAny]) -> None:
+    def obsm(self, value: Mapping[str, AlignedAny]) -> None:
         obsm = AxisArrays(self, axis=0, store=convert_to_dict(value))  # type: ignore[arg-type]
         if self.is_view:
             self._init_as_actual(self.copy())
@@ -1089,7 +1089,7 @@ class MuData:
         return cast(MutableMapping[str, np.ndarray[tuple[int], np.dtype[np.unsignedinteger]]], self._obsmap)
 
     @property
-    def varm(self) -> MutableMapping[str, _AlignedAny]:
+    def varm(self) -> MutableMapping[str, AlignedAny]:
         """Multi-dimensional annotation of variables.
 
         Stores for each key a two- or higher-dimensional :class:`~numpy.ndarray` or :class:`~pandas.DataFrame` of length :attr:`n_vars`.
@@ -1098,7 +1098,7 @@ class MuData:
         return self._varm
 
     @varm.setter
-    def varm(self, value: Mapping[str, _AlignedAny]) -> None:
+    def varm(self, value: Mapping[str, AlignedAny]) -> None:
         varm = AxisArrays(self, axis=1, store=convert_to_dict(value))  # type: ignore[arg-type]
         if self.is_view:
             self._init_as_actual(self.copy())
