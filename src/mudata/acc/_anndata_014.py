@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Hashable, Sequence
+from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import KW_ONLY, dataclass, field, replace
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Never
 
@@ -27,7 +27,7 @@ class ModAcc[R: AdRef](AdAcc[R]):
         """Modality this accessor refers to."""
         return self.scope.mod
 
-    def isin(self, mdata: MuData) -> bool:
+    def isin(self, mdata: MuData) -> bool:  # type: ignore[override]
         """Check if the referenced modality is in the :class:`~mudata.MuData` object."""
         return self.scope.isin(mdata)
 
@@ -48,7 +48,7 @@ class ModAcc[R: AdRef](AdAcc[R]):
 
 
 @dataclass(frozen=True)
-class ModItemAcc[R: AdRef](ScopeAcc[R, MuData, AnnData | MuData]):
+class ModItemAcc[R: AdRef](ScopeAcc[R, MuData, AnnData | MuData]):  # type: ignore[type-var]
     """Reference accessor for a modality (`mdata.mod[k]`).
 
     It is the :attr:`~anndata.acc.RefAcc.scope` of all accessors created from a :class:`ModAcc`.
@@ -106,7 +106,7 @@ def _split_mod(acc: Any) -> tuple[str | None, Any]:
 
 
 @dataclass(frozen=True)
-class ModMapAcc[R: AdRef[str, MuData]](RefAcc[R, str, MuData]):
+class ModMapAcc[R: AdRef[str, MuData]](RefAcc[R, str, MuData]):  # type: ignore[type-var]
     """Reference accessor for modality maps (:attr:`~MuAcc.obsmap` / :attr:`~MuAcc.varmap`)."""
 
     dim: Literal["obs", "var"]
@@ -150,7 +150,7 @@ class MultiModAcc[R: AdRef](MapAcc[ModAcc[R]]):  # type: ignore[type-var]
     ref_class: type[R]
     ref_acc_cls: type[ModAcc] = ModAcc
 
-    def get(self, data: MuData, /) -> Mapping[str, MuData | AnnData]:
+    def get(self, data: MuData, /) -> Mapping[str, MuData | AnnData]:  # type: ignore[override]
         return data.mod
 
     def __getitem__(self, k: str, /) -> ModAcc[R]:

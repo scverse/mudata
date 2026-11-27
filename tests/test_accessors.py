@@ -299,7 +299,7 @@ def test_set(mdata_augmented: md.MuData, acc: ad.acc.AdRef | ad.acc.RefAcc, rng:
 
 
 @pytest.mark.skipif(anndata_version < Version("0.14dev0"), reason="anndata too old")
-def test_set_nested(mdata_augmented: md.MuData, subtests: pytest.SubTests):
+def test_set_nested(mdata_augmented: md.MuData, subtests: pytest.Subtests):
     mod1 = mdata_augmented["mod1"].copy()
     mod2 = mdata_augmented["mod2"].copy()
     adata = mod1.copy()

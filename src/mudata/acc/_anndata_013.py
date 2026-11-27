@@ -1,3 +1,4 @@
+# type: ignore # typing targets anndata >= 0.14
 from __future__ import annotations
 
 from collections.abc import Hashable, Sequence

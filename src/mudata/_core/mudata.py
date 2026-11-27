@@ -43,7 +43,19 @@ if TYPE_CHECKING:
     from os import PathLike
     from pathlib import Path
 
-    from anndata.acc import AdRef, Array, DataFrameLike, GraphAcc, LayerAcc, MapAcc, MetaAcc, MultiAcc, RefAcc
+    from anndata.acc import (
+        AdAcc,
+        AdRef,
+        Array,
+        DataFrameLike,
+        DFAcc,
+        GraphAcc,
+        ItemAcc,
+        LayerAcc,
+        MapAcc,
+        MultiAcc,
+        RefAcc,
+    )
     from anndata.typing import AlignedAny, AlignedArray, Index
     from zarr.abc.store import Store as ZarrStore
 
@@ -452,7 +464,9 @@ class MuData:
 
     # same order as `anndata.types.AnnDataLikeMetadataOnly`: mypy matches protocol overloads in order
     @overload
-    def __getitem__(self, index: MetaAcc) -> DataFrameLike: ...
+    def __getitem__(self, index: DFAcc) -> DataFrameLike: ...
+    @overload
+    def __getitem__(self, index: ItemAcc) -> Any: ...
     @overload
     def __getitem__(self, index: LayerAcc | MultiAcc | GraphAcc) -> AlignedArray: ...
     @overload
@@ -460,11 +474,11 @@ class MuData:
     @overload
     def __getitem__(self, index: str) -> AnnData | MuData: ...  # type: ignore[overload-overlap]
     @overload
-    def __getitem__(self, index: Index) -> MuData: ...
+    def __getitem__(self, index: AdAcc) -> MuData | AnnData: ...
     @overload
-    def __getitem__(self, index: ModAcc) -> AnnData | MuData: ...
+    def __getitem__(self, index: Index) -> MuData: ...
     def __getitem__(
-        self, index: str | Index | AdRef | RefAcc | MapAcc | ModAcc
+        self, index: str | Index | AdRef | RefAcc | MapAcc | ModAcc | AdAcc
     ) -> AnnData | MuData | AlignedArray | Array:
         if isinstance(index, str) and index in self._mod:
             return self._mod[index]
@@ -486,7 +500,7 @@ class MuData:
                                 ) from e
                     raise
             elif isinstance(index, RefAcc | ModAcc | AdAcc | MapAcc):
-                return AnnData.__getitem__(self, index)
+                return AnnData.__getitem__(self, index)  # type: ignore[call-overload]
         return MuData(self, as_view=True, index=cast(Index, index))
 
     def __contains__(self, key: str | AdRef | RefAcc | MapAcc | ModAcc | MultiModAcc) -> bool:
@@ -506,7 +520,7 @@ class MuData:
 
         raise TypeError(f"Unexpected key {key!r}.")
 
-    def __setitem__(self, index: str | AdRef | RefAcc | ModAcc, value: object) -> None:
+    def __setitem__(self, index: str | AdRef | RefAcc | AdAcc, value: object) -> None:
         if isinstance(index, str) and isinstance(value, AnnData | MuData):
             self._mod[index] = value
 
@@ -523,7 +537,7 @@ class MuData:
                     raise TypeError(f"Cannot set a modality to an object of type {type(value)}.")
                 index.set(self, value)
             elif isinstance(index, AdRef | RefAcc | AdAcc | MapAcc):
-                AnnData.__setitem__(self, index, value)
+                AnnData.__setitem__(self, index, value)  # type: ignore[index]
             else:
                 raise TypeError(f"Unknown index {index!r}.")
 
