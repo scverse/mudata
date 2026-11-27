@@ -112,6 +112,7 @@ def test_h5mu_backed_to_memory(mdata: md.MuData, filepath_h5mu: str | Path):
         assert isinstance(mdata_.mod[modname].X, np.ndarray) or issparse(mdata_.mod[modname].X)
 
 
+@pytest.mark.filterwarnings("ignore:.+Use write_h5mu:FutureWarning")
 def test_write_read_h5ad(mdata: md.MuData, filepath_h5mu: str | Path):
     adata = mdata["mod1"]
     ad.io.write_h5ad(filepath_h5mu, adata)
@@ -129,6 +130,7 @@ def test_write_read_h5ad(mdata: md.MuData, filepath_h5mu: str | Path):
     assert_equal(adata, adata_backed, exact=True)
 
 
+@pytest.mark.filterwarnings("ignore:.+Use write_h5mu:FutureWarning")
 def test_write_read(mdata: md.MuData, tmp_path: Path, filepath_h5mu: Path, filepath_h5ad: Path):
     with pytest.raises(ValueError, match="only save MuData"):
         md.write(str(filepath_h5mu) + ".h5ad", mdata)
