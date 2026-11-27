@@ -104,15 +104,17 @@ if anndata_version >= Version("0.14dev0"):
     )
 
 
-@pytest.mark.parametrize(
-    ("acc", "expected"),
-    [
-        (A.mod["rna"], "A.mod['rna']"),
-        (A.mod["rna"].X[:, "g"], "A.mod['rna'].X[:, 'g']"),
-        (A.mod["rna"].obsm["df"].DF["c"], "A.mod['rna'].obsm['df'].DF['c']"),
-        (A.mod["rna"].uns["a"].AD.obs["x"], "A.mod['rna'].uns['a'].AD.obs['x']"),
-    ],
-)
+REPR_PATHS = [(A.mod["rna"], "A.mod['rna']"), (A.mod["rna"].X[:, "g"], "A.mod['rna'].X[:, 'g']")]
+if anndata_version >= Version("0.14dev0"):
+    REPR_PATHS.extend(
+        [
+            (A.mod["rna"].obsm["df"].DF["c"], "A.mod['rna'].obsm['df'].DF['c']"),
+            (A.mod["rna"].uns["a"].AD.obs["x"], "A.mod['rna'].uns['a'].AD.obs['x']"),
+        ]
+    )
+
+
+@pytest.mark.parametrize(("acc", "expected"), REPR_PATHS)
 def test_repr(acc, expected: str):
     assert repr(acc) == expected
     assert eval(expected) == acc
@@ -215,21 +217,31 @@ def test_resolve_vec_mismatch():
     "acc", [path[0] for path in PATHS if not isinstance(path[0], ad.acc.MetaAcc | ad.acc.MapAcc | md.acc.ModMapAcc)]
 )
 def test_to_from_json(mudata_json_schema, anndata_schema_registry, acc):
-    if anndata_version >= Version("0.14dev0"):
-        if isinstance(acc, ad.acc.AdAcc | ad.acc.ScopeAcc) and anndata_version < Version("0.14"):
-            pytest.skip("anndata too old")
     serialized = A.to_json(acc)
     jsonschema.validate(serialized, mudata_json_schema, registry=anndata_schema_registry)
-    if isinstance(acc, md.acc.AdRef) and isinstance(acc.acc, md.acc.ModMapAcc):
-        assert serialized[0] == f"{acc.acc.dim}map"
-        assert serialized[1] == acc.idx
-    elif isinstance(acc, md.acc.AdRef):
-        assert serialized[0] == "mod"
-        assert serialized[1] == acc.acc.scope.mod
-        assert ad.acc.A.from_json(serialized[2]) == md.acc._split_mod(acc)[1]
+
+    if anndata_version >= Version("0.14dev0"):
+        if isinstance(acc, md.acc.AdRef) and isinstance(acc.acc, md.acc.ModMapAcc):
+            assert serialized[0] == f"{acc.acc.dim}map"
+            assert serialized[1] == acc.idx
+        elif isinstance(acc, md.acc.AdRef):
+            assert serialized[0] == "mod"
+            assert serialized[1] == acc.acc.scope.mod
+            assert ad.acc.A.from_json(serialized[2]) == md.acc._anndata_014._split_mod(acc)[1]
+        elif isinstance(acc.scope, md.acc.ModItemAcc):
+            assert serialized[0] == "mod"
+            assert serialized[1] == (acc.mod if isinstance(acc, md.acc.ModAcc) else acc.scope.mod)
     else:
-        assert serialized[0] == "mod"
-        assert serialized[1] == (acc.mod if isinstance(acc, md.acc.ModAcc) else acc.scope.mod)
+        if isinstance(acc, md.acc.AdRef) and isinstance(acc.acc, md.acc.ModMapAcc):
+            assert serialized[0] == f"{acc.acc.dim}map"
+            assert serialized[1] == acc.idx
+        elif isinstance(acc, md.acc.AdRef):
+            assert serialized[0] == "mod"
+            assert serialized[1] == acc.acc.mod
+            assert serialized[2] == ad.acc.A.to_json(acc)
+        else:
+            assert serialized[0] == "mod"
+            assert serialized[1] == acc.mod
 
     assert A.from_json(serialized) == acc
 
@@ -247,7 +259,10 @@ def test_to_from_json_mod(mudata_json_schema, anndata_schema_registry, acc):
     assert serialized[1] == "foobar"
     assert serialized[2] == A.to_json(acc)[2]
 
-    assert A.from_json(serialized).acc.scope.mod == "foobar"
+    if anndata_version >= Version("0.14dev0"):
+        assert A.from_json(serialized).acc.scope.mod == "foobar"
+    else:
+        assert A.from_json(serialized).acc.mod == "foobar"
 
 
 @pytest.mark.skipif(anndata_version < Version("0.14dev0"), reason="anndata too old")
@@ -257,7 +272,7 @@ def test_to_from_json_mod(mudata_json_schema, anndata_schema_registry, acc):
         path
         for path, _ in PATHS
         if isinstance(path, ad.acc.AdRef | ad.acc.RefAcc)
-        and not isinstance(path, ad.acc.MetaAcc | md.acc.ModMapAcc | ad.acc.ItemAcc)
+        and not isinstance(path, ad.acc.MetaAcc | md.acc.ModMapAcc | getattr(ad.acc, "ItemAcc", None))
         and not (isinstance(path, ad.acc.AdRef) and isinstance(path.acc, md.acc.ModMapAcc))
     ],
 )
