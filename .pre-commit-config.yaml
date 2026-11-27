@@ -7,18 +7,23 @@ default_stages:
 minimum_pre_commit_version: 2.16.0
 repos:
   - repo: https://github.com/biomejs/pre-commit
-    rev: eb45ebf3cb7c3a872b3ff0814883e8ab81fc451f # frozen: v2.6.4
+    rev: 53e7cebd064fffb1ad6fe11d5309e5348017ae32 # frozen: v2.6.9
     hooks:
       - id: biome-format
         exclude: ^\.cruft\.json$ # inconsistent indentation with cruft - file never to be modified manually.
         groups: [format]
+  - repo: https://github.com/jolars/panache-pre-commit
+    rev: 4822c73a9465f72c7a64ef436c25b15115514c9e # frozen: v3.20.0
+    hooks:
+      - id: panache-format
+        groups: [format]
   - repo: https://github.com/tox-dev/pyproject-fmt
-    rev: 50e0f3aee9dc5747a5f173f79a7417403c18dda6 # frozen: v2.30.3
+    rev: 02ef6d1c28994054a843e58604e1a343faa42987 # frozen: v2.31.2
     hooks:
       - id: pyproject-fmt
         groups: [format]
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: 25bcf95026b96e2dd3c0aec3090c3d6ef6ca2e6c # frozen: v0.17.3
+    rev: 9026c9127e153371d7a78dfcb0c45ae2046a3d10 # frozen: v0.17.6
     hooks:
       - id: ruff-check
         args: [--fix, --exit-non-zero-on-fix]
@@ -53,7 +58,7 @@ repos:
       - id: check-merge-conflict
         args: [--assume-in-merge]
   - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: c92afdf2c6ca336aaa8f39e2bd8d48f62dbd8e1f # frozen: v1.31.1
+    rev: c7d31dc612dffdd4d3b2f2b88b9660d3ab057ee8 # frozen: v1.33.1
     hooks:
       - id: zizmor
         args: [--no-progress, --fix]

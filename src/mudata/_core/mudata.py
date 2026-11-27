@@ -23,12 +23,14 @@ from anndata._core.views import DataFrameView
 from anndata.typing import Index
 from anndata.utils import convert_to_dict
 from legacy_api_wrap import legacy_api
+from packaging.version import Version
 from scverse_misc import Deprecation, arg_alias, deprecated
 
 from .file_backing import AnnDataFileManager, MuDataFileManager
 from .repr import MUDATA_CSS, block_matrix, details_block_table
 from .settings import settings
 from .utils import (
+    AD_VERSION,
     MetadataColumn,
     _make_index_unique,
     _restore_index,
@@ -41,9 +43,20 @@ if TYPE_CHECKING:
     from os import PathLike
     from pathlib import Path
 
-    from anndata._core.aligned_mapping import _AlignedAny
-    from anndata.acc import AdRef, Array, DataFrameLike, GraphAcc, LayerAcc, MapAcc, MetaAcc, MultiAcc, RefAcc
-    from anndata.typing import AlignedArray, Index
+    from anndata.acc import (
+        AdAcc,
+        AdRef,
+        Array,
+        DataFrameLike,
+        DFAcc,
+        GraphAcc,
+        ItemAcc,
+        LayerAcc,
+        MapAcc,
+        MultiAcc,
+        RefAcc,
+    )
+    from anndata.typing import AlignedAny, AlignedArray, Index
     from zarr.abc.store import Store as ZarrStore
 
     from ..acc import ModAcc, MultiModAcc
@@ -449,56 +462,84 @@ class MuData:
     # To increase compatibility with scanpy methods
     _sanitize = strings_to_categoricals
 
+    # same order as `anndata.types.AnnDataLikeMetadataOnly`: mypy matches protocol overloads in order
     @overload
-    def __getitem__(self, index: str) -> AnnData | MuData: ...  # type: ignore[overload-overlap]
+    def __getitem__(self, index: DFAcc) -> DataFrameLike: ...
     @overload
-    def __getitem__(self, index: Index) -> MuData: ...
-    @overload
-    def __getitem__(self, index: MetaAcc) -> DataFrameLike: ...
+    def __getitem__(self, index: ItemAcc) -> object: ...
     @overload
     def __getitem__(self, index: LayerAcc | MultiAcc | GraphAcc) -> AlignedArray: ...
     @overload
     def __getitem__(self, index: AdRef) -> Array: ...
-    def __getitem__(self, index: str | Index | AdRef | RefAcc | MapAcc) -> AnnData | MuData | AlignedArray | Array:
+    @overload
+    def __getitem__(self, index: str) -> AnnData | MuData: ...  # type: ignore[overload-overlap]
+    @overload
+    def __getitem__(self, index: AdAcc) -> AnnData | MuData: ...
+    @overload
+    def __getitem__(self, index: Index) -> MuData: ...
+    def __getitem__(
+        self, index: str | Index | AdRef | RefAcc | MapAcc | ModAcc | AdAcc
+    ) -> AnnData | MuData | AlignedArray | Array:
         if isinstance(index, str) and index in self._mod:
             return self._mod[index]
 
-        from .compat import AdRef, MapAcc, MetaAcc, RefAcc
+        with suppress(ImportError):
+            from anndata.acc import AdAcc, AdRef, MapAcc, MetaAcc, RefAcc
 
-        if isinstance(index, AdRef):
-            try:
-                return index.acc.get(self, index.idx)
-            except KeyError as e:
-                if isinstance(index.acc, MetaAcc) and index.acc.dim in ("obs", "var"):
-                    for modname, mod in self._mod.items():
-                        if index in mod:
-                            raise KeyError(
-                                f"There is no key {index.idx} in MuData .{index.acc.dim} but there is one in {modname} .{index.acc.dim}. Consider running `pull_{index.acc.dim}()` to update global .{index.acc.dim}."
-                            ) from e
-                raise
-        elif isinstance(index, RefAcc):
-            return index.get(self)
-        elif isinstance(index, MapAcc):
-            raise IndexError(f"Cannot index with {index} because this is not a path to an array-like structure.")
+            from ..acc import ModAcc
 
-        return MuData(self, as_view=True, index=index)
+            if isinstance(index, AdRef):
+                try:
+                    return index.acc.get(self, index.idx)
+                except KeyError as e:
+                    if isinstance(index.acc, MetaAcc) and index.acc.dim in ("obs", "var"):
+                        for modname, mod in self._mod.items():
+                            if index in mod:
+                                raise KeyError(
+                                    f"There is no key {index.idx} in MuData .{index.acc.dim} but there is one in {modname} .{index.acc.dim}. Consider running `pull_{index.acc.dim}()` to update global .{index.acc.dim}."
+                                ) from e
+                    raise
+            elif isinstance(index, RefAcc | ModAcc | AdAcc | MapAcc):
+                return AnnData.__getitem__(self, index)  # type: ignore[call-overload]
+        return MuData(self, as_view=True, index=cast(Index, index))
 
     def __contains__(self, key: str | AdRef | RefAcc | MapAcc | ModAcc | MultiModAcc) -> bool:
-        from .compat import AdRef, MapAcc, ModAcc, MultiModAcc, RefAcc, _ModalityAcc, _ModalityMixin
+        if isinstance(key, str):
+            return key in self._mod
+        with suppress(ImportError):
+            from anndata.acc import AdAcc, AdRef, MapAcc, RefAcc
 
-        match key:
-            case str():
-                return key in self._mod
-            case ModAcc() | _ModalityAcc():
+            from ..acc import ModAcc, MultiModAcc
+
+            if isinstance(key, ModAcc):
                 return key.isin(self)
-            case _ModalityMixin():
-                return key in self.mod[key.mod]  # type: ignore[operator]
-            case MultiModAcc():
+            elif isinstance(key, MultiModAcc):
                 return bool(self.mod)
-            case AdRef() | RefAcc() | MapAcc():
+            elif isinstance(key, AdAcc | AdRef | RefAcc | MapAcc):
                 return AnnData.__contains__(self, key)  # type: ignore[operator]
 
         raise TypeError(f"Unexpected key {key!r}.")
+
+    def __setitem__(self, index: str | AdRef | RefAcc | AdAcc, value: object) -> None:
+        if isinstance(index, str) and isinstance(value, AnnData | MuData):
+            self._mod[index] = value
+
+        with suppress(ImportError):
+            from anndata.acc import AdAcc, AdRef, MapAcc, RefAcc
+
+            from ..acc import ModAcc
+
+            if AD_VERSION < Version("0.14dev0") and isinstance(index, AdRef | RefAcc | ModAcc | MapAcc):
+                raise ValueError("Using accessors to set values requires anndata>=0.14.")
+
+            if isinstance(index, ModAcc):
+                if not isinstance(value, AnnData | MuData):
+                    raise TypeError(f"Cannot set a modality to an object of type {type(value)}.")
+                index.set(self, value)
+            elif isinstance(index, AdRef | RefAcc | AdAcc | MapAcc):
+                AnnData.__setitem__(self, index, value)  # type: ignore[index]
+            else:
+                raise TypeError(f"Unknown index {index!r}.")
 
     @property
     def mod(self) -> MutableMapping[str, AnnData | MuData]:
@@ -1012,7 +1053,7 @@ class MuData:
     # Multi-dimensional annotations (.obsm and .varm)
 
     @property
-    def obsm(self) -> MutableMapping[str, _AlignedAny]:
+    def obsm(self) -> MutableMapping[str, AlignedAny]:
         """Multi-dimensional annotation of observations.
 
         Stores for each key a two- or higher-dimensional :class:`~numpy.ndarray` or :class:`~pandas.DataFrame` of length :attr:`n_obs`.
@@ -1021,7 +1062,7 @@ class MuData:
         return self._obsm
 
     @obsm.setter
-    def obsm(self, value: Mapping[str, _AlignedAny]) -> None:
+    def obsm(self, value: Mapping[str, AlignedAny]) -> None:
         obsm = AxisArrays(self, axis=0, store=convert_to_dict(value))  # type: ignore[arg-type]
         if self.is_view:
             self._init_as_actual(self.copy())
@@ -1062,7 +1103,7 @@ class MuData:
         return cast(MutableMapping[str, np.ndarray[tuple[int], np.dtype[np.unsignedinteger]]], self._obsmap)
 
     @property
-    def varm(self) -> MutableMapping[str, _AlignedAny]:
+    def varm(self) -> MutableMapping[str, AlignedAny]:
         """Multi-dimensional annotation of variables.
 
         Stores for each key a two- or higher-dimensional :class:`~numpy.ndarray` or :class:`~pandas.DataFrame` of length :attr:`n_vars`.
@@ -1071,7 +1112,7 @@ class MuData:
         return self._varm
 
     @varm.setter
-    def varm(self, value: Mapping[str, _AlignedAny]) -> None:
+    def varm(self, value: Mapping[str, AlignedAny]) -> None:
         varm = AxisArrays(self, axis=1, store=convert_to_dict(value))  # type: ignore[arg-type]
         if self.is_view:
             self._init_as_actual(self.copy())

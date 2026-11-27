@@ -32,9 +32,10 @@ if TYPE_CHECKING:
 
     import fsspec
     import zarr
+    from anndata.acc import AdRef, MapAcc, RefAcc
     from zarr.abc.store import Store as ZarrStore
 
-    from .compat import AdRef, MapAcc, ModAcc, ModMapAcc, MultiModAcc, RefAcc
+    from ..acc import ModAcc, ModMapAcc, MultiModAcc
 
 
 from .utils import AD_VERSION
@@ -58,11 +59,12 @@ def _write_use(
     if AD_VERSION < Version("0.14.0dev0"):
         raise RuntimeError("The 'use' argument requires anndata>=0.14.")
 
-    from anndata.acc import AdRef, MetaAcc
+    from anndata.acc import AdAcc, MetaAcc
     from anndata.io import update
 
     from .. import __mudataversion__
-    from ..acc import A, ModAcc, ModMapAcc, ModMetaAcc, MultiModAcc, _ModalityAcc, _ModalityMapAcc
+    from ..acc import ModAcc, ModItemAcc, ModMapAcc, MultiModAcc
+    from ..acc._anndata_014 import _split_mod
 
     if f.attrs.get("encoding-type") != "mudata" and f.attrs.get("encoding-version") != __mudataversion__:
         raise ValueError("Cannot write a subelement of a MuData object to a store that is not a MuData store.")
@@ -80,21 +82,26 @@ def _write_use(
     have_globals, have_mods, have_mod = {"obs": False, "var": False, "obsmap": False, "varmap": False}, False, []
 
     global_accessors: list[MultiModAcc | ModAcc | ModMapAcc] = []
-    global_anndata_accessors: list[MetaAcc | RefAcc | MapAcc | AdRef] = []
+    global_anndata_accessors: list[MetaAcc | RefAcc | MapAcc | AdRef | AdAcc] = []
     modality_part_accessors = defaultdict(
         list
     )  # pass all modality accessors to anndata at once so it can do proper validation
 
     disk_mods = f.require_group("mod")
     for acc in uses:
+        if isinstance(acc, ModAcc):
+            have_mod.append(acc.scope.mod)
+            global_accessors.append(acc)
+            continue
+
+        mod, inner = _split_mod(acc)
+        if mod is not None:
+            if mod not in disk_mods:
+                raise ValueError(f"Modality {mod!r} is not present on disk, cannot write part of it.")
+            modality_part_accessors[mod].append(inner)
+            continue
+
         match acc:
-            case _ModalityAcc(mod=mod) | _ModalityMapAcc(mod=mod) | AdRef(acc=ModMetaAcc(mod=mod)):
-                if mod not in disk_mods:
-                    raise ValueError(f"Modality {mod!r} is not present on disk, cannot write part of it.")
-                modality_part_accessors[mod].append(acc)
-            case ModAcc(mod=mod):
-                have_mod.append(mod)
-                global_accessors.append(acc)
             case MultiModAcc():
                 have_mods = True
                 global_accessors.append(acc)
@@ -126,7 +133,7 @@ def _write_use(
                         disk_mods, modname, cast(AnnData, adata), dataset_kwargs=dataset_kwargs
                     )  # handle extras correctly
                 disk_mods.attrs["mod-order"] = list(mods.keys())
-            case ModAcc(mod=mod):
+            case ModAcc(scope=ModItemAcc(mod=mod)):
                 disk_mods = f.require_group("mod")
                 _write_modality(
                     disk_mods, mod, cast(AnnData, acc.get(mdata)), dataset_kwargs=dataset_kwargs
@@ -143,15 +150,11 @@ def _write_use(
 
     if len(global_anndata_accessors) > 0:
         update(
-            f,
-            cast(AnnData, mdata),
-            global_anndata_accessors,
-            validate_store_attributes={},
-            dataset_kwargs=dataset_kwargs,
+            f, cast(AnnData, mdata), global_anndata_accessors, dataset_kwargs=dataset_kwargs, validate_toplevel=False
         )
 
     for mod, cacc in modality_part_accessors.items():
-        update(disk_mods[mod], cast(AnnData, mdata), cacc, A=A.mod[mod], dataset_kwargs=dataset_kwargs)  # type: ignore[arg-type]
+        update(disk_mods[mod], mdata.mod[mod], cacc, dataset_kwargs=dataset_kwargs, validate_toplevel=False)  # type: ignore[arg-type]
 
 
 def _is_openfile(obj) -> bool:

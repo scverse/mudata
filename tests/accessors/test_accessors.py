@@ -1,17 +1,18 @@
 import json
 import os
-from collections.abc import Mapping
+from collections.abc import Callable
 from dataclasses import fields
 from importlib import metadata, resources
+from typing import Any
 from urllib.error import HTTPError
 from urllib.request import urlopen
 
 import anndata as ad
 import jsonschema
 import numpy as np
-import pandas as pd
 import pytest
 import referencing
+from anndata.tests.helpers import assert_equal
 from packaging.version import Version
 
 import mudata as md
@@ -24,6 +25,8 @@ from mudata.acc import A
 
 @pytest.fixture
 def mdata_augmented(mdata: md.MuData, rng: np.random.Generator):
+    mdata.uns["test_ad"] = mdata["mod2"].copy()
+    mdata["mod2"].uns["test_ad"] = mdata["mod1"].copy()
     mdata["mod1"].layers["counts"] = rng.poisson(1, size=mdata["mod1"].shape)  # type: ignore[index]
     mdata["mod2"].varm["test"] = rng.normal(size=(mdata["mod2"].n_vars, 3))
     mdata["mod2"].obsp["test"] = rng.normal(size=(mdata["mod2"].n_obs, mdata["mod2"].n_obs))
@@ -72,7 +75,7 @@ PATHS = [
     (A.mod["mod1"], lambda md: md.mod["mod1"]),
     (A["mod1"], lambda md: md["mod1"]),
     (A.mod["mod1"].var, lambda md: md.mod["mod1"].var),
-    (A.mod["mod1"].var["assert-bool"], lambda md: md.mod["mod1"].var["assert-bool"]),
+    (A.mod["mod1"].var["assert-bool"], lambda md: md.mod["mod1"].var["assert-bool"].array),
     (A.mod["mod1"].X, lambda md: md.mod["mod1"].X),
     (A.mod["mod1"].X["obs_2", :], lambda md: md.mod["mod1"]["obs_2", :].X.squeeze()),
     (A.mod["mod1"].X[:, "mod1_var_1"], lambda md: md.mod["mod1"][:, "mod1_var_1"].X.squeeze()),
@@ -89,6 +92,33 @@ PATHS = [
     (A.obsmap["mod1"], lambda md: md.obsmap["mod1"]),
     (A.varmap["mod2"], lambda md: md.varmap["mod2"]),
 ]
+
+if anndata_version >= Version("0.14dev0"):
+    PATHS.extend(
+        [
+            (A.uns["test_ad"], lambda md: md.uns["test_ad"]),
+            (A.uns["test_ad"].AD, lambda md: md.uns["test_ad"]),
+            (A.mod["mod2"].uns["test_ad"], lambda md: md.mod["mod2"].uns["test_ad"]),
+            (A.mod["mod2"].uns["test_ad"].AD, lambda md: md.mod["mod2"].uns["test_ad"]),
+        ]
+    )
+
+
+REPR_PATHS = [(A.mod["rna"], "A.mod['rna']"), (A.mod["rna"].X[:, "g"], "A.mod['rna'].X[:, 'g']")]
+if anndata_version >= Version("0.14dev0"):
+    REPR_PATHS.extend(
+        [
+            (A.mod["rna"].obsm["df"].DF["c"], "A.mod['rna'].obsm['df'].DF['c']"),
+            (A.mod["rna"].uns["a"].AD.obs["x"], "A.mod['rna'].uns['a'].AD.obs['x']"),
+        ]
+    )
+
+
+@pytest.mark.parametrize(("acc", "expected"), REPR_PATHS)
+def test_repr(acc, expected: str):
+    assert repr(acc) == expected
+    assert eval(expected) == acc
+    assert A.from_json(A.to_json(acc)) == acc
 
 
 @pytest.mark.parametrize("acc", [path[0] for path in PATHS])
@@ -120,24 +150,15 @@ def test_not_in(mdata: md.MuData, acc):
     assert acc not in mdata
 
 
-def assert_equal(val, expected):
-    if isinstance(expected, pd.DataFrame | pd.Series | np.ndarray):
-        assert np.all(val == expected)
-    elif isinstance(expected, Mapping):
-        assert expected.keys() == val.keys()
-        for k, v in expected.items():
-            assert_equal(v, expected[k])
-    else:
-        assert val == expected
-
-
-@pytest.mark.parametrize("acc_expected", [path for path in PATHS if isinstance(path[0], ad.acc.AdRef | ad.acc.RefAcc)])
-def test_get(mdata_augmented: md.MuData, acc_expected):
+@pytest.mark.parametrize(
+    "acc_expected", [path for path in PATHS if isinstance(path[0], ad.acc.AdRef | ad.acc.RefAcc | md.acc.ModAcc)]
+)
+def test_get(mdata_augmented: md.MuData, acc_expected: tuple[ad.acc.AdRef | ad.acc.RefAcc, Callable[[md.MuData], Any]]):
     acc, expected = acc_expected
 
-    val = mdata_augmented[acc]
+    val = mdata_augmented[acc]  # type: ignore[index]
     expected = expected(mdata_augmented)
-    assert_equal(val, expected)
+    assert_equal(val, expected, exact=True)
 
 
 def test_no_data():
@@ -198,16 +219,29 @@ def test_resolve_vec_mismatch():
 def test_to_from_json(mudata_json_schema, anndata_schema_registry, acc):
     serialized = A.to_json(acc)
     jsonschema.validate(serialized, mudata_json_schema, registry=anndata_schema_registry)
-    if isinstance(acc, md.acc.AdRef) and isinstance(acc.acc, md.acc.ModMapAcc):
-        assert serialized[0] == f"{acc.acc.dim}map"
-        assert serialized[1] == acc.idx
-    elif isinstance(acc, md.acc.AdRef):
-        assert serialized[0] == "mod"
-        assert serialized[1] == acc.acc.mod
-        assert serialized[2] == ad.acc.A.to_json(acc)
+
+    if anndata_version >= Version("0.14dev0"):
+        if isinstance(acc, md.acc.AdRef) and isinstance(acc.acc, md.acc.ModMapAcc):
+            assert serialized[0] == f"{acc.acc.dim}map"
+            assert serialized[1] == acc.idx
+        elif isinstance(acc, md.acc.AdRef):
+            assert serialized[0] == "mod"
+            assert serialized[1] == acc.acc.scope.mod
+            assert ad.acc.A.from_json(serialized[2]) == md.acc._anndata_014._split_mod(acc)[1]
+        elif isinstance(acc.scope, md.acc.ModItemAcc):
+            assert serialized[0] == "mod"
+            assert serialized[1] == (acc.mod if isinstance(acc, md.acc.ModAcc) else acc.scope.mod)
     else:
-        assert serialized[0] == "mod"
-        assert serialized[1] == acc.mod
+        if isinstance(acc, md.acc.AdRef) and isinstance(acc.acc, md.acc.ModMapAcc):
+            assert serialized[0] == f"{acc.acc.dim}map"
+            assert serialized[1] == acc.idx
+        elif isinstance(acc, md.acc.AdRef):
+            assert serialized[0] == "mod"
+            assert serialized[1] == acc.acc.mod
+            assert serialized[2] == ad.acc.A.to_json(acc)
+        else:
+            assert serialized[0] == "mod"
+            assert serialized[1] == acc.mod
 
     assert A.from_json(serialized) == acc
 
@@ -223,6 +257,90 @@ def test_to_from_json_mod(mudata_json_schema, anndata_schema_registry, acc):
     jsonschema.validate(serialized, mudata_json_schema, registry=anndata_schema_registry)
     assert serialized[0] == "mod"
     assert serialized[1] == "foobar"
-    assert serialized[2] == ad.acc.A.to_json(acc)
+    assert serialized[2] == A.to_json(acc)[2]
 
-    assert A.from_json(serialized).acc.mod == "foobar"
+    if anndata_version >= Version("0.14dev0"):
+        assert A.from_json(serialized).acc.scope.mod == "foobar"
+    else:
+        assert A.from_json(serialized).acc.mod == "foobar"
+
+
+@pytest.mark.skipif(anndata_version < Version("0.14dev0"), reason="anndata too old")
+@pytest.mark.parametrize(
+    "acc",
+    [
+        path
+        for path, _ in PATHS
+        if isinstance(path, ad.acc.AdRef | ad.acc.RefAcc)
+        and not isinstance(path, ad.acc.MetaAcc | md.acc.ModMapAcc | getattr(ad.acc, "ItemAcc", None))
+        and not (isinstance(path, ad.acc.AdRef) and isinstance(path.acc, md.acc.ModMapAcc))
+    ],
+)
+def test_set(mdata_augmented: md.MuData, acc: ad.acc.AdRef | ad.acc.RefAcc, rng: np.random.Generator):
+    size: tuple[int, int] | int
+    scope = (acc.acc if isinstance(acc, ad.acc.AdRef) else acc).scope
+    data = mdata_augmented if scope is None else scope.get(mdata_augmented)
+    assert isinstance(data, ad.AnnData | md.MuData)
+    if isinstance(acc, ad.acc.AdRef):
+        size = data.n_obs if next(iter(acc.dims)) == "obs" else data.n_vars
+    else:
+        if isinstance(acc, ad.acc.LayerAcc):
+            size = (data.n_obs, data.n_vars)
+        elif isinstance(acc, ad.acc.MultiAcc | ad.acc.GraphAcc):
+            size = data.n_obs if acc.dim == "obs" else data.n_vars
+            size = (size, size)
+    value: np.ndarray | dict[str, np.ndarray] = rng.poisson(size=size)
+
+    if isinstance(acc, ad.acc.MapAcc):
+        value = {"test": value}  # type: ignore[dict-item]
+
+    mdata_augmented[acc] = value
+    assert (mdata_augmented[acc] == value).all()  # type: ignore[index,union-attr]
+
+
+@pytest.mark.skipif(anndata_version < Version("0.14dev0"), reason="anndata too old")
+def test_set_nested(mdata_augmented: md.MuData, subtests: pytest.Subtests):
+    mod1 = mdata_augmented["mod1"].copy()
+    mod2 = mdata_augmented["mod2"].copy()
+    adata = mod1.copy()
+    adata.obs["test1"] = 42
+
+    with subtests.test("setting modality"):
+        mdata_augmented[A.mod["mod3"]] = adata
+        assert mdata_augmented.mod.keys() == {"mod1", "mod2", "mod3"}
+        assert_equal(mdata_augmented["mod3"], adata, exact=True)
+        assert_equal(mdata_augmented["mod1"], mod1, exact=True)
+        assert_equal(mdata_augmented["mod2"], mod2, exact=True)
+    with subtests.test("setting global uns"):
+        mdata_augmented[A.uns["test2"]] = mod1
+        mdata_augmented[A.uns["test3"].AD] = mod1
+        assert_equal(mdata_augmented.uns["test2"], mod1, exact=True)
+        assert_equal(mdata_augmented.uns["test3"], mod1, exact=True)
+    with subtests.test("setting modality uns"):
+        mdata_augmented[A.mod["mod3"].uns["test2"]] = mod1
+        mdata_augmented[A.mod["mod3"].uns["test3"].AD] = mod1
+        assert_equal(mdata_augmented.mod["mod3"].uns["test2"], mod1, exact=True)
+        assert_equal(mdata_augmented.mod["mod3"].uns["test3"], mod1, exact=True)
+
+
+@pytest.mark.skipif(anndata_version < Version("0.14dev0"), reason="anndata too old")
+@pytest.mark.parametrize(
+    "acc",
+    [
+        path
+        for path, _ in PATHS
+        if isinstance(path, md.acc.ModMapAcc)
+        or isinstance(path, ad.acc.AdRef)
+        and isinstance(path.acc, md.acc.ModMapAcc)
+    ],
+)
+def test_set_modmap_raises(mdata_augmented: md.MuData, acc: ad.acc.AdRef | ad.acc.RefAcc):
+    with pytest.raises(NotImplementedError):
+        mdata_augmented[acc] = np.arange(10)
+
+
+def test_set_unsupported(mdata: md.MuData):
+    with pytest.raises(IndexError, match="Cannot index with"):
+        mdata[A.obsm] = 1  # type: ignore[index]
+    with pytest.raises(TypeError, match="Unknown index"):
+        mdata[1] = 1  # type: ignore[index]

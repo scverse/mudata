@@ -26,7 +26,7 @@ MuData object can be constructed from a dictionary of existing AnnData objects:
 mdata = MuData({"rna": adata_rna, "atac": adata_atac})
 ```
 
-AnnData objects themselves can be easily constructed from NumPy arrays and/or Pandas DataFrames annotating features (_variables_) and samples/cells (_observations_). This makes it a rather general data format to work with any type of high-dimensional data.
+AnnData objects themselves can be easily constructed from NumPy arrays and/or Pandas DataFrames annotating features (*variables*) and samples/cells (*observations*). This makes it a rather general data format to work with any type of high-dimensional data.
 
 ```python
 from anndata import AnnData
@@ -39,7 +39,6 @@ Please see more details on how to operate on AnnData objects {doc}`in the anndat
 ## Omics data
 
 When data fromats specific to genomics are of interest, specialised readers can be found in analysis frameworks such as [muon](https://muon.scverse.org/). These functions, including the ones for Cell Ranger count matrices as well as Snap files, [are described here](https://muon.scverse.org/page/io/input.html).
-
 
 ## Remote storage
 
@@ -74,8 +73,7 @@ with fsspec.open("s3://bucket/dataset.h5mu", **storage_options) as f:
     mudata.read_h5mu(f)
 ```
 
-
-MuData objects stored in the `.zarr` format in an S3 bucket can be read from a _mapping_:
+MuData objects stored in the `.zarr` format in an S3 bucket can be read from a *mapping*:
 
 ```python
 import s3fs
